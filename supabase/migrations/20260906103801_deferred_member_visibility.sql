@@ -66,3 +66,26 @@ as $$
       and them.state = 'accepted'
   );
 $$;
+
+create or replace function private.current_user_shares_accepted_fight_day(_other uuid, _day date)
+returns boolean
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select exists (
+    select 1
+    from public.fight_members as me
+    join public.fight_members as them
+      on them.fight_id = me.fight_id
+    join public.fights as fight
+      on fight.id = me.fight_id
+    where me.user_id = auth.uid()
+      and them.user_id = _other
+      and me.state in ('accepted', 'deferred')
+      and them.state = 'accepted'
+      and _day >= (fight.starts_at at time zone fight.time_zone)::date
+      and _day <= ((fight.ends_at - interval '1 microsecond') at time zone fight.time_zone)::date
+  );
+$$;
