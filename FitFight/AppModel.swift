@@ -42,6 +42,7 @@ struct Standing: Codable, Identifiable, Hashable {
     var person: Person
     var score: Double
     var invited: Bool = false
+    var deferred: Bool = false
     var lastSyncedAt: Date? = nil
     var finalStepsComplete: Bool? = nil
 
@@ -92,6 +93,7 @@ struct Fight: Codable, Identifiable, Hashable {
     var joinCode: String? = nil
     var recurring: Bool = false
     var pendingJoin: Bool = false
+    var offersJoinNext: Bool = false
 
     var hasAction: Bool {
         !actionText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
@@ -463,25 +465,25 @@ final class AppModel: ObservableObject {
         }
     }
 
-    func acceptInvite(token: String) async throws {
+    func acceptInvite(token: String, start: String = "now") async throws {
         createError = nil
         guard let access = session?.authSession?.accessToken else {
             throw FitFightAPIError.notConfigured
         }
-        let summary = try await api.accept(token: token, accessToken: access)
+        let summary = try await api.accept(token: token, accessToken: access, start: start)
         inviteTokens[summary.id.uuidString] = token
         await refreshFromServer()
     }
 
-    func acceptFight(id: String) async {
+    func acceptFight(id: String, start: String = "now") async {
         createError = nil
         if let pending = pendingJoinable, pending.id == id, pending.pendingJoin {
-            await joinPendingFight(pending)
+            await joinPendingFight(pending, start: start)
             return
         }
         if let token = inviteTokens[id], api.isConfigured {
             do {
-                try await acceptInvite(token: token)
+                try await acceptInvite(token: token, start: start)
             } catch {
                 createError = (error as? FitFightAPIError)?.errorDescription
                     ?? String(localized: "Couldn’t accept.")
@@ -494,7 +496,7 @@ final class AppModel: ObservableObject {
         }
         do {
             let token = try await session.freshAccessToken()
-            _ = try await api.acceptFight(fightID: fightID, accessToken: token)
+            _ = try await api.acceptFight(fightID: fightID, accessToken: token, start: start)
             joined.insert(id)
             await refreshFromServer()
         } catch {
@@ -587,7 +589,7 @@ final class AppModel: ObservableObject {
         await openJoinCode(code, session: session)
     }
 
-    private func joinPendingFight(_ fight: Fight) async {
+    private func joinPendingFight(_ fight: Fight, start: String = "now") async {
         guard let access = session?.authSession?.accessToken, api.isConfigured else {
             createError = String(localized: "Sign in to join this fight.")
             return
@@ -597,7 +599,7 @@ final class AppModel: ObservableObject {
             return
         }
         do {
-            _ = try await api.joinFight(code: fight.joinCode, fightID: fightID, accessToken: access)
+            _ = try await api.joinFight(code: fight.joinCode, fightID: fightID, accessToken: access, start: start)
             pendingJoinable = nil
             joined.insert(fight.id)
             await refreshFromServer()
@@ -654,6 +656,7 @@ final class AppModel: ObservableObject {
             initials: String(summary.ownerHandle.prefix(2)).uppercased()
         )
         let action = summary.actionText?.trimmingCharacters(in: .whitespacesAndNewlines)
+        let offersJoinNext = summary.canJoinNext ?? (summary.recurring && starts < Date() && !summary.alreadyMember)
         return Fight(
             id: summary.fightId.uuidString,
             code: summary.joinCode,
@@ -685,7 +688,8 @@ final class AppModel: ObservableObject {
             windowEnd: ends,
             joinCode: summary.joinCode,
             recurring: summary.recurring,
-            pendingJoin: true
+            pendingJoin: true,
+            offersJoinNext: offersJoinNext
         )
     }
 
@@ -714,7 +718,7 @@ final class AppModel: ObservableObject {
         label.locale = .autoupdatingCurrent
         label.setLocalizedDateFormatFromTemplate("EEEdMMM")
         return window.sorted().map { day in
-            let scores = standings.map { row in
+            let scores = standings.filter { !$0.invited && !$0.deferred }.map { row in
                 let personID = UUID(uuidString: row.person.id)
                 let value = days.first { $0.userId == personID && $0.day == day }?.steps ?? 0
                 return DayScore(person: row.person, value: Double(value))
@@ -805,19 +809,22 @@ final class AppModel: ObservableObject {
             let score = member.currentValue ?? member.finalValue ?? 0
             return Standing(
                 person: person,
-                score: score,
+                score: member.state == "deferred" ? 0 : score,
                 invited: member.state == "invited",
+                deferred: member.state == "deferred",
                 lastSyncedAt: member.lastSyncedAt,
                 finalStepsComplete: member.finalStepsComplete
             )
         }
         .sorted { lhs, rhs in
             if lhs.invited != rhs.invited { return !lhs.invited && rhs.invited }
+            if lhs.deferred != rhs.deferred { return !lhs.deferred && rhs.deferred }
             if lhs.score == rhs.score { return lhs.person.name < rhs.person.name }
             return lhs.score > rhs.score
         }
 
-        let joined = people.filter { !$0.invited }
+        let joined = people.filter { !$0.invited && !$0.deferred }
+        let waiting = people.filter(\.deferred)
         let youRow = people.first { $0.person.isYou }
         let rank = youRow.flatMap { row in joined.firstIndex { $0.person.id == row.person.id }.map { $0 + 1 } }
             ?? mine?.rank
@@ -854,15 +861,23 @@ final class AppModel: ObservableObject {
                 localized: "fight.ended-on",
                 defaultValue: "Ended \(formatter.string(from: ends))"
             )
-            listSubtitle = String(
-                localized: "fight.finished-position",
-                defaultValue: "\(endedLabel ?? String(localized: "Ended")) · \(Self.ordinal(rank)) of \(of)"
-            )
-            kickerPrefix = rank == 1 ? String(localized: "Won by") : String(localized: "Finished")
-            kickerEmphasis = Self.ordinal(rank)
+            if youRow?.deferred == true {
+                listSubtitle = endedLabel ?? String(localized: "Ended")
+                kickerEmphasis = String(localized: "Started next round")
+            } else {
+                listSubtitle = String(
+                    localized: "fight.finished-position",
+                    defaultValue: "\(endedLabel ?? String(localized: "Ended")) · \(Self.ordinal(rank)) of \(of)"
+                )
+                kickerPrefix = rank == 1 ? String(localized: "Won by") : String(localized: "Finished")
+                kickerEmphasis = Self.ordinal(rank)
+            }
         case .live:
             if row.state == "awaiting_final_sync" {
                 kickerEmphasis = String(localized: "Syncing final steps")
+                listSubtitle = kickerEmphasis
+            } else if youRow?.deferred == true {
+                kickerEmphasis = String(localized: "Starts next round")
                 listSubtitle = kickerEmphasis
             } else if let youRow, let leader = joined.first, !youRow.invited {
                 if youRow.person.id == leader.person.id, let runnerUp = joined.dropFirst().first {
@@ -946,13 +961,21 @@ final class AppModel: ObservableObject {
             inviter: owner,
             invitePitch: invitePitch,
             inviteAction: inviteAction,
-            standingsMeta: nil,
+            standingsMeta: waiting.isEmpty
+                ? nil
+                : String(
+                    localized: "fight.standings-next",
+                    defaultValue: "\(joined.count) racing · \(waiting.count) start next"
+                ),
             standings: people,
             windowStart: starts,
             windowEnd: ends,
             serverState: row.state,
             joinCode: series?.joinCode,
-            recurring: series?.recurring ?? false
+            recurring: series?.recurring ?? false,
+            offersJoinNext: (series?.recurring ?? false)
+                && starts < Date()
+                && mine?.state == "invited"
         )
     }
 

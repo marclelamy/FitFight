@@ -28,6 +28,13 @@ enum Changelog {
             version: "1.0.0",
             year: 2026,
             month: 9,
+            day: 6,
+            notes: "On a repeating fight that already started, you can join this round or wait for the next one. People waiting for the next round show up on the fight without counting in this round’s standings."
+        ),
+        ReleaseNote(
+            version: "1.0.0",
+            year: 2026,
+            month: 9,
             day: 5,
             notes: "Fights refresh with fewer network requests, and private Apple Health timing logs help diagnose slow syncs."
         ),

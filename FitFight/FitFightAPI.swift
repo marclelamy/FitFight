@@ -212,6 +212,7 @@ struct FitFightJoinableFight: Decodable, Equatable, Identifiable {
     var memberCount: Int
     var recurring: Bool
     var alreadyMember: Bool
+    var canJoinNext: Bool?
 
     var id: UUID { fightId }
 }
@@ -470,12 +471,13 @@ struct FitFightAPI {
     func joinFight(
         code: String? = nil,
         fightID: UUID? = nil,
-        accessToken: String
+        accessToken: String,
+        start: String = "now"
     ) async throws -> FitFightSummary {
         try await post(
             path: "fights/join",
             accessToken: accessToken,
-            body: JoinFightBody(code: code, fightId: fightID),
+            body: JoinFightBody(code: code, fightId: fightID, start: start),
             expected: [200]
         )
     }
@@ -505,12 +507,13 @@ struct FitFightAPI {
     func accept(
         token: String,
         accessToken: String,
-        personalTarget: Double? = nil
+        personalTarget: Double? = nil,
+        start: String = "now"
     ) async throws -> FitFightSummary {
         try await post(
             path: "invites/\(token.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? token)/accept",
             accessToken: accessToken,
-            body: AcceptBody(personalTarget: personalTarget),
+            body: AcceptBody(personalTarget: personalTarget, start: start),
             expected: [200]
         )
     }
@@ -518,12 +521,13 @@ struct FitFightAPI {
     func acceptFight(
         fightID: UUID,
         accessToken: String,
-        personalTarget: Double? = nil
+        personalTarget: Double? = nil,
+        start: String = "now"
     ) async throws -> FitFightSummary {
         try await post(
             path: "fights/\(fightID.uuidString.lowercased())/accept",
             accessToken: accessToken,
-            body: AcceptBody(personalTarget: personalTarget),
+            body: AcceptBody(personalTarget: personalTarget, start: start),
             expected: [200]
         )
     }
@@ -771,6 +775,7 @@ private struct APIErrorResponse: Decodable {
 private struct JoinFightBody: Encodable {
     var code: String?
     var fightId: UUID?
+    var start: String?
 }
 
 private struct LeaveFightBody: Encodable {
@@ -783,6 +788,7 @@ private struct HandleBody: Encodable {
 
 private struct AcceptBody: Encodable {
     var personalTarget: Double?
+    var start: String?
 }
 
 private struct StartBody: Encodable {

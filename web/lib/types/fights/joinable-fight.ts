@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { fightVisibilityValues } from "./fight-visibility";
+import { fightJoinStartSchema } from "./join-start";
 
 export const fightVisibilitySchema = z.enum(fightVisibilityValues);
 
@@ -15,12 +16,14 @@ export const joinableFightSummarySchema = z.object({
   memberCount: z.number().int().nonnegative(),
   recurring: z.boolean(),
   alreadyMember: z.boolean(),
+  canJoinNext: z.boolean(),
 });
 
 export const joinFightRequestSchema = z
   .object({
     code: z.string().min(1).max(16).optional(),
     fightId: z.string().uuid().optional(),
+    start: fightJoinStartSchema.default("now"),
   })
   .superRefine((value, ctx) => {
     if (!value.code && !value.fightId) {
