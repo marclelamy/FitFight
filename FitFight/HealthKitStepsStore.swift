@@ -1,6 +1,7 @@
 import Combine
 import Foundation
 import HealthKit
+import OSLog
 import UIKit
 
 @MainActor
@@ -28,6 +29,7 @@ final class HealthKitStepsStore: ObservableObject {
         var lastManualSync: Date?
         var lastTrigger: SyncTrigger?
         var errorCode: SyncErrorCode?
+        var failureReference: String?
 
         @MainActor static var current: Diagnostics {
             Diagnostics(
@@ -59,6 +61,7 @@ final class HealthKitStepsStore: ObservableObject {
     private static let pendingLocalDeletionKey = "ff.healthkit.pendingLocalDeletion"
     private static let pendingSyncKey = "ff.healthkit.pendingSync"
     private static let diagnosticsPrefix = "ff.healthkit.diagnostics."
+    private static let logger = Logger(subsystem: "com.fitfight.mvp", category: "HealthKitDiagnostics")
 
     var hasAsked: Bool {
         guard let activeUserId else { return false }
@@ -319,8 +322,10 @@ final class HealthKitStepsStore: ObservableObject {
         updateDiagnostics { $0.lastSyncAttempt = Date(); $0.lastTrigger = trigger }
         defer { isSyncing = false }
         do {
-            await uploader.discardLegacy(userId: userId)
-            try HealthKitUploadState.discardLegacy(userId: userId)
+            try await trace.measure(.localState) {
+                await uploader.discardLegacy(userId: userId)
+                try HealthKitUploadState.discardLegacy(userId: userId)
+            }
             try Task.checkCancellation()
             let contextToken = try await trace.measure(.session) { try await session.freshAccessToken() }
             guard activeUserId == userId, session.authSession?.user.id == userId else { throw CancellationError() }
@@ -338,6 +343,7 @@ final class HealthKitStepsStore: ObservableObject {
                 if trigger == .observer { $0.lastAutomaticSync = Date() }
                 else { $0.lastManualSync = Date() }
                 $0.errorCode = nil
+                $0.failureReference = nil
             }
             return true
         } catch {
@@ -374,6 +380,18 @@ final class HealthKitStepsStore: ObservableObject {
     ) {
         guard let attempt = trace.finish(cancelled: cancelled || Task.isCancelled), let userID,
               activeUserId == userID, session.authSession?.user.id == userID else { return }
+        if attempt.outcome != .succeeded {
+            let stage = attempt.stages.last(where: { $0.outcome != .succeeded })
+            let reference = [
+                String(attempt.attemptId.uuidString.prefix(8)).lowercased(),
+                stage?.stage.rawValue,
+                stage?.error?.reference ?? attempt.errorCode?.rawValue,
+            ].compactMap { $0 }.joined(separator: " · ")
+            updateDiagnostics {
+                $0.errorCode = attempt.errorCode ?? .syncFailed
+                $0.failureReference = reference
+            }
+        }
         let snapshot = FitFightHealthKitDiagnosticSnapshot(diagnostics, attempts: [attempt])
         Task { await reportDiagnostics(snapshot, session: session, userID: userID) }
     }
@@ -388,7 +406,11 @@ final class HealthKitStepsStore: ObservableObject {
             let token = try await session.freshAccessToken()
             guard activeUserId == userID, session.authSession?.user.id == userID else { return }
             _ = try await api.saveHealthKitDiagnostics(snapshot, accessToken: token)
-        } catch { }
+        } catch {
+            let failure = HealthKitSyncTrace.Failure(error)
+            let reference = snapshot.attempts.first?.attemptId.uuidString.lowercased() ?? "snapshot"
+            Self.logger.error("diagnostics_delivery_failed trace_id=\(reference, privacy: .public) error=\(failure.reference, privacy: .public)")
+        }
     }
 
     private static var backgroundRefreshStatus: BackgroundRefreshStatus {
