@@ -160,6 +160,15 @@ struct YouView: View {
                     subtitleTone: .ember
                 )
             }
+            if let reference = steps.diagnostics.failureReference {
+                FFDivider()
+                FFGroupedRow(
+                    title: String(localized: "Sync error reference"),
+                    subtitle: reference,
+                    systemImage: "number",
+                    subtitleTone: .neutral
+                )
+            }
         }
     }
 

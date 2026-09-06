@@ -1,6 +1,8 @@
 {
   "sourceLanguage" : "en",
   "strings" : {
+    "Sync error reference" : {"localizations":{"fr":{"stringUnit":{"state":"translated","value":"Référence de l’erreur de synchronisation"}}}},
+    "Apple Health sync failures now include an error reference on You and diagnostic details to help investigate." : {"localizations":{"fr":{"stringUnit":{"state":"translated","value":"Les échecs de synchronisation avec Santé affichent désormais une référence d’erreur dans You et des détails de diagnostic pour faciliter l’enquête."}}}},
     "Fights refresh with fewer network requests, and private Apple Health timing logs help diagnose slow syncs." : {"localizations":{"fr":{"stringUnit":{"state":"translated","value":"Les combats se rafraîchissent avec moins de requêtes réseau, et des journaux de durée privés pour Santé aident à diagnostiquer les synchronisations lentes."}}}},
     "Apple Health on You shows today’s step count correctly." : {"localizations":{"fr":{"stringUnit":{"state":"translated","value":"Santé d’Apple, dans You, affiche correctement le nombre de pas du jour."}}}},
     "Invitation responses are secured, and unavailable Apple Health data no longer replaces saved Steps with zero." : {"localizations":{"fr":{"stringUnit":{"state":"translated","value":"Les réponses aux invitations sont sécurisées et les données Santé indisponibles ne remplacent plus les pas enregistrés par zéro."}}}},
