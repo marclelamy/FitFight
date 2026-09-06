@@ -675,67 +675,73 @@ struct FitFightAPI {
     ) async throws -> Response {
         let span = traceStage.flatMap { trace?.begin($0) }
         var succeeded = false
+        var failure: Error?
         var serverTiming: [String: Double]?
         defer {
-            trace?.end(span, outcome: Task.isCancelled ? .cancelled : (succeeded ? .succeeded : .failed), serverTiming: serverTiming)
-        }
-        try Task.checkCancellation()
-        guard let requestURL = endpoint(path) else {
-            throw FitFightAPIError.notConfigured
-        }
-
-        var request = URLRequest(url: requestURL)
-        request.httpMethod = method
-        request.setValue("Bearer \(accessToken)", forHTTPHeaderField: "Authorization")
-        request.setValue("application/json", forHTTPHeaderField: "Accept")
-        if let trace {
-            request.setValue(trace.id.uuidString.lowercased(), forHTTPHeaderField: "X-FitFight-Trace-ID")
-        }
-        if body != nil {
-            request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        }
-        if let idempotencyKey {
-            request.setValue(idempotencyKey, forHTTPHeaderField: "Idempotency-Key")
-        }
-        request.httpBody = body
-
-        let (data, response) = try await URLSession.shared.data(for: request)
-        let http = response as? HTTPURLResponse
-        if trace != nil, let header = http?.value(forHTTPHeaderField: "Server-Timing") {
-            var timing: [String: Double] = [:]
-            for entry in header.split(separator: ",") {
-                let parts = entry.split(separator: ";").map { $0.trimmingCharacters(in: .whitespaces) }
-                guard let name = parts.first, ["auth", "db", "maintenance", "total"].contains(name),
-                      let duration = parts.dropFirst().first(where: { $0.hasPrefix("dur=") }),
-                      let value = Double(duration.dropFirst(4)), value.isFinite,
-                      value >= 0, value <= 604_800_000 else { continue }
-                timing[name + "_ms"] = value
-            }
-            if !timing.isEmpty { serverTiming = timing }
-        }
-        let status = http?.statusCode ?? -1
-        guard expected.contains(status) else {
-            let payload = try? Self.decoder.decode(APIErrorResponse.self, from: data)
-            throw FitFightAPIError.http(
-                status: status,
-                code: payload?.code,
-                message: payload?.error
-            )
-        }
-        if Response.self == DiscardBody.self {
-            succeeded = true
-            return DiscardBody() as! Response
-        }
-        if data.isEmpty, let empty = EmptyJSON() as? Response {
-            succeeded = true
-            return empty
+            trace?.end(span, outcome: Task.isCancelled ? .cancelled : (succeeded ? .succeeded : .failed), serverTiming: serverTiming, error: failure)
         }
         do {
-            let decoded = try Self.decoder.decode(Response.self, from: data)
-            succeeded = true
-            return decoded
+            try Task.checkCancellation()
+            guard let requestURL = endpoint(path) else {
+                throw FitFightAPIError.notConfigured
+            }
+
+            var request = URLRequest(url: requestURL)
+            request.httpMethod = method
+            request.setValue("Bearer \(accessToken)", forHTTPHeaderField: "Authorization")
+            request.setValue("application/json", forHTTPHeaderField: "Accept")
+            if let trace {
+                request.setValue(trace.id.uuidString.lowercased(), forHTTPHeaderField: "X-FitFight-Trace-ID")
+            }
+            if body != nil {
+                request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+            }
+            if let idempotencyKey {
+                request.setValue(idempotencyKey, forHTTPHeaderField: "Idempotency-Key")
+            }
+            request.httpBody = body
+
+            let (data, response) = try await URLSession.shared.data(for: request)
+            let http = response as? HTTPURLResponse
+            if trace != nil, let header = http?.value(forHTTPHeaderField: "Server-Timing") {
+                var timing: [String: Double] = [:]
+                for entry in header.split(separator: ",") {
+                    let parts = entry.split(separator: ";").map { $0.trimmingCharacters(in: .whitespaces) }
+                    guard let name = parts.first, ["auth", "db", "maintenance", "total"].contains(name),
+                          let duration = parts.dropFirst().first(where: { $0.hasPrefix("dur=") }),
+                          let value = Double(duration.dropFirst(4)), value.isFinite,
+                          value >= 0, value <= 604_800_000 else { continue }
+                    timing[name + "_ms"] = value
+                }
+                if !timing.isEmpty { serverTiming = timing }
+            }
+            let status = http?.statusCode ?? -1
+            guard expected.contains(status) else {
+                let payload = try? Self.decoder.decode(APIErrorResponse.self, from: data)
+                throw FitFightAPIError.http(
+                    status: status,
+                    code: payload?.code,
+                    message: payload?.error
+                )
+            }
+            if Response.self == DiscardBody.self {
+                succeeded = true
+                return DiscardBody() as! Response
+            }
+            if data.isEmpty, let empty = EmptyJSON() as? Response {
+                succeeded = true
+                return empty
+            }
+            do {
+                let decoded = try Self.decoder.decode(Response.self, from: data)
+                succeeded = true
+                return decoded
+            } catch {
+                throw FitFightAPIError.decoding(error)
+            }
         } catch {
-            throw FitFightAPIError.decoding(error)
+            failure = error
+            throw error
         }
     }
 

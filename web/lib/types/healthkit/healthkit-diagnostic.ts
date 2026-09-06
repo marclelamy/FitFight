@@ -17,10 +17,15 @@ export const healthKitSyncErrorCodeValues = [
   "sync_failed",
 ] as const;
 export const healthKitSyncOutcomeValues = ["succeeded", "failed", "cancelled"] as const;
+export const healthKitSyncErrorKindValues = [
+  "healthkit", "network", "storage", "http", "decoding", "configuration",
+  "no_accessible_steps", "invalid_step_count", "cancelled", "unknown",
+] as const;
 export const healthKitSyncStageValues = [
   "authorization",
   "today_total",
   "session",
+  "local_state",
   "context",
   "healthkit_daily",
   "healthkit_fight",
@@ -38,12 +43,18 @@ export const healthKitServerTimingSchema = z.object({
   total_ms: elapsedMillisecondsSchema.optional(),
 }).strict();
 
+export const healthKitSyncErrorSchema = z.object({
+  kind: z.enum(healthKitSyncErrorKindValues),
+  code: z.number().int().min(-2_147_483_648).max(2_147_483_647).optional(),
+}).strict();
+
 export const healthKitSyncStageSchema = z.object({
   stage: z.enum(healthKitSyncStageValues),
   started_ms: elapsedMillisecondsSchema,
   duration_ms: elapsedMillisecondsSchema,
   outcome: z.enum(healthKitSyncOutcomeValues),
   server_timing: healthKitServerTimingSchema.optional(),
+  error: healthKitSyncErrorSchema.optional(),
 }).strict();
 
 export const healthKitSyncAttemptSchema = z.object({
@@ -79,6 +90,7 @@ export const healthKitDiagnosticSnapshotResponseSchema = z.object({
 
 export type HealthKitDiagnosticSnapshot = z.infer<typeof healthKitDiagnosticSnapshotSchema>;
 export type HealthKitServerTiming = z.infer<typeof healthKitServerTimingSchema>;
+export type HealthKitSyncError = z.infer<typeof healthKitSyncErrorSchema>;
 export type HealthKitSyncStage = z.infer<typeof healthKitSyncStageSchema>;
 export type HealthKitSyncAttempt = z.infer<typeof healthKitSyncAttemptSchema>;
 export type HealthKitDiagnosticSnapshotResponse = z.infer<
