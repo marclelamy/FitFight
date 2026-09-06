@@ -155,6 +155,7 @@ async function toSummary(
       recurring: series.recurring,
       paused: Boolean(series.paused_at),
       startsAt: fight.starts_at,
+      timeZone: fight.time_zone,
       now,
     }),
   };
@@ -302,6 +303,7 @@ export async function joinFight(
     recurring: series.recurring,
     paused: Boolean(series.paused_at),
     startsAt: fight.starts_at,
+    timeZone: fight.time_zone,
     now,
   });
   const memberState = fightJoinMemberState(input.start, canDefer);

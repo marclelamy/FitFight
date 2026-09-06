@@ -64,7 +64,7 @@ export async function joinMemberStateForFight(
   }
   const memberState = fightJoinMemberState(
     start,
-    canDeferFightJoin({ recurring, paused, startsAt: fight.starts_at, now }),
+    canDeferFightJoin({ recurring, paused, startsAt: fight.starts_at, timeZone: fight.time_zone, now }),
   );
   if (!memberState) {
     throw new ApiError(409, ERROR_CODES.conflict, "This fight does not have a next round to join");

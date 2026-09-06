@@ -656,7 +656,7 @@ final class AppModel: ObservableObject {
             initials: String(summary.ownerHandle.prefix(2)).uppercased()
         )
         let action = summary.actionText?.trimmingCharacters(in: .whitespacesAndNewlines)
-        let offersJoinNext = summary.canJoinNext ?? (summary.recurring && starts < Date() && !summary.alreadyMember)
+        let offersJoinNext = summary.canJoinNext ?? (summary.recurring && Self.isAfterFightStartDay(starts) && !summary.alreadyMember)
         return Fight(
             id: summary.fightId.uuidString,
             code: summary.joinCode,
@@ -974,9 +974,14 @@ final class AppModel: ObservableObject {
             joinCode: series?.joinCode,
             recurring: series?.recurring ?? false,
             offersJoinNext: (series?.recurring ?? false)
-                && starts < Date()
+                && Self.isAfterFightStartDay(starts)
                 && mine?.state == "invited"
         )
+    }
+
+    private static func isAfterFightStartDay(_ start: Date, now: Date = Date()) -> Bool {
+        let calendar = Calendar.current
+        return calendar.startOfDay(for: now) > calendar.startOfDay(for: start)
     }
 
     private static func ordinal(_ value: Int) -> String {

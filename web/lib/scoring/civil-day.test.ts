@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { addCalendarDay, civilDayBounds, isCivilDay, resolveTimeZone } from "./civil-day";
+import { addCalendarDay, civilDayBounds, civilDayStamp, isCivilDay, resolveTimeZone } from "./civil-day";
 
 test("civil day bounds use the profile time zone", () => {
   const utc = civilDayBounds("2026-08-24", "UTC");
@@ -23,4 +23,10 @@ test("invalid days and time zones are rejected or fall back", () => {
   assert.equal(addCalendarDay("2026-08-31"), "2026-09-01");
   assert.equal(resolveTimeZone("Not/AZone"), "UTC");
   assert.equal(resolveTimeZone(null), "UTC");
+});
+
+test("civil day stamps follow the fight time zone", () => {
+  assert.equal(civilDayStamp(new Date("2026-09-02T03:30:00.000Z"), "America/New_York"), "2026-09-01");
+  assert.equal(civilDayStamp(new Date("2026-09-02T04:00:00.000Z"), "America/New_York"), "2026-09-02");
+  assert.equal(civilDayStamp(new Date("2026-09-02T00:00:00.000Z"), "UTC"), "2026-09-02");
 });
