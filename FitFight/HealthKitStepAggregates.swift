@@ -20,7 +20,8 @@ enum HealthKitStepAggregates {
     static func read(
         store: HKHealthStore,
         type: HKQuantityType,
-        context: FitFightHealthKitContext
+        context: FitFightHealthKitContext,
+        trace: HealthKitSyncTrace
     ) async throws -> FitFightHealthKitStepSync {
         let calendar = Calendar.current
         let earliestDay = context.fightWindows
@@ -28,13 +29,16 @@ enum HealthKitStepAggregates {
             .min()
         let totalsByDay: [String: Int]
         if let earliestDay {
-            totalsByDay = try await dailyTotals(
-                store: store,
-                type: type,
-                start: earliestDay,
-                end: context.serverNow,
-                calendar: calendar
-            )
+            try Task.checkCancellation()
+            totalsByDay = try await trace.measure(.healthKitDaily) {
+                try await dailyTotals(
+                    store: store,
+                    type: type,
+                    start: earliestDay,
+                    end: context.serverNow,
+                    calendar: calendar
+                )
+            }
         } else {
             totalsByDay = [:]
         }
@@ -62,12 +66,15 @@ enum HealthKitStepAggregates {
         var fightAggregates: [FitFightHealthKitStepSync.FightAggregate] = []
         fightAggregates.reserveCapacity(context.fightWindows.count)
         for window in context.fightWindows {
-            let steps = try await total(
-                store: store,
-                type: type,
-                start: window.startsAt,
-                end: window.cutoffAt
-            )
+            try Task.checkCancellation()
+            let steps = try await trace.measure(.healthKitFight) {
+                try await total(
+                    store: store,
+                    type: type,
+                    start: window.startsAt,
+                    end: window.cutoffAt
+                )
+            }
             fightAggregates.append(FitFightHealthKitStepSync.FightAggregate(
                 fightId: window.fightId.uuidString.lowercased(),
                 startsAt: iso8601(window.startsAt),

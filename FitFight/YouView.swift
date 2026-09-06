@@ -32,7 +32,7 @@ struct YouView: View {
         }
         .task {
             guard !staticRender else { return }
-            await steps.refresh(requestAccess: false)
+            await model.refreshFights(session: session, steps: steps)
         }
         .confirmationDialog(
             "Delete account?",
@@ -99,10 +99,7 @@ struct YouView: View {
         FFGroupedRows {
             Button {
                 Task {
-                    await steps.refresh(requestAccess: true)
-                    if session.authSession != nil {
-                        await steps.syncToBackend(session: session, trigger: .manual)
-                    }
+                    await model.refreshFights(session: session, steps: steps, trigger: .manual, requestAccess: true)
                 }
             } label: {
                 FFGroupedRow(
@@ -111,6 +108,7 @@ struct YouView: View {
                         ? steps.detailText
                         : "\(steps.detailText) · \(steps.metaText)",
                     systemImage: "heart",
+                    enabled: steps.status != .reading && !model.isRefreshingFights,
                     subtitleTone: steps.isConnected ? .moss : .neutral,
                     trailing: AnyView(
                         FFPill(
@@ -121,7 +119,7 @@ struct YouView: View {
                 )
             }
             .buttonStyle(.plain)
-            .disabled(steps.status == .reading)
+            .disabled(steps.status == .reading || model.isRefreshingFights)
             FFDivider()
             FFGroupedRow(
                 title: String(localized: "Background App Refresh"),

@@ -6,7 +6,7 @@
     "build": "next build",
     "start": "next start",
     "typecheck": "tsc --noEmit",
-    "test": "tsx --test lib/apple/*.test.ts lib/ingest/*.test.ts lib/scoring/*.test.ts lib/domain/**/*.test.ts lib/supabase/queries/*.test.ts",
+    "test": "tsx --test lib/apple/*.test.ts lib/ingest/*.test.ts lib/scoring/*.test.ts lib/domain/**/*.test.ts lib/observability/*.test.ts lib/supabase/queries/*.test.ts",
     "test:database": "tsx --test lib/supabase/queries/*.integration.ts"
   },
   "engines": {

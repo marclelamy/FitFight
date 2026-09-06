@@ -1,44 +1,12 @@
-import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Sql } from "postgres";
-import { ApiError, ERROR_CODES } from "@/lib/http";
 import { nextFightState } from "@/lib/scoring/fight-clock";
 import { scoreFight } from "@/lib/scoring/score-fight";
-import { createAdminClient } from "@/lib/supabase/admin";
 import { createDatabaseClient } from "@/lib/supabase/postgres";
 import {
   fightCalculationRowSchema,
   fightCalculationMemberSchema,
   fightCalculationSnapshotSchema,
 } from "@/lib/types/fights/fight-calculation";
-
-const SCORABLE_STATES = ["live", "scheduled", "awaiting_final_sync"] as const;
-
-export async function listFightsToRecalculate(
-  userId: string,
-  admin: SupabaseClient = createAdminClient(),
-): Promise<string[]> {
-  const { data: memberships, error: memberError } = await admin
-    .from("fight_members")
-    .select("fight_id")
-    .eq("user_id", userId)
-    .eq("state", "accepted");
-  if (memberError) {
-    throw new ApiError(500, ERROR_CODES.db_error, "Could not load fight memberships");
-  }
-  const fightIds = (memberships ?? []).map((row) => row.fight_id as string);
-  if (fightIds.length === 0) {
-    return [];
-  }
-  const { data: fights, error: fightError } = await admin
-    .from("fights")
-    .select("id")
-    .in("id", fightIds)
-    .in("state", [...SCORABLE_STATES]);
-  if (fightError) {
-    throw new ApiError(500, ERROR_CODES.db_error, "Could not load fights");
-  }
-  return (fights ?? []).map((row) => row.id as string);
-}
 
 /** Serialize score reads and finalization with the aggregate upload transaction. */
 export async function recalculateFight(
@@ -100,21 +68,36 @@ export async function recalculateFight(
     });
     const revision = Math.max(0, ...members.map((member) => member.input_revision ?? 0)) + 1;
     const final = nextState === "final";
-    for (const score of scores) {
+    const scoredMembers = scores.map((score) => {
       const snapshot = byUser.get(score.userId);
-      const complete = snapshot !== undefined && Date.parse(snapshot.cutoff_at) === endsAtMs;
+      return {
+        user_id: score.userId,
+        current_value: score.currentValue,
+        rank: score.rank,
+        outcome_minor: score.outcomeMinor,
+        final_steps_complete: snapshot !== undefined && Date.parse(snapshot.cutoff_at) === endsAtMs,
+      };
+    });
+    if (scoredMembers.length > 0) {
       await sql`
-        update public.fight_members
-        set current_value = ${score.currentValue}, rank = ${score.rank},
-          outcome_minor = ${score.outcomeMinor}, input_revision = ${revision},
-          final_steps_complete = ${complete},
-          final_value = case when ${final} then ${score.currentValue} else final_value end,
-          finalized_at = case when ${final} then ${now.toISOString()}::timestamptz else finalized_at end
-        where fight_id = ${fightId} and user_id = ${score.userId}
+        update public.fight_members as member
+        set current_value = score.current_value, rank = score.rank,
+          outcome_minor = score.outcome_minor, input_revision = ${revision},
+          final_steps_complete = score.final_steps_complete,
+          final_value = case when ${final} then score.current_value else member.final_value end,
+          finalized_at = case when ${final} then ${now.toISOString()}::timestamptz else member.finalized_at end
+        from jsonb_to_recordset(${sql.json(scoredMembers)}::jsonb) as score (
+          user_id uuid, current_value numeric, rank integer, outcome_minor integer,
+          final_steps_complete boolean
+        )
+        where member.fight_id = ${fightId} and member.user_id = score.user_id
       `;
-      if (final && snapshot) {
-        await sql`update private.fight_score_snapshots set is_final = true where id = ${snapshot.id}`;
-      }
+    }
+    if (final && snapshots.length > 0) {
+      await sql`
+        update private.fight_score_snapshots set is_final = true
+        where id = any(${sql.array(snapshots.map((snapshot) => snapshot.id))}::uuid[])
+      `;
     }
     if (nextState !== fight.state) {
       await sql`update public.fights set state = ${nextState} where id = ${fightId}`;

@@ -143,8 +143,9 @@ struct FitFightHealthKitDiagnosticSnapshot: Encodable {
     var errorCode: String?
     var appVersion: String
     var appBuild: String
+    var attempts: [HealthKitSyncTrace.Attempt]
 
-    init(_ diagnostics: HealthKitStepsStore.Diagnostics) {
+    init(_ diagnostics: HealthKitStepsStore.Diagnostics, attempts: [HealthKitSyncTrace.Attempt]) {
         backgroundRefreshStatus = diagnostics.backgroundRefreshStatus.rawValue
         deliveryRegistrationStatus = diagnostics.deliveryRegistrationStatus.rawValue
         lastObserverWake = diagnostics.lastObserverWake
@@ -155,6 +156,7 @@ struct FitFightHealthKitDiagnosticSnapshot: Encodable {
         errorCode = diagnostics.errorCode?.rawValue
         appVersion = AppVersion.marketing
         appBuild = AppVersion.build
+        self.attempts = attempts
     }
 
     enum CodingKeys: String, CodingKey {
@@ -168,6 +170,7 @@ struct FitFightHealthKitDiagnosticSnapshot: Encodable {
         case errorCode = "error_code"
         case appVersion = "app_version"
         case appBuild = "app_build"
+        case attempts
     }
 }
 
@@ -227,10 +230,17 @@ struct FitFightInviteCreated: Codable, Equatable {
     var invitedUserId: UUID
 }
 
-struct FitFightSyncDue: Codable, Equatable {
-    var checked: Int
-    var closed: Int
-    var fightIds: [UUID]?
+struct FitFightSnapshot: Decodable {
+    let fights: [FightRow]
+    let members: [MemberRow]
+    let profiles: [FitFightProfile]
+    let series: [SeriesRow]
+    let stepDays: [StepDayRow]
+
+    enum CodingKeys: String, CodingKey {
+        case fights, members, profiles, series
+        case stepDays = "step_days"
+    }
 }
 
 struct FitFightAccountDeletion: Decodable, Equatable {
@@ -349,35 +359,60 @@ struct FitFightAPI {
         )
     }
 
-    func healthKitUploadContext(accessToken: String) async throws -> FitFightHealthKitContext {
+    func healthKitUploadContext(
+        accessToken: String,
+        trace: HealthKitSyncTrace
+    ) async throws -> FitFightHealthKitContext {
         try await get(
             path: "provider-uploads/context?provider=apple_health&metric=steps",
             accessToken: accessToken,
-            expected: [200]
+            expected: [200],
+            trace: trace,
+            traceStage: .context
         )
     }
 
     func syncHealthKitSteps(
         _ sync: FitFightHealthKitStepSync,
-        accessToken: String
+        accessToken: String,
+        trace: HealthKitSyncTrace
     ) async throws -> FitFightHealthKitStepSyncResult {
-        try await post(
+        let body = try Self.encoder.encode(sync)
+        trace.recordUpload(fights: sync.fightAggregates.count, days: sync.mergedDays.count, bytes: body.count)
+        return try await request(
             path: "healthkit/steps",
+            method: "POST",
             accessToken: accessToken,
-            body: sync,
-            expected: [200]
+            body: body,
+            idempotencyKey: nil,
+            expected: [200],
+            trace: trace,
+            traceStage: .upload
         )
     }
 
     func saveHealthKitDiagnostics(
-        _ diagnostics: HealthKitStepsStore.Diagnostics,
+        _ diagnostics: FitFightHealthKitDiagnosticSnapshot,
         accessToken: String
     ) async throws -> FitFightHealthKitDiagnosticSnapshotResult {
         try await post(
             path: "healthkit/diagnostics",
             accessToken: accessToken,
-            body: FitFightHealthKitDiagnosticSnapshot(diagnostics),
+            body: diagnostics,
             expected: [200]
+        )
+    }
+
+    func fightsSnapshot(accessToken: String, trace: HealthKitSyncTrace) async throws -> FitFightSnapshot {
+        try await request(
+            path: "fights/refresh",
+            method: "POST",
+            accessToken: accessToken,
+            body: Self.encoder.encode(["time_zone": Calendar.current.timeZone.identifier]),
+            idempotencyKey: nil,
+            expected: [200],
+            trace: trace,
+            traceStage: .fightsRefresh
         )
     }
 
@@ -515,15 +550,6 @@ struct FitFightAPI {
         )
     }
 
-    func syncDueFights(accessToken: String) async throws -> FitFightSyncDue {
-        try await post(
-            path: "fights/sync-due",
-            accessToken: accessToken,
-            body: EmptyJSON(),
-            expected: [200]
-        )
-    }
-
     func cancel(fightID: UUID, accessToken: String) async throws {
         let _: DiscardBody = try await post(
             path: "fights/\(fightID.uuidString.lowercased())/cancel",
@@ -621,7 +647,9 @@ struct FitFightAPI {
     private func get<Response: Decodable>(
         path: String,
         accessToken: String,
-        expected: Set<Int>
+        expected: Set<Int>,
+        trace: HealthKitSyncTrace? = nil,
+        traceStage: HealthKitSyncTrace.StageName? = nil
     ) async throws -> Response {
         try await request(
             path: path,
@@ -629,7 +657,9 @@ struct FitFightAPI {
             accessToken: accessToken,
             body: nil,
             idempotencyKey: nil,
-            expected: expected
+            expected: expected,
+            trace: trace,
+            traceStage: traceStage
         )
     }
 
@@ -639,8 +669,17 @@ struct FitFightAPI {
         accessToken: String,
         body: Data?,
         idempotencyKey: String?,
-        expected: Set<Int>
+        expected: Set<Int>,
+        trace: HealthKitSyncTrace? = nil,
+        traceStage: HealthKitSyncTrace.StageName? = nil
     ) async throws -> Response {
+        let span = traceStage.flatMap { trace?.begin($0) }
+        var succeeded = false
+        var serverTiming: [String: Double]?
+        defer {
+            trace?.end(span, outcome: Task.isCancelled ? .cancelled : (succeeded ? .succeeded : .failed), serverTiming: serverTiming)
+        }
+        try Task.checkCancellation()
         guard let requestURL = endpoint(path) else {
             throw FitFightAPIError.notConfigured
         }
@@ -649,6 +688,9 @@ struct FitFightAPI {
         request.httpMethod = method
         request.setValue("Bearer \(accessToken)", forHTTPHeaderField: "Authorization")
         request.setValue("application/json", forHTTPHeaderField: "Accept")
+        if let trace {
+            request.setValue(trace.id.uuidString.lowercased(), forHTTPHeaderField: "X-FitFight-Trace-ID")
+        }
         if body != nil {
             request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         }
@@ -658,7 +700,20 @@ struct FitFightAPI {
         request.httpBody = body
 
         let (data, response) = try await URLSession.shared.data(for: request)
-        let status = (response as? HTTPURLResponse)?.statusCode ?? -1
+        let http = response as? HTTPURLResponse
+        if trace != nil, let header = http?.value(forHTTPHeaderField: "Server-Timing") {
+            var timing: [String: Double] = [:]
+            for entry in header.split(separator: ",") {
+                let parts = entry.split(separator: ";").map { $0.trimmingCharacters(in: .whitespaces) }
+                guard let name = parts.first, ["auth", "db", "maintenance", "total"].contains(name),
+                      let duration = parts.dropFirst().first(where: { $0.hasPrefix("dur=") }),
+                      let value = Double(duration.dropFirst(4)), value.isFinite,
+                      value >= 0, value <= 604_800_000 else { continue }
+                timing[name + "_ms"] = value
+            }
+            if !timing.isEmpty { serverTiming = timing }
+        }
+        let status = http?.statusCode ?? -1
         guard expected.contains(status) else {
             let payload = try? Self.decoder.decode(APIErrorResponse.self, from: data)
             throw FitFightAPIError.http(
@@ -668,13 +723,17 @@ struct FitFightAPI {
             )
         }
         if Response.self == DiscardBody.self {
+            succeeded = true
             return DiscardBody() as! Response
         }
         if data.isEmpty, let empty = EmptyJSON() as? Response {
+            succeeded = true
             return empty
         }
         do {
-            return try Self.decoder.decode(Response.self, from: data)
+            let decoded = try Self.decoder.decode(Response.self, from: data)
+            succeeded = true
+            return decoded
         } catch {
             throw FitFightAPIError.decoding(error)
         }

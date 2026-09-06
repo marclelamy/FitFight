@@ -658,6 +658,7 @@ struct NewFightView: View {
                         ? String(localized: "Ready to score this fight")
                         : String(localized: "Connect to score this fight"),
                     systemImage: "heart",
+                    enabled: !model.isRefreshingFights,
                     subtitleTone: steps.hasAsked ? .moss : .ember,
                     trailing: AnyView(
                         FFPill(
@@ -667,6 +668,7 @@ struct NewFightView: View {
                     ),
                     action: steps.hasAsked ? nil : connectAppleHealth
                 )
+                .disabled(model.isRefreshingFights)
             }
 
             FFCard(fill: theme.mossWash, stroke: theme.mossText.opacity(0.18)) {
@@ -788,10 +790,7 @@ struct NewFightView: View {
 
     private func connectAppleHealth() {
         Task {
-            await steps.refresh(requestAccess: true)
-            if session.authSession != nil {
-                await steps.syncToBackend(session: session, trigger: .manual)
-            }
+            await model.refreshFights(session: session, steps: steps, trigger: .manual, requestAccess: true)
         }
     }
 

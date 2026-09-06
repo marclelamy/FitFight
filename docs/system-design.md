@@ -631,6 +631,7 @@ Swift has two explicit network paths. Reviewed reads and a very small set of sel
 - **Direct self-service writes** are limited to reviewed fields and operations such as the signed-in User's own display name. Apple Health Steps go through `POST /api/v1/healthkit/steps`. The authenticated TypeScript backend derives ownership from the JWT, validates exact server-issued Fight windows and chart days, and commits the merged aggregates and score projections together. Fight lifecycle and membership remain temporarily client-writable as documented in current status; final results are not.
 - **Commands** go through authenticated Next.js Route Handlers: create/start/cancel a Fight, create an invite, accept with a source and target, request synchronization, disconnect a provider, and register a device.
 - **Private reads and writes** go through Next.js; Swift never queries or writes `private`. Next.js reaches Postgres through the server-only transaction pooler, while the private schema remains absent from the Data API.
+- **Fights refresh** combines due maintenance and the Fights/members/profiles/series/chart snapshot in one authenticated `POST /api/v1/fights/refresh`. Its read-only snapshot transaction adopts the verified User's `authenticated` role and transaction-local claims so the existing RLS policies still govern those reads. Other reviewed direct reads remain supported.
 - **Provider callbacks/webhooks** use separate unauthenticated endpoints that verify provider state/signatures before any privileged action.
 - **Workers** authenticate service-to-service and never accept a User ID from the body as proof of authority.
 
@@ -932,6 +933,8 @@ Track:
 - User-deletion and temporary-cache cleanup completion
 
 Use structured correlation IDs from webhook or aggregate sync through score revision. Sentry or another error system may receive stack traces and pseudonymous IDs only; scrub health values and credentials before transmission.
+
+The Steps implementation records permission, HealthKit-query, context, upload, and final refresh durations with a monotonic phone clock. One completed report carries the stage timings to the private diagnostics endpoint after product requests finish; context/upload/refresh responses provide correlated server authentication/database/maintenance timings. Retain at most 100 private attempts per User and prune their rows older than seven days on their next report. No health values or free-form errors enter these timing records. Delivery is best effort; see `docs/backend.md` for timing boundaries and rollout order.
 
 ### Initial service targets
 

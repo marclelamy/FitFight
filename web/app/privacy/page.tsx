@@ -24,7 +24,7 @@ export default function PrivacyPage() {
       <article className="legal-content">
         <p className="eyebrow">YOUR DATA, IN PLAIN LANGUAGE</p>
         <h1>Privacy Policy</h1>
-        <p className="legal-updated">Effective 4 September 2026</p>
+        <p className="legal-updated">Effective 5 September 2026</p>
         <p className="legal-intro">
           FitFight lets named participants compete on who records the most Steps during
           a private Fight. This policy explains the data used by the FitFight iPhone app
@@ -59,6 +59,10 @@ export default function PrivacyPage() {
               <strong>Support and operations:</strong> messages you send to support and
               limited server logs such as request time, IP address, device or browser
               information, and error details needed to keep the service secure and working.
+              Private sync diagnostics also record how long Apple Health reads and network
+              requests take, their success or failure, app version, and request sizes.
+              These timing records contain no Steps values or raw Health samples and are
+              not shared with other participants.
             </li>
           </ul>
         </section>
@@ -124,6 +128,11 @@ export default function PrivacyPage() {
             security and request logs follow Supabase&apos;s and Vercel&apos;s configured retention
             periods. Deleted data may remain temporarily in routine backups until those
             backups expire, or longer when required by law.
+          </p>
+          <p>
+            We keep at most the 100 most recent sync timing reports for your account.
+            Reports older than seven days are removed the next time your app sends a
+            diagnostic report. Deleting your account removes its timing history.
           </p>
         </section>
 

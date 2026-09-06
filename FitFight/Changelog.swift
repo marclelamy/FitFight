@@ -36,6 +36,13 @@ enum Changelog {
             year: 2026,
             month: 9,
             day: 5,
+            notes: "Fights refresh with fewer network requests, and private Apple Health timing logs help diagnose slow syncs."
+        ),
+        ReleaseNote(
+            version: "1.0.0",
+            year: 2026,
+            month: 9,
+            day: 5,
             notes: "Apple Health on You shows today’s step count correctly."
         ),
         ReleaseNote(

@@ -1,5 +1,4 @@
 import Foundation
-import Supabase
 import SwiftUI
 
 enum MetricKind: String, Codable, Hashable {
@@ -168,6 +167,7 @@ final class AppModel: ObservableObject {
     private let api = FitFightAPI()
     private var inviteTokens: [String: String] = [:]
     private var cachedUserID: UUID?
+    private var activeRefresh: (id: UUID, userID: UUID?)?
     private static let pendingJoinCodeKey = "fitfight.pendingJoinCode"
 
     private static var fightsCachePrefix: String {
@@ -288,16 +288,40 @@ final class AppModel: ObservableObject {
         fights = cached
     }
 
-    func refreshFights(session: SessionStore, steps: HealthKitStepsStore) async {
-        guard !isRefreshingFights else { return }
+    func refreshFights(
+        session: SessionStore,
+        steps: HealthKitStepsStore,
+        trigger: HealthKitStepsStore.SyncTrigger = .foreground,
+        requestAccess: Bool = false
+    ) async {
+        let userID = session.authSession?.user.id ?? session.client.auth.currentUser?.id
+        if let activeRefresh, activeRefresh.userID == userID { return }
+        let trace = HealthKitSyncTrace(trigger: trigger)
+        activeRefresh = (trace.id, userID)
         isRefreshingFights = true
-        defer { isRefreshingFights = false }
-
-        await steps.refresh(requestAccess: false)
-        if session.authSession != nil {
-            await steps.syncToBackend(session: session, trigger: .foreground)
+        defer {
+            if activeRefresh?.id == trace.id {
+                activeRefresh = nil
+                isRefreshingFights = false
+            }
         }
-        await refreshFromServer(session: session)
+
+        await steps.refresh(requestAccess: requestAccess, trace: trace)
+        guard (session.authSession?.user.id ?? session.client.auth.currentUser?.id) == userID else {
+            trace.fail(.attemptExpired)
+            steps.completeAttempt(trace, session: session, userID: userID)
+            return
+        }
+        if session.authSession != nil, !Task.isCancelled {
+            await steps.syncToBackend(session: session, trigger: trigger, trace: trace)
+        }
+        guard (session.authSession?.user.id ?? session.client.auth.currentUser?.id) == userID else {
+            trace.fail(.attemptExpired)
+            steps.completeAttempt(trace, session: session, userID: userID)
+            return
+        }
+        if !Task.isCancelled { await refreshFromServer(session: session, trace: trace) }
+        steps.completeAttempt(trace, session: session, userID: userID)
     }
 
     func removeCachedFights(for userID: UUID) {
@@ -308,7 +332,7 @@ final class AppModel: ObservableObject {
         }
     }
 
-    func refreshFromServer(session: SessionStore) async {
+    func refreshFromServer(session: SessionStore, trace: HealthKitSyncTrace? = nil) async {
         self.session = session
         guard let userId = session.authSession?.user.id ?? session.client.auth.currentUser?.id else {
             return
@@ -316,21 +340,40 @@ final class AppModel: ObservableObject {
         if let profile = session.profile {
             you = Self.person(from: profile, isYou: true)
         }
-
-        if let token = session.authSession?.accessToken, api.isConfigured {
-            _ = try? await api.syncDueFights(accessToken: token)
+        let attempt = trace ?? HealthKitSyncTrace(trigger: .foreground)
+        defer {
+            if trace == nil {
+                HealthKitStepsStore.shared.completeAttempt(attempt, session: session, userID: userId)
+            }
         }
 
         do {
-            var loaded = try await loadFights(client: session.client, userId: userId)
-            loaded = try await populateStepDays(loaded, client: session.client)
-            guard session.authSession?.user.id == userId else { return }
+            let token = try await attempt.measure(.session) { try await session.freshAccessToken() }
+            guard session.authSession?.user.id == userId else { throw CancellationError() }
+            let snapshot = try await api.fightsSnapshot(accessToken: token, trace: attempt)
+            try Task.checkCancellation()
+            let profiles = Dictionary(uniqueKeysWithValues: snapshot.profiles.map { ($0.userId, $0) })
+            let members = Dictionary(grouping: snapshot.members, by: \.fightId)
+            let mine = Dictionary(uniqueKeysWithValues: snapshot.members.filter { $0.userId == userId }.map { ($0.fightId, $0) })
+            let series = Dictionary(uniqueKeysWithValues: snapshot.series.map { ($0.id, $0) })
+            let loaded = snapshot.fights.compactMap { row -> Fight? in
+                guard var fight = Self.mapFight(
+                    row, members: members[row.id] ?? [], mine: mine[row.id], profiles: profiles,
+                    series: row.seriesId.flatMap { series[$0] }, userId: userId, formatScore: formatScore
+                ) else { return nil }
+                fight.days = Self.dayCards(
+                    from: snapshot.stepDays, standings: fight.standings, window: Self.fightDayWindow(fight)
+                )
+                return fight
+            }
+            guard session.authSession?.user.id == userId else { throw CancellationError() }
             fights = loaded
             cachedUserID = userId
             if let data = try? JSONEncoder().encode(loaded) {
                 UserDefaults.standard.set(data, forKey: Self.fightsCachePrefix + userId.uuidString)
             }
         } catch {
+            attempt.fail(HealthKitStepsStore.errorCode(for: error))
             // Keep the last successful result visible while the phone is offline.
         }
     }
@@ -646,43 +689,6 @@ final class AppModel: ObservableObject {
         )
     }
 
-    private func populateStepDays(
-        _ fights: [Fight],
-        client: SupabaseClient
-    ) async throws -> [Fight] {
-        let ids = fights.flatMap { fight in
-            fight.standings.compactMap { UUID(uuidString: $0.person.id) }
-        }
-        guard !ids.isEmpty else { return fights }
-        let requestedDays = fights.flatMap { Self.fightDayWindow($0) }
-        guard let firstDay = requestedDays.min(), let lastDay = requestedDays.max() else {
-            return fights
-        }
-
-        let days: [StepDayRow]
-        do {
-            days = try await client.from("step_days")
-                .select("user_id, day, steps")
-                .in("user_id", values: ids.map(\.uuidString))
-                .gte("day", value: firstDay)
-                .lte("day", value: lastDay)
-                .execute()
-                .value
-        } catch {
-            return fights
-        }
-
-        var updated: [Fight] = []
-        updated.reserveCapacity(fights.count)
-        for fight in fights {
-            var next = fight
-            let window = Self.fightDayWindow(fight)
-            next.days = Self.dayCards(from: days, standings: fight.standings, window: window)
-            updated.append(next)
-        }
-        return updated
-    }
-
     private static func fightDayWindow(_ fight: Fight) -> Set<String> {
         let calendar = Calendar.current
         var days: [String] = []
@@ -725,77 +731,6 @@ final class AppModel: ObservableObject {
         formatter.timeZone = TimeZone.current
         formatter.dateFormat = "yyyy-MM-dd"
         return formatter.string(from: date)
-    }
-
-    private func loadFights(client: SupabaseClient, userId: UUID) async throws -> [Fight] {
-        let memberSelect = "fight_id, user_id, state, current_value, rank, final_value, last_synced_at, final_steps_complete"
-        let fightSelect = "id, owner_id, name, state, starts_at, ends_at, action_text, series_id"
-
-        let myRows: [MemberRow] = try await client.from("fight_members")
-            .select(memberSelect)
-            .eq("user_id", value: userId)
-            .execute()
-            .value
-        var fightIDs = Set(myRows.map(\.fightId))
-
-        let owned: [FightRow] = try await client.from("fights")
-            .select(fightSelect)
-            .eq("owner_id", value: userId)
-            .execute()
-            .value
-        owned.forEach { fightIDs.insert($0.id) }
-
-        guard !fightIDs.isEmpty else { return [] }
-
-        let fightRows: [FightRow] = try await client.from("fights")
-            .select(fightSelect)
-            .in("id", values: fightIDs.map(\.uuidString))
-            .execute()
-            .value
-
-        let memberRows: [MemberRow] = try await client.from("fight_members")
-            .select(memberSelect)
-            .in("fight_id", values: fightIDs.map(\.uuidString))
-            .execute()
-            .value
-
-        var profileIDs = Set(memberRows.map(\.userId))
-        fightRows.forEach { profileIDs.insert($0.ownerId) }
-        let profiles = try await Self.fetchProfiles(client: client, ids: Array(profileIDs))
-        let byProfile = Dictionary(uniqueKeysWithValues: profiles.map { ($0.userId, $0) })
-        let membersByFight = Dictionary(grouping: memberRows, by: \.fightId)
-        let myByFight = Dictionary(uniqueKeysWithValues: myRows.map { ($0.fightId, $0) })
-        let seriesIDs = fightRows.compactMap(\.seriesId)
-        var seriesByID: [UUID: SeriesRow] = [:]
-        if !seriesIDs.isEmpty {
-            let seriesRows: [SeriesRow] = try await client.from("fight_series")
-                .select("id, join_code, visibility, recurring")
-                .in("id", values: seriesIDs.map(\.uuidString))
-                .execute()
-                .value
-            seriesByID = Dictionary(uniqueKeysWithValues: seriesRows.map { ($0.id, $0) })
-        }
-
-        return fightRows.compactMap { row in
-            Self.mapFight(
-                row,
-                members: membersByFight[row.id] ?? [],
-                mine: myByFight[row.id],
-                profiles: byProfile,
-                series: row.seriesId.flatMap { seriesByID[$0] },
-                userId: userId,
-                formatScore: formatScore
-            )
-        }
-    }
-
-    private static func fetchProfiles(client: SupabaseClient, ids: [UUID]) async throws -> [FitFightProfile] {
-        guard !ids.isEmpty else { return [] }
-        return try await client.from("profiles")
-            .select("user_id, handle, display_name")
-            .in("user_id", values: ids.map(\.uuidString))
-            .execute()
-            .value
     }
 
     private static func person(from profile: FitFightProfile, isYou: Bool) -> Person {
@@ -1062,7 +997,7 @@ private func localizedDuration(hours: Int, days: Int) -> String {
     )
 }
 
-private struct SeriesRow: Decodable {
+struct SeriesRow: Decodable {
     let id: UUID
     let joinCode: String?
     let visibility: String
@@ -1076,7 +1011,7 @@ private struct SeriesRow: Decodable {
     }
 }
 
-private struct StepDayRow: Decodable {
+struct StepDayRow: Decodable {
     let userId: UUID
     let day: String
     let steps: Int
@@ -1088,7 +1023,7 @@ private struct StepDayRow: Decodable {
     }
 }
 
-private struct FightRow: Decodable {
+struct FightRow: Decodable {
     let id: UUID
     let ownerId: UUID
     let name: String
@@ -1121,7 +1056,7 @@ private struct FightRow: Decodable {
     }
 }
 
-private struct MemberRow: Decodable {
+struct MemberRow: Decodable {
     let fightId: UUID
     let userId: UUID
     let state: String

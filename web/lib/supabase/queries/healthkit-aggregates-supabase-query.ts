@@ -3,7 +3,11 @@ import type { Sql } from "postgres";
 import { ApiError, ERROR_CODES } from "@/lib/http";
 import { scoreFight } from "@/lib/scoring/score-fight";
 import { createDatabaseClient } from "@/lib/supabase/postgres";
-import { asNumber, type OutcomeRule } from "@/lib/types/database";
+import {
+  healthKitAggregateFightSchema,
+  healthKitAggregateMemberSchema,
+  healthKitAggregateSourceSchema,
+} from "@/lib/types/healthkit/healthkit-aggregate-database";
 import type {
   HealthKitAggregateSync,
   HealthKitAggregateSyncResponse,
@@ -15,11 +19,7 @@ export async function syncHealthKitAggregates(
   database: Sql = createDatabaseClient(),
 ): Promise<HealthKitAggregateSyncResponse> {
   return database.begin("read write", async (sql) => {
-    const [source] = await sql<{
-      id: string;
-      complete_through: string;
-      server_now: string;
-    }[]>`
+    const [sourceRow] = await sql`
       insert into public.data_sources (
         user_id, provider, source_label, connection_route, capabilities,
         status, consent_version, connected_at, last_success_at, complete_through
@@ -37,9 +37,10 @@ export async function syncHealthKitAggregates(
       returning id, complete_through::text as complete_through,
         clock_timestamp()::text as server_now
     `;
-    if (!source) {
+    if (!sourceRow) {
       throw new ApiError(500, ERROR_CODES.db_error, "Could not save Apple Health source");
     }
+    const source = healthKitAggregateSourceSchema.parse(sourceRow);
     if (Date.parse(input.complete_through) > Date.parse(source.server_now)) {
       throw new ApiError(
         400,
@@ -52,14 +53,7 @@ export async function syncHealthKitAggregates(
     }
 
     const fightIds = input.fight_aggregates.map((aggregate) => aggregate.fight_id);
-    const fights = await sql<{
-      fight_id: string;
-      starts_at: string;
-      ends_at: string;
-      outcome_rule: OutcomeRule;
-      stake_minor: number | null;
-      default_goal_value: string | null;
-    }[]>`
+    const fights = healthKitAggregateFightSchema.array().parse(await sql`
       select fight.id as fight_id, fight.starts_at::text as starts_at,
         fight.ends_at::text as ends_at,
         fight.outcome_rule::text as outcome_rule,
@@ -72,7 +66,7 @@ export async function syncHealthKitAggregates(
         and fight.state in ('live', 'awaiting_final_sync')
       order by fight.id
       for update of fight, member
-    `;
+    `);
     const submittedFightIds = new Set(fightIds);
     if (fights.length !== submittedFightIds.size
       || fights.some((fight) => !submittedFightIds.has(fight.fight_id))) {
@@ -98,7 +92,16 @@ export async function syncHealthKitAggregates(
           "Fight aggregate does not match sync context",
         );
       }
-      return { aggregate, fight };
+      return {
+        fight_id: aggregate.fight_id,
+        cutoff_at: aggregate.cutoff_at,
+        value: aggregate.steps,
+        // A later read can return to an earlier value at the same Fight-end cutoff.
+        input_hash: createHash("sha256").update(JSON.stringify({
+          ...aggregate, complete_through: input.complete_through,
+        })).digest("hex"),
+        final_steps_complete: Date.parse(input.complete_through) >= Date.parse(fight.ends_at),
+      };
     });
 
     for (const day of input.merged_days) {
@@ -167,81 +170,89 @@ export async function syncHealthKitAggregates(
       `;
     }
 
-    for (const { aggregate, fight } of aggregateFights) {
-      // A later read can return to an earlier value at the same Fight-end cutoff.
-      const inputHash = createHash("sha256").update(JSON.stringify({
-        ...aggregate, complete_through: input.complete_through,
-      })).digest("hex");
+    if (aggregateFights.length > 0) {
       await sql`
         insert into private.fight_score_snapshots (
           fight_id, user_id, source_id, cutoff_at, value,
           input_hash, calculation_version, is_final, created_at
-        ) values (
-          ${aggregate.fight_id}, ${userId}, ${source.id}, ${aggregate.cutoff_at},
-          ${aggregate.steps}, ${inputHash}, 1, false, clock_timestamp()
         )
+        select aggregate.fight_id, ${userId}, ${source.id}, aggregate.cutoff_at,
+          aggregate.value, aggregate.input_hash, 1, false, clock_timestamp()
+        from jsonb_to_recordset(${sql.json(aggregateFights)}::jsonb) as aggregate (
+          fight_id uuid, cutoff_at timestamptz, value numeric, input_hash text
+        )
+        where true
         on conflict (fight_id, user_id, cutoff_at, input_hash) do nothing
       `;
-      const [latest] = await sql<{ value: string }[]>`
-        select value::text as value
-        from private.fight_score_snapshots
-        where fight_id = ${aggregate.fight_id}
-          and user_id = ${userId}
-          and source_id = ${source.id}
-        order by cutoff_at desc, created_at desc, id desc
-        limit 1
-      `;
-      if (!latest) {
-        throw new ApiError(500, ERROR_CODES.db_error, "Could not save Fight aggregate");
-      }
-      await sql`
-        update public.fight_members
-        set current_value = ${latest.value},
+
+      // A separate statement sees the inserted snapshots, including replayed/corrected totals.
+      const updatedMembers = healthKitAggregateFightSchema.pick({ fight_id: true }).array().parse(await sql`
+        with latest as (
+          select distinct on (fight_id) fight_id, value
+          from private.fight_score_snapshots
+          where fight_id = any(${sql.array(fightIds)}::uuid[])
+            and user_id = ${userId}
+            and source_id = ${source.id}
+          order by fight_id, cutoff_at desc, created_at desc, id desc
+        )
+        update public.fight_members as member
+        set current_value = latest.value,
           selected_source_id = ${source.id},
           source_label = 'Apple Health',
           freshness = 'recent',
           last_synced_at = now(),
-          final_steps_complete = final_steps_complete
-            or ${Date.parse(input.complete_through) >= Date.parse(fight.ends_at)},
+          final_steps_complete = member.final_steps_complete or aggregate.final_steps_complete,
           input_revision = case
-            when current_value is distinct from ${latest.value}
-              or selected_source_id is distinct from ${source.id}
-              or source_label is distinct from 'Apple Health'
-              or freshness is distinct from 'recent'
-            then coalesce(input_revision, 0) + 1
-            else input_revision
+            when member.current_value is distinct from latest.value
+              or member.selected_source_id is distinct from ${source.id}
+              or member.source_label is distinct from 'Apple Health'
+              or member.freshness is distinct from 'recent'
+            then coalesce(member.input_revision, 0) + 1
+            else member.input_revision
           end
-        where fight_id = ${aggregate.fight_id}
-          and user_id = ${userId}
-          and state = 'accepted'
-      `;
-      const members = await sql<{
-        user_id: string;
-        current_value: string | null;
-        final_value: string | null;
-        personal_target: string | null;
-      }[]>`
-        select user_id, current_value::text, final_value::text, personal_target::text
+        from latest
+        join jsonb_to_recordset(${sql.json(aggregateFights)}::jsonb) as aggregate (
+          fight_id uuid, final_steps_complete boolean
+        ) on aggregate.fight_id = latest.fight_id
+        where member.fight_id = latest.fight_id
+          and member.user_id = ${userId}
+          and member.state = 'accepted'
+        returning member.fight_id
+      `);
+      if (updatedMembers.length !== fights.length) {
+        throw new ApiError(500, ERROR_CODES.db_error, "Could not save Fight aggregate");
+      }
+      const members = healthKitAggregateMemberSchema.array().parse(await sql`
+        select fight_id, user_id, current_value::text, final_value::text, personal_target::text
         from public.fight_members
-        where fight_id = ${aggregate.fight_id} and state = 'accepted'
-        order by user_id
+        where fight_id = any(${sql.array(fightIds)}::uuid[]) and state = 'accepted'
+        order by fight_id, user_id
         for update
-      `;
-      const scores = scoreFight({
+      `);
+      const scores = fights.flatMap((fight) => scoreFight({
         outcomeRule: fight.outcome_rule,
         stakeMinor: fight.stake_minor,
-        defaultGoalValue: asNumber(fight.default_goal_value),
-        members: members.map((member) => ({
-          userId: member.user_id,
-          value: asNumber(member.current_value) ?? asNumber(member.final_value) ?? 0,
-          personalTarget: asNumber(member.personal_target),
-        })),
-      });
-      for (const score of scores) {
+        defaultGoalValue: fight.default_goal_value,
+        members: members.filter((member) => member.fight_id === fight.fight_id)
+          .map((member) => ({
+            userId: member.user_id,
+            value: member.current_value ?? member.final_value ?? 0,
+            personalTarget: member.personal_target,
+          })),
+      }).map((score) => ({
+        fight_id: fight.fight_id,
+        user_id: score.userId,
+        rank: score.rank,
+        outcome_minor: score.outcomeMinor,
+      })));
+      if (scores.length > 0) {
         await sql`
-          update public.fight_members
-          set rank = ${score.rank}, outcome_minor = ${score.outcomeMinor}
-          where fight_id = ${aggregate.fight_id} and user_id = ${score.userId}
+          update public.fight_members as member
+          set rank = score.rank, outcome_minor = score.outcome_minor
+          from jsonb_to_recordset(${sql.json(scores)}::jsonb) as score (
+            fight_id uuid, user_id uuid, rank integer, outcome_minor integer
+          )
+          where member.fight_id = score.fight_id and member.user_id = score.user_id
         `;
       }
     }

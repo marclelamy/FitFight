@@ -1,5 +1,12 @@
 import { NextResponse } from "next/server";
 import { ZodError } from "zod";
+import { randomUUID } from "node:crypto";
+import {
+  requestTraceIdSchema,
+  type RequestOperation,
+  type RequestTiming,
+  type RequestTimingPhase,
+} from "@/lib/types/observability/request-timing";
 
 export const ERROR_CODES = {
   unauthorized: "unauthorized",
@@ -69,8 +76,9 @@ export function corsHeaders(request: Request): Headers {
   headers.set("Access-Control-Allow-Methods", "GET, POST, DELETE, OPTIONS");
   headers.set(
     "Access-Control-Allow-Headers",
-    "Authorization, Content-Type, Idempotency-Key",
+    "Authorization, Content-Type, Idempotency-Key, X-FitFight-Trace-ID",
   );
+  headers.set("Access-Control-Expose-Headers", "Server-Timing, X-FitFight-Trace-ID");
   headers.set("Access-Control-Max-Age", "86400");
   headers.set("Vary", "Origin");
   headers.set("Cache-Control", "no-store");
@@ -138,17 +146,47 @@ export function errorResponse(error: unknown): NextResponse {
   return jsonError("Internal error", ERROR_CODES.internal, 500);
 }
 
+export async function measureRequestStage<T>(
+  timing: RequestTiming,
+  phase: RequestTimingPhase,
+  operation: () => Promise<T>,
+): Promise<T> {
+  const started = performance.now();
+  try {
+    return await operation();
+  } finally {
+    timing.phases[phase] = (timing.phases[phase] ?? 0) + performance.now() - started;
+  }
+}
+
 export function apiRoute<P extends Record<string, string> = Record<string, never>>(
-  handler: (request: Request, context: { params: P }) => Promise<Response>,
+  handler: (request: Request, context: { params: P; timing: RequestTiming }) => Promise<Response>,
+  operation?: RequestOperation,
 ) {
   return async (request: Request, context: { params: Promise<P> }) => {
+    const started = performance.now();
+    const timing: RequestTiming = { phases: {} };
+    let response: Response;
     try {
       const params = await context.params;
-      const response = await handler(request, { params });
-      return applyCors(request, response);
+      response = await handler(request, { params, timing });
     } catch (error) {
-      return applyCors(request, errorResponse(error));
+      response = errorResponse(error);
     }
+    if (operation) {
+      const parsedTrace = requestTraceIdSchema.safeParse(request.headers.get("x-fitfight-trace-id"));
+      const traceId = parsedTrace.success ? parsedTrace.data : randomUUID();
+      const durations = { ...timing.phases, total: performance.now() - started };
+      response.headers.set("X-FitFight-Trace-ID", traceId);
+      response.headers.set("Server-Timing", Object.entries(durations)
+        .map(([phase, duration]) => `${phase};dur=${duration.toFixed(1)}`).join(", "));
+      console.info("fitfight_request", JSON.stringify({
+        operation, trace_id: traceId, status: response.status,
+        durations_ms: Object.fromEntries(Object.entries(durations)
+          .map(([phase, duration]) => [phase, Math.round(duration * 10) / 10])),
+      }));
+    }
+    return applyCors(request, response);
   };
 }
 

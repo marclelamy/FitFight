@@ -69,15 +69,6 @@ struct FitFightApp: App {
                     guard !needsOnboarding, session.profile != nil else { return }
                     Task { await model.consumePendingJoinCode(session: session) }
                 }
-                .onChange(of: steps.status) { _, status in
-                    guard case .steps = status else { return }
-                    guard session.authSession != nil else { return }
-                    guard !model.isRefreshingFights else { return }
-                    Task {
-                        await steps.syncToBackend(session: session, trigger: .foreground)
-                        await model.refreshFromServer(session: session)
-                    }
-                }
                 .onChange(of: scenePhase) { _, phase in
                     guard phase == .active, session.authSession != nil else { return }
                     Task {

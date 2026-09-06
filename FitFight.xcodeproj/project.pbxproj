@@ -49,6 +49,7 @@
 		A10000000000000000000323 /* Localizable.xcstrings in Resources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000325 /* Localizable.xcstrings */; };
 		A10000000000000000000324 /* InfoPlist.xcstrings in Resources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000326 /* InfoPlist.xcstrings */; };
 		A1000000000000000000F002 /* Supabase in Frameworks */ = {isa = PBXBuildFile; productRef = A1000000000000000000F001 /* Supabase */; };
+		A10000000000000000000332 /* HealthKitSyncTrace.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000331 /* HealthKitSyncTrace.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -98,6 +99,7 @@
 		A10000000000000000000321 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 		A10000000000000000000325 /* Localizable.xcstrings */ = {isa = PBXFileReference; lastKnownFileType = text.json.xcstrings; path = Localizable.xcstrings; sourceTree = "<group>"; };
 		A10000000000000000000326 /* InfoPlist.xcstrings */ = {isa = PBXFileReference; lastKnownFileType = text.json.xcstrings; path = InfoPlist.xcstrings; sourceTree = "<group>"; };
+		A10000000000000000000331 /* HealthKitSyncTrace.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HealthKitSyncTrace.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -133,6 +135,7 @@
 				A1000000000000000000030B /* OnboardingView.swift */,
 				A10000000000000000000304 /* HealthKitStepsStore.swift */,
 				A1000000000000000000030C /* HealthKitStepAggregates.swift */,
+				A10000000000000000000331 /* HealthKitSyncTrace.swift */,
 				A1000000000000000000030D /* HealthKitUploadState.swift */,
 				A1000000000000000000030E /* HealthKitTUSUploader.swift */,
 				A10000000000000000000013 /* AppVersion.swift */,
@@ -306,6 +309,7 @@
 				A1000000000000000000031B /* OnboardingView.swift in Sources */,
 				A10000000000000000000314 /* HealthKitStepsStore.swift in Sources */,
 				A1000000000000000000031C /* HealthKitStepAggregates.swift in Sources */,
+				A10000000000000000000332 /* HealthKitSyncTrace.swift in Sources */,
 				A1000000000000000000031D /* HealthKitUploadState.swift in Sources */,
 				A1000000000000000000031E /* HealthKitTUSUploader.swift in Sources */,
 				A1000000000000000000031F /* TestFlightUpdateChecker.swift in Sources */,
