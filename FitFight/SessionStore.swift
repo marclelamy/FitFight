@@ -7,6 +7,7 @@ struct FitFightProfile: Codable, Equatable {
     let handle: String
     let displayName: String
     let handleSetAt: String?
+    var referralCode: UUID?
 
     var atHandle: String { "@\(handle)" }
 
@@ -30,6 +31,7 @@ struct FitFightProfile: Codable, Equatable {
         case handle
         case displayName = "display_name"
         case handleSetAt = "handle_set_at"
+        case referralCode = "referral_code"
     }
 }
 
@@ -299,7 +301,7 @@ final class SessionStore: ObservableObject {
         for attempt in 0..<3 {
             do {
                 let row: FitFightProfile? = try await client.from("profiles")
-                    .select("user_id, handle, display_name, handle_set_at")
+                    .select("user_id, handle, display_name, handle_set_at, referral_code")
                     .eq("user_id", value: userId)
                     .maybeSingle()
                     .execute()

@@ -57,17 +57,20 @@ struct FitFightApp: App {
                     #endif
                 }
                 .task(id: session.authSession?.user.id) {
+                    model.pendingReferralError = nil
                     steps.activate(userId: session.authSession?.user.id)
                     model.restoreCachedFights(session: session)
                     await model.refreshFights(session: session, steps: steps)
-                    await model.consumePendingJoinCode(session: session)
+                }
+                .task(id: session.profile?.userId) {
+                    await model.consumePendingLinks(session: session)
                 }
                 .onOpenURL { url in
                     Task { await model.handleOpenURL(url, session: session) }
                 }
                 .onChange(of: session.needsOnboarding) { _, needsOnboarding in
                     guard !needsOnboarding, session.profile != nil else { return }
-                    Task { await model.consumePendingJoinCode(session: session) }
+                    Task { await model.consumePendingLinks(session: session) }
                 }
                 .onChange(of: scenePhase) { _, phase in
                     guard phase == .active, session.authSession != nil else { return }

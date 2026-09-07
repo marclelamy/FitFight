@@ -28,7 +28,8 @@ enum APIConfig {
         return URL(string: root) ?? URL(string: "https://fitfight.app")!
     }
 
-    static func joinShareURL(code: String) -> URL {
+    static func joinShareURL(code: String, referralCode: UUID) -> URL {
         publicOrigin.appendingPathComponent("j").appendingPathComponent(code)
+            .appending(queryItems: [URLQueryItem(name: "ref", value: referralCode.uuidString.lowercased())])
     }
 }

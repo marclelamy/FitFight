@@ -24,7 +24,7 @@ export default function PrivacyPage() {
       <article className="legal-content">
         <p className="eyebrow">YOUR DATA, IN PLAIN LANGUAGE</p>
         <h1>Privacy Policy</h1>
-        <p className="legal-updated">Effective 5 September 2026</p>
+        <p className="legal-updated">Effective 7 September 2026</p>
         <p className="legal-intro">
           FitFight lets named participants compete on who records the most Steps during
           a private Fight. This policy explains the data used by the FitFight iPhone app
@@ -40,6 +40,12 @@ export default function PrivacyPage() {
               supplies it, the FitFight username you choose, and an encrypted server-only
               Apple credential used to disconnect Sign in with Apple when you delete your
               account.
+            </li>
+            <li>
+              <strong>Referrals:</strong> a random sharing code and the accounts of the
+              person referring and the person referred, with the time the referral was
+              recorded. We use this to understand who brings friends to FitFight. These
+              relationships stay private and are removed when either account is deleted.
             </li>
             <li>
               <strong>Fight data:</strong> the usernames invited to a Fight, its title,

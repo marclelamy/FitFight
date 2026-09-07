@@ -27,6 +27,13 @@ You still do **not** paste `sb_secret_...` anywhere.
 
 ## Before this branch ships
 
+The 7 Sep referral changes require the referral migration, `POST /api/v1/referrals`,
+and updated Universal Link association before the native build. You → Settings →
+Refer a friend shares `/r/{profile-referral-code}`; fight links include `?ref={code}`.
+Uninstalled iPhone users go to TestFlight after five seconds. They must reopen the
+original message link after installing; sign-in and username setup then resume the
+referral and challenge. Workspace checks do not replace cloud CI or two-phone testing.
+
 The 5 Sep performance changes require the timing-history migration and the backend's new `POST /api/v1/fights/refresh` before the native build. Fights now load through one API request; aggregate uploads and finalization batch their database writes. Private timing attempts distinguish HealthKit, authentication, upload and final refresh time. Workspace checks are not a deployed TestFlight build; cloud iOS/PostgreSQL validation and staging measurement remain required.
 
 Apple Health synchronization requires `FITFIGHT_API_URL=https://staging.fitfight.app` plus Vercel's server-only Supabase URL/secret and pooled `DATABASE_URL`. Fresh Apple sign-in and automatic revocation also require the Vercel Sign in with Apple Team/key/private-key/client-ID values and stable token-encryption key. Configure those first; otherwise sign-in fails visibly. Do not expose schema `private`.

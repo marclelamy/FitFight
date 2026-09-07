@@ -113,11 +113,6 @@ struct Fight: Codable, Identifiable, Hashable {
         return stored
     }
 
-    var shareURL: URL? {
-        guard let joinCode, !joinCode.isEmpty else { return nil }
-        return APIConfig.joinShareURL(code: joinCode)
-    }
-
     var durationLabel: String {
         let hours = max(1, Int((windowEnd.timeIntervalSince(windowStart) / 3_600).rounded()))
         return localizedDuration(hours: hours, days: lengthDays)
@@ -159,6 +154,7 @@ final class AppModel: ObservableObject {
     @Published var joined: Set<String> = []
     @Published var createError: String?
     @Published var pendingJoinable: Fight?
+    @Published var pendingReferralError: String?
     @Published private(set) var isCreatingFight = false
     @Published private(set) var isRefreshingFights = false
 
@@ -171,6 +167,8 @@ final class AppModel: ObservableObject {
     private var cachedUserID: UUID?
     private var activeRefresh: (id: UUID, userID: UUID?)?
     private static let pendingJoinCodeKey = "fitfight.pendingJoinCode"
+    private static let pendingReferralCodeKey = "fitfight.pendingReferralCode"
+    private static let pendingReferralUserKey = "fitfight.pendingReferralUser"
 
     private static var fightsCachePrefix: String {
         "fitfight.fights.\(Bundle.main.preferredLocalizations.first ?? "en")."
@@ -561,32 +559,81 @@ final class AppModel: ObservableObject {
             createError = String(localized: "Enter the 4-character code.")
             return
         }
-        if let stored = UserDefaults.standard.string(forKey: Self.pendingJoinCodeKey), stored == code {
-            UserDefaults.standard.removeObject(forKey: Self.pendingJoinCodeKey)
-        }
-        guard let access = session.authSession?.accessToken, api.isConfigured else {
+        guard let userID = session.authSession?.user.id,
+              let access = session.authSession?.accessToken, api.isConfigured,
+              session.profile != nil, !session.needsOnboarding else {
             UserDefaults.standard.set(code, forKey: Self.pendingJoinCodeKey)
             createError = String(localized: "Sign in to join this fight.")
             return
         }
         do {
             let summary = try await api.joinableFight(code: code, accessToken: access)
+            guard session.authSession?.user.id == userID else { return }
+            if UserDefaults.standard.string(forKey: Self.pendingJoinCodeKey) == code {
+                UserDefaults.standard.removeObject(forKey: Self.pendingJoinCodeKey)
+            }
             await openJoinable(summary, session: session)
         } catch {
+            guard session.authSession?.user.id == userID else { return }
             createError = (error as? FitFightAPIError)?.errorDescription
                 ?? String(localized: "Couldn’t find that fight.")
         }
     }
 
     func handleOpenURL(_ url: URL, session: SessionStore) async {
-        guard let code = Self.joinCode(from: url) else { return }
-        await openJoinCode(code, session: session)
+        guard url.scheme == "https", url.host == APIConfig.publicOrigin.host,
+              url.user == nil, url.password == nil, url.port == nil || url.port == 443 else { return }
+        let parts = url.path.split(separator: "/")
+        guard parts.count == 2 else { return }
+        let referral: UUID?
+        if parts[0] == "r", let code = UUID(uuidString: String(parts[1])) {
+            referral = code
+        } else if let code = Self.joinCode(from: url) {
+            UserDefaults.standard.set(code, forKey: Self.pendingJoinCodeKey)
+            let items = URLComponents(url: url, resolvingAgainstBaseURL: false)?.queryItems ?? []
+            referral = items.first(where: { $0.name == "ref" })
+                .flatMap { $0.value }.flatMap { UUID(uuidString: $0) }
+        } else {
+            return
+        }
+        if let referral {
+            UserDefaults.standard.set(referral.uuidString, forKey: Self.pendingReferralCodeKey)
+            UserDefaults.standard.set(session.authSession?.user.id.uuidString, forKey: Self.pendingReferralUserKey)
+        }
+        await consumePendingLinks(session: session)
     }
 
-    func consumePendingJoinCode(session: SessionStore) async {
-        guard !session.needsOnboarding, session.profile != nil else { return }
-        guard let code = UserDefaults.standard.string(forKey: Self.pendingJoinCodeKey) else { return }
-        await openJoinCode(code, session: session)
+    func consumePendingLinks(session: SessionStore) async {
+        guard !session.needsOnboarding, let profile = session.profile,
+              session.authSession?.user.id == profile.userId else { return }
+        if let code = UserDefaults.standard.string(forKey: Self.pendingJoinCodeKey) {
+            await openJoinCode(code, session: session)
+            guard session.authSession?.user.id == profile.userId else { return }
+            if createError != nil { tab = .newFight }
+        }
+        guard let raw = UserDefaults.standard.string(forKey: Self.pendingReferralCodeKey),
+              let code = UUID(uuidString: raw) else { return }
+        if let owner = UserDefaults.standard.string(forKey: Self.pendingReferralUserKey),
+           owner != profile.userId.uuidString {
+            UserDefaults.standard.removeObject(forKey: Self.pendingReferralCodeKey)
+            UserDefaults.standard.removeObject(forKey: Self.pendingReferralUserKey)
+            return
+        }
+        UserDefaults.standard.set(profile.userId.uuidString, forKey: Self.pendingReferralUserKey)
+        pendingReferralError = nil
+        do {
+            let access = try await session.freshAccessToken()
+            guard session.authSession?.user.id == profile.userId else { return }
+            _ = try await api.claimReferral(code: code, accessToken: access)
+            guard session.authSession?.user.id == profile.userId else { return }
+            if UserDefaults.standard.string(forKey: Self.pendingReferralCodeKey) == raw {
+                UserDefaults.standard.removeObject(forKey: Self.pendingReferralCodeKey)
+                UserDefaults.standard.removeObject(forKey: Self.pendingReferralUserKey)
+            }
+        } catch {
+            guard session.authSession?.user.id == profile.userId else { return }
+            pendingReferralError = String(localized: "Your referral hasn’t been saved yet. Check your connection and try again.")
+        }
     }
 
     private func joinPendingFight(_ fight: Fight, start: String = "now") async {
@@ -632,10 +679,10 @@ final class AppModel: ObservableObject {
 
     static func joinCode(from url: URL) -> String? {
         let parts = url.path.split(separator: "/").map(String.init)
-        guard let index = parts.firstIndex(of: "j"), parts.indices.contains(index + 1) else {
+        guard parts.count == 2, parts[0] == "j" else {
             return nil
         }
-        let code = parts[index + 1]
+        let code = parts[1]
             .replacingOccurrences(of: "-", with: "")
             .uppercased()
         let alphabet = CharacterSet(charactersIn: "23456789ABCDEFGHJKMNPQRSTVWXYZ")

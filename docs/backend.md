@@ -7,6 +7,15 @@ Production Metric is **Steps**. Phone vs server status: [`status.md`](status.md)
 Hosted production (no secrets): https://pvqntpteehdvhqyctwum.supabase.co  
 Hosted staging / git `develop` (no secrets): https://zstzbfocunthczzubggz.supabase.co
 
+## Friend referrals (pending deployment)
+
+Profiles carry a stable, read-only `referral_code`; there is no link-generation endpoint.
+Authenticated `POST /api/v1/referrals` accepts `{ code }` and records the first referrer
+in `private.referrals`. Self-referrals and duplicates do nothing. Relationships use
+account IDs and cascade on deletion of either account. This counts attributed accounts,
+including existing accounts, not clicks or installs. Deploy the referral migration and
+backend before the native build. See the install handoff in [`status.md`](status.md).
+
 ## Loop
 
 A cloud agent writes SQL in `supabase/migrations` and tests in `supabase/tests`, then opens a PR **into `develop`**. Marc merges that. The persistent Supabase branch `develop` picks it up. Production only changes when Marc merges `develop` → `main`. Agents do not get the database password or `sb_secret_...` key, and they do not merge unless Marc asked.

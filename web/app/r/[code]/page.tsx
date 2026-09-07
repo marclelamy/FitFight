@@ -2,18 +2,17 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { InviteDownload } from "@/components/testflight-invite";
-import { isJoinCode, normalizeJoinCode } from "@/lib/domain/fights/join-code";
+import { referralCodeSchema } from "@/lib/types/referrals/referral";
 
 export const metadata: Metadata = {
-  title: "Join a fight | FitFight",
-  description: "Open this fight in FitFight, or install the app to join your friend.",
+  title: "Your friend invited you | FitFight",
+  description: "Join your friend on FitFight and challenge each other to walk more.",
   robots: { index: false, follow: false },
 };
 
-export default async function JoinPage({ params }: { params: Promise<{ code: string }> }) {
-  const { code } = await params;
-  const display = normalizeJoinCode(code);
-  if (!isJoinCode(display)) notFound();
+export default async function ReferralPage({ params }: { params: Promise<{ code: string }> }) {
+  const parsed = referralCodeSchema.safeParse((await params).code);
+  if (!parsed.success) notFound();
 
   return (
     <main className="legal-page">
@@ -24,11 +23,11 @@ export default async function JoinPage({ params }: { params: Promise<{ code: str
         </Link>
       </header>
       <article className="legal-content">
-        <p className="eyebrow">JOIN A FIGHT</p>
-        <h1>Open this fight in FitFight</h1>
+        <p className="eyebrow">INVITED BY A FRIEND</p>
+        <h1>Walk more. Together.</h1>
         <p className="legal-intro">
-          Code <strong>{display}</strong>. Your friend shared a Steps challenge.
-          Open the link in FitFight to review it and join. Scores stay in the app.
+          Your friend invited you to FitFight. Challenge each other to walk more,
+          compare Steps, and make every day count.
         </p>
         <InviteDownload />
       </article>

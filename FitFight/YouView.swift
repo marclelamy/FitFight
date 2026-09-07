@@ -61,7 +61,7 @@ struct YouView: View {
             }
             Button("Cancel", role: .cancel) {}
         } message: {
-            Text("This permanently deletes your profile, uploaded Steps, invitations, fights you created, and bugs or requests you posted; removes you from other fights; and signs you out. This can’t be undone.")
+            Text("This permanently deletes your profile, uploaded Steps, referrals, invitations, fights you created, and bugs or requests you posted; removes you from other fights; and signs you out. This can’t be undone.")
         }
     }
 
@@ -200,6 +200,13 @@ struct YouView: View {
 
     private var settings: some View {
         FFGroupedRows {
+            if let code = session.profile?.referralCode {
+                ShareLink(item: APIConfig.publicOrigin.appending(path: "r/\(code.uuidString.lowercased())")) {
+                    rowLabel(title: String(localized: "Refer a friend"), destructive: false)
+                }
+                .buttonStyle(.plain)
+                FFDivider()
+            }
             linkRow(String(localized: "Privacy"), destination: sitePage("privacy"))
             FFDivider()
             linkRow(String(localized: "Support"), destination: sitePage("support"))

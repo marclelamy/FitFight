@@ -334,6 +334,14 @@ struct FitFightCreateFeedback: Encodable, Equatable {
     var body: String
 }
 
+struct FitFightReferralLink: Encodable {
+    let code: UUID
+}
+
+struct FitFightReferralClaim: Decodable {
+    let recorded: Bool
+}
+
 struct FitFightAPI {
     var baseURL: URL?
 
@@ -349,6 +357,15 @@ struct FitFightAPI {
             .trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
         guard !raw.isEmpty else { return nil }
         return URL(string: raw)
+    }
+
+    func claimReferral(code: UUID, accessToken: String) async throws -> FitFightReferralClaim {
+        try await post(
+            path: "referrals",
+            accessToken: accessToken,
+            body: FitFightReferralLink(code: code),
+            expected: [200]
+        )
     }
 
     func connectAppleHealth(accessToken: String) async throws -> FitFightDataSource {
