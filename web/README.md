@@ -14,6 +14,8 @@ iOS command API only. No marketing pages. Node.js runtime, never Edge.
 | `SUPABASE_SECRET_KEY` | develop secret key | production secret key |
 | `DATABASE_URL` | develop transaction-pooler URL | production transaction-pooler URL |
 | `FITFIGHT_APP_URL` | staging site origin (optional) | production site origin (optional) |
+| `NEXT_PUBLIC_IOS_APP_STORE_URL` | leave empty (TestFlight) | App Store listing URL when it exists |
+| `NEXT_PUBLIC_IOS_APP_STORE_ID` | leave empty | numeric App Store ID for the install banner |
 | `APPLE_SIGN_IN_TEAM_ID` | Apple developer Team ID | same Team ID |
 | `APPLE_SIGN_IN_KEY_ID` | Sign in with Apple key ID | same key ID |
 | `APPLE_SIGN_IN_PRIVATE_KEY` | Sign in with Apple `.p8` contents | same key, or its production replacement |

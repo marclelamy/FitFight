@@ -1,6 +1,25 @@
-import { TestflightInvite } from "@/components/testflight-invite";
+import { headers } from "next/headers";
 
-export default function HomePage() {
+import { TestflightInvite } from "@/components/testflight-invite";
+import { iosInstall } from "@/lib/domain/app/ios-install";
+
+export default async function HomePage() {
+  const headerList = await headers();
+  const install = iosInstall(headerList.get("x-forwarded-host") ?? headerList.get("host") ?? "");
+  let platformNote: string;
+  switch (install.channel) {
+    case "testflight":
+      platformNote = "iPhone · Install with TestFlight · Apple Health";
+      break;
+    case "appStore":
+      platformNote = "iPhone · App Store · Apple Health";
+      break;
+    default: {
+      const _exhaustive: never = install.channel;
+      return _exhaustive;
+    }
+  }
+
   return (
     <main>
       <header className="site-header">
@@ -8,7 +27,7 @@ export default function HomePage() {
           <span className="brand-mark">FF</span>
           <span>FitFight</span>
         </a>
-        <TestflightInvite label="Get the app" kind="header" />
+        <TestflightInvite label="Get the app" kind="header" install={install} />
       </header>
 
       <section className="hero" id="top">
@@ -23,12 +42,12 @@ export default function HomePage() {
             see who records the most steps.
           </p>
           <div className="hero-actions">
-            <TestflightInvite label="Get the app" kind="hero" />
+            <TestflightInvite label="Get the app" kind="hero" install={install} />
             <a className="text-action" href="#how-it-works">
               See how it works <span aria-hidden="true">↓</span>
             </a>
           </div>
-          <p className="platform-note">iPhone · Install with TestFlight · Apple Health</p>
+          <p className="platform-note">{platformNote}</p>
         </div>
 
         <div className="fight-stage" aria-label="Example FitFight leaderboard">

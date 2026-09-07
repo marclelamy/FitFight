@@ -604,6 +604,27 @@ footer .brand-mark {
   line-height: 1.65;
 }
 
+.join-page .legal-content h1 {
+  font-size: clamp(36px, 7vw, 52px);
+}
+
+.join-code {
+  margin: 22px 0 0;
+  color: var(--text);
+  font-size: clamp(36px, 8vw, 56px);
+  font-weight: 800;
+  letter-spacing: 0.18em;
+  line-height: 1;
+}
+
+.join-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 16px 22px;
+  margin-top: 28px;
+}
+
 .legal-content section {
   padding-top: 34px;
   margin-top: 34px;

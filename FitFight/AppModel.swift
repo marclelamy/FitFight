@@ -630,10 +630,16 @@ final class AppModel: ObservableObject {
 
     static func joinCode(from url: URL) -> String? {
         let parts = url.path.split(separator: "/").map(String.init)
-        guard let index = parts.firstIndex(of: "j"), parts.indices.contains(index + 1) else {
+        let raw: String?
+        if url.scheme?.lowercased() == "fitfight", url.host?.lowercased() == "j" {
+            raw = parts.first
+        } else if let index = parts.firstIndex(of: "j"), parts.indices.contains(index + 1) {
+            raw = parts[index + 1]
+        } else {
             return nil
         }
-        let code = parts[index + 1]
+        guard let raw else { return nil }
+        let code = raw
             .replacingOccurrences(of: "-", with: "")
             .uppercased()
         let alphabet = CharacterSet(charactersIn: "23456789ABCDEFGHJKMNPQRSTVWXYZ")

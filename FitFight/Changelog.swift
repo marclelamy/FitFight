@@ -28,6 +28,13 @@ enum Changelog {
             version: "1.0.0",
             year: 2026,
             month: 9,
+            day: 7,
+            notes: "A shared fight link can open FitFight after you install it, so you can join without retyping the code."
+        ),
+        ReleaseNote(
+            version: "1.0.0",
+            year: 2026,
+            month: 9,
             day: 6,
             notes: "A tap anywhere on a Bugs & requests card opens it, not only the title."
         ),
