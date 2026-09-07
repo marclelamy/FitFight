@@ -99,6 +99,7 @@
 		A10000000000000000000321 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 		A10000000000000000000325 /* Localizable.xcstrings */ = {isa = PBXFileReference; lastKnownFileType = text.json.xcstrings; path = Localizable.xcstrings; sourceTree = "<group>"; };
 		A10000000000000000000326 /* InfoPlist.xcstrings */ = {isa = PBXFileReference; lastKnownFileType = text.json.xcstrings; path = InfoPlist.xcstrings; sourceTree = "<group>"; };
+		A10000000000000000000327 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		A10000000000000000000331 /* HealthKitSyncTrace.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HealthKitSyncTrace.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -144,6 +145,7 @@
 				A10000000000000000000016 /* VersionsView.swift */,
 				A10000000000000000000022 /* ScreenshotExport.swift */,
 				A10000000000000000000320 /* FitFight.entitlements */,
+				A10000000000000000000327 /* Info.plist */,
 				A10000000000000000000321 /* PrivacyInfo.xcprivacy */,
 				A10000000000000000000325 /* Localizable.xcstrings */,
 				A10000000000000000000326 /* InfoPlist.xcstrings */,
@@ -453,6 +455,7 @@
 				DEVELOPMENT_TEAM = C92DPD8ME2;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = FitFight/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = FitFight;
 				INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO;
 				INFOPLIST_KEY_LSApplicationCategoryType = public.app-category.sports;
@@ -490,6 +493,7 @@
 				DEVELOPMENT_TEAM = C92DPD8ME2;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = FitFight/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = FitFight;
 				INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO;
 				INFOPLIST_KEY_LSApplicationCategoryType = public.app-category.sports;
