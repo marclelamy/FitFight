@@ -2,6 +2,7 @@
   "sourceLanguage" : "en",
   "strings" : {
     "On a repeating fight, after the start day you can join this round or wait for the next one. People waiting for the next round show up on the fight without counting in this round’s standings." : {"localizations":{"fr":{"stringUnit":{"state":"translated","value":"Sur un défi répétitif, après le jour de début, vous pouvez rejoindre ce tour ou attendre le suivant. Les personnes qui attendent le prochain tour apparaissent dans le défi sans compter dans le classement de ce tour."}}}},
+    "A tap anywhere on a Bugs & requests card opens it, not only the title." : {"localizations":{"fr":{"stringUnit":{"state":"translated","value":"Toucher n’importe où sur une carte Bugs et demandes l’ouvre, pas seulement le titre."}}}},
     "Create and Join on New now use the same gray captions, and they no longer mention codes or inviting people." : {"localizations":{"fr":{"stringUnit":{"state":"translated","value":"Créer et Rejoindre dans Nouveau utilisent maintenant les mêmes légendes grises, et ne parlent plus des codes ni des invitations."}}}},
     "Sync error reference" : {"localizations":{"fr":{"stringUnit":{"state":"translated","value":"Référence de l’erreur de synchronisation"}}}},
     "Apple Health sync failures now include an error reference on You and diagnostic details to help investigate." : {"localizations":{"fr":{"stringUnit":{"state":"translated","value":"Les échecs de synchronisation avec Santé affichent désormais une référence d’erreur dans You et des détails de diagnostic pour faciliter l’enquête."}}}},
