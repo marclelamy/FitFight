@@ -15,7 +15,7 @@ Not: agent on Marc’s laptop or home Mac → local Xcode.
 | --- | --- | --- | --- |
 | Simulator | `.github/workflows/ios-build.yml` | PR + push to `main` or `develop` | `macos-26` |
 | Screenshots | `.github/workflows/ios-screenshots.yml` | PR + push to `main` or `develop` | `macos-26` |
-| TestFlight | `.github/workflows/ios-testflight.yml` | any non-`main` app push, plus a daily `develop` build at `0 18 * * *` UTC | `macos-26` |
+| TestFlight | `.github/workflows/ios-testflight.yml` | push to `develop` (app/fastlane paths), plus optional `workflow_dispatch`. No cron. Feature branches do not upload. | `macos-26` |
 | App Store candidate | `.github/workflows/ios-app-store.yml` | app push to `main`; uploads only and never submits for review | `macos-26` |
 | Database | `.github/workflows/database.yml` | PR + push to `main` or `develop` | `ubuntu-latest` |
 | Delete merged branch | `.github/workflows/delete-merged-branch.yml` | PR merged | `ubuntu-latest` |
@@ -133,6 +133,6 @@ After a feature PR merges, CI deletes that branch. `main`, `develop`, and `testf
 
 ## After you push app changes
 
-A non-`main` push starts TestFlight. Tell Marc: wait for the TestFlight notification, then **Update**. Processing often takes ~10–20 minutes; external testers may also wait for beta review. Check the workflow result before promising a build: upload or review limits can prevent distribution. Do not ask him to merge first or Run workflow.
+A push to `develop` that touches the app or Fastlane starts TestFlight. Feature-branch pushes do not. Tell Marc only after that `develop` upload: wait for the TestFlight notification, then **Update**. Processing often takes ~10–20 minutes; external testers may also wait for beta review. Check the workflow result before promising a build: upload or review limits can prevent distribution. Do not ask him to Run workflow.
 
 Staging TestFlight binaries also check a public latest-build pointer on launch and show an opaque notice under the version line when a newer build has been uploaded. Apple still needs the 10–20 minutes to process it. Production App Store builds do not show this notice.

@@ -13,7 +13,7 @@ There are two **git** branches and two **hosted databases**. They line up.
 | | Testing | Real users / App Store |
 |---|---|---|
 | GitHub | `develop` | `main` |
-| TestFlight | any push that is **not** `main`, plus the daily scheduled `develop` build | never; `main` does not upload to TestFlight |
+| TestFlight | push/merge to `develop` only (optional manual `workflow_dispatch`; no daily cron) | never; `main` does not upload to TestFlight |
 | Supabase | develop project (`zstzbf…`, version line says `staging`) | production (`pvqn…`, version line says `prod`) |
 | What you do | Merge PRs **into `develop`**. Try the app. | Merge `develop` → `main` only when Marc says ship |
 
