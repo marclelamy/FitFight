@@ -22,6 +22,10 @@ struct YouView: View {
                 health
             }
 
+            FFSection(title: String(localized: "Bugs & requests")) {
+                requests
+            }
+
             FFSection(title: String(localized: "Settings")) {
                 settings
             }
@@ -177,12 +181,25 @@ struct YouView: View {
         return date.formatted(.relative(presentation: .named))
     }
 
+    private var requests: some View {
+        FFGroupedRows {
+            FFGroupedRow(
+                title: String(localized: "Bugs & requests"),
+                subtitle: String(localized: "Post a bug or a feature request. Other people can upvote and comment with their username."),
+                systemImage: "bubble.left.and.bubble.right",
+                trailing: AnyView(
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 12, weight: .bold))
+                        .foregroundStyle(theme.textFaint)
+                ),
+                action: { model.showingRequests = true }
+            )
+            .disabled(session.isBusy)
+        }
+    }
+
     private var settings: some View {
         FFGroupedRows {
-            navRow(String(localized: "Bugs & requests")) {
-                model.showingRequests = true
-            }
-            FFDivider()
             linkRow(String(localized: "Privacy"), destination: sitePage("privacy"))
             FFDivider()
             linkRow(String(localized: "Support"), destination: sitePage("support"))
