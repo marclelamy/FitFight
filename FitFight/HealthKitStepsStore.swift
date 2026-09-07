@@ -1,6 +1,7 @@
 import Combine
 import Foundation
 import HealthKit
+import OSLog
 import UIKit
 
 @MainActor
@@ -28,6 +29,7 @@ final class HealthKitStepsStore: ObservableObject {
         var lastManualSync: Date?
         var lastTrigger: SyncTrigger?
         var errorCode: SyncErrorCode?
+        var failureReference: String?
 
         @MainActor static var current: Diagnostics {
             Diagnostics(
@@ -59,6 +61,7 @@ final class HealthKitStepsStore: ObservableObject {
     private static let pendingLocalDeletionKey = "ff.healthkit.pendingLocalDeletion"
     private static let pendingSyncKey = "ff.healthkit.pendingSync"
     private static let diagnosticsPrefix = "ff.healthkit.diagnostics."
+    private static let logger = Logger(subsystem: "com.fitfight.mvp", category: "HealthKitDiagnostics")
 
     var hasAsked: Bool {
         guard let activeUserId else { return false }
@@ -81,9 +84,11 @@ final class HealthKitStepsStore: ObservableObject {
     var metaText: String {
         switch status {
         case .steps(let count):
+            // NOTE: The catalog string uses %lld and pluralizes on the integer.
+            // `format: .number` passes a FormatStyle value, so %lld printed garbage.
             return String(
                 localized: "health.steps-today",
-                defaultValue: "\(count, format: .number) steps today"
+                defaultValue: "\(count) steps today"
             )
         default:
             return ""
@@ -132,8 +137,9 @@ final class HealthKitStepsStore: ObservableObject {
         if observerQuery == nil {
             let query = HKObserverQuery(sampleType: stepsType, predicate: nil) { [weak self] _, completion, _ in
                 let gate = ObserverCompletion(completion)
-                let operation = Task { @MainActor [weak self] in
+                Task { @MainActor [weak self] in
                     guard let self else { gate.finish(); return }
+                    let trace = HealthKitSyncTrace(trigger: .observer)
                     UserDefaults.standard.set(true, forKey: Self.pendingSyncKey)
                     self.updateDiagnostics {
                         $0.lastObserverWake = Date()
@@ -141,29 +147,37 @@ final class HealthKitStepsStore: ObservableObject {
                     }
                     guard UIApplication.shared.isProtectedDataAvailable else {
                         self.updateDiagnostics { $0.errorCode = .protectedDataUnavailable }
+                        trace.fail(.protectedDataUnavailable)
+                        _ = trace.finish()
                         gate.finish()
                         return
                     }
-                    guard self.hasAsked else {
-                        gate.finish()
-                        return
-                    }
+                    guard self.hasAsked else { _ = trace.finish(); gate.finish(); return }
                     guard let session = self.session,
                           session.authSession != nil || session.client.auth.currentUser != nil else {
                         self.updateDiagnostics { $0.errorCode = .authenticationUnavailable }
+                        trace.fail(.authenticationUnavailable)
+                        _ = trace.finish()
                         gate.finish()
                         return
                     }
-                    _ = await self.syncToBackend(session: session, trigger: .observer)
-                    gate.finish()
-                }
-                Task { @MainActor [weak self] in
-                    do { try await Task.sleep(for: .seconds(25)) } catch { return }
-                    guard !gate.isFinished else { return }
-                    operation.cancel()
-                    UserDefaults.standard.set(true, forKey: Self.pendingSyncKey)
-                    self?.updateDiagnostics { $0.errorCode = .attemptExpired }
-                    gate.finish()
+                    let userID = self.activeUserId
+                    let operation = Task { @MainActor in
+                        _ = await self.syncToBackend(session: session, trigger: .observer, trace: trace)
+                        self.completeAttempt(trace, session: session, userID: userID)
+                        gate.finish()
+                    }
+                    Task { @MainActor in
+                        do { try await Task.sleep(for: .seconds(25)) } catch { return }
+                        guard !gate.isFinished else { return }
+                        operation.cancel()
+                        if self.activeUserId == userID {
+                            UserDefaults.standard.set(true, forKey: Self.pendingSyncKey)
+                            self.updateDiagnostics { $0.errorCode = .attemptExpired }
+                        }
+                        self.completeAttempt(trace, session: session, userID: userID, cancelled: true)
+                        gate.finish()
+                    }
                 }
             }
             observerQuery = query
@@ -236,18 +250,27 @@ final class HealthKitStepsStore: ObservableObject {
         return true
     }
 
-    func refresh(requestAccess: Bool) async {
+    func refresh(requestAccess: Bool, trace: HealthKitSyncTrace) async {
+        let userID = activeUserId
         refreshBackgroundStatus()
         guard HKHealthStore.isHealthDataAvailable(),
               let stepsType = HKQuantityType.quantityType(forIdentifier: .stepCount)
         else {
             updateDiagnostics { $0.errorCode = .healthKitUnavailable }
+            trace.fail(.healthKitUnavailable)
             if requestAccess || hasAsked { status = .empty }
             return
         }
         if requestAccess {
-            do { try await store.requestAuthorization(toShare: [], read: [stepsType]) }
-            catch { status = .empty }
+            do {
+                try await trace.measure(.authorization) {
+                    try await store.requestAuthorization(toShare: [], read: [stepsType])
+                }
+            } catch {
+                trace.fail(Self.errorCode(for: error))
+                if activeUserId == userID { status = .empty }
+            }
+            guard activeUserId == userID else { trace.fail(.attemptExpired); return }
             if let activeUserId {
                 UserDefaults.standard.set(true, forKey: Self.askedKey(userId: activeUserId))
             }
@@ -256,18 +279,25 @@ final class HealthKitStepsStore: ObservableObject {
         guard requestAccess || hasAsked else { return }
         status = .reading
         do {
-            if let count = try await Self.todayTotal(store: store, type: stepsType) {
+            try Task.checkCancellation()
+            let count = try await trace.measure(.todayTotal) {
+                try await Self.todayTotal(store: store, type: stepsType)
+            }
+            try Task.checkCancellation()
+            guard activeUserId == userID else { trace.fail(.attemptExpired); return }
+            if let count {
                 status = .steps(count: count)
             } else {
                 status = .empty
             }
         } catch {
-            status = .empty
+            trace.fail(Self.errorCode(for: error))
+            if activeUserId == userID { status = .empty }
         }
     }
 
     @discardableResult
-    func syncToBackend(session: SessionStore, trigger: SyncTrigger) async -> Bool {
+    func syncToBackend(session: SessionStore, trigger: SyncTrigger, trace: HealthKitSyncTrace) async -> Bool {
         guard hasAsked, api.isConfigured else {
             if trigger == .observer { updateDiagnostics { $0.errorCode = .authenticationUnavailable } }
             return false
@@ -275,6 +305,7 @@ final class HealthKitStepsStore: ObservableObject {
         guard !isSyncing else { return false }
         guard UIApplication.shared.isProtectedDataAvailable else {
             updateDiagnostics { $0.errorCode = .protectedDataUnavailable }
+            trace.fail(.protectedDataUnavailable)
             return false
         }
         guard HKHealthStore.isHealthDataAvailable(),
@@ -282,6 +313,7 @@ final class HealthKitStepsStore: ObservableObject {
               let userId = session.authSession?.user.id ?? session.client.auth.currentUser?.id
         else {
             updateDiagnostics { $0.errorCode = .healthKitUnavailable }
+            trace.fail(.healthKitUnavailable)
             return false
         }
 
@@ -290,29 +322,40 @@ final class HealthKitStepsStore: ObservableObject {
         updateDiagnostics { $0.lastSyncAttempt = Date(); $0.lastTrigger = trigger }
         defer { isSyncing = false }
         do {
-            await uploader.discardLegacy(userId: userId)
-            try HealthKitUploadState.discardLegacy(userId: userId)
-            let contextToken = try await session.freshAccessToken()
-            let context = try await api.healthKitUploadContext(accessToken: contextToken)
-            let sync = try await HealthKitStepAggregates.read(store: store, type: stepsType, context: context)
+            try await trace.measure(.localState) {
+                await uploader.discardLegacy(userId: userId)
+                try HealthKitUploadState.discardLegacy(userId: userId)
+            }
             try Task.checkCancellation()
-            let syncToken = try await session.freshAccessToken()
-            _ = try await api.syncHealthKitSteps(sync, accessToken: syncToken)
+            let contextToken = try await trace.measure(.session) { try await session.freshAccessToken() }
+            guard activeUserId == userId, session.authSession?.user.id == userId else { throw CancellationError() }
+            let context = try await api.healthKitUploadContext(accessToken: contextToken, trace: trace)
+            let sync = try await HealthKitStepAggregates.read(store: store, type: stepsType, context: context, trace: trace)
             try Task.checkCancellation()
+            let syncToken = try await trace.measure(.session) { try await session.freshAccessToken() }
+            guard activeUserId == userId, session.authSession?.user.id == userId else { throw CancellationError() }
+            _ = try await api.syncHealthKitSteps(sync, accessToken: syncToken, trace: trace)
+            try Task.checkCancellation()
+            guard activeUserId == userId else { throw CancellationError() }
             connection = .upToDate
             UserDefaults.standard.removeObject(forKey: Self.pendingSyncKey)
             updateDiagnostics {
                 if trigger == .observer { $0.lastAutomaticSync = Date() }
                 else { $0.lastManualSync = Date() }
                 $0.errorCode = nil
+                $0.failureReference = nil
             }
-            Task { await reportDiagnostics(session: session) }
             return true
         } catch {
-            connection = error is HealthKitStepAggregates.ReadError ? .noAccessibleSteps : .syncFailed
+            trace.fail(Self.errorCode(for: error))
+            guard activeUserId == userId else { return false }
+            if case HealthKitStepAggregates.ReadError.noAccessibleSteps = error {
+                connection = .noAccessibleSteps
+            } else {
+                connection = .syncFailed
+            }
             UserDefaults.standard.set(true, forKey: Self.pendingSyncKey)
             updateDiagnostics { $0.errorCode = Self.errorCode(for: error) }
-            Task { await reportDiagnostics(session: session) }
             return false
         }
     }
@@ -329,12 +372,45 @@ final class HealthKitStepsStore: ObservableObject {
         UserDefaults.standard.set(data, forKey: Self.diagnosticsKey(userId: activeUserId))
     }
 
-    private func reportDiagnostics(session: SessionStore) async {
-        guard api.isConfigured else { return }
+    func completeAttempt(
+        _ trace: HealthKitSyncTrace,
+        session: SessionStore,
+        userID: UUID?,
+        cancelled: Bool = false
+    ) {
+        guard let attempt = trace.finish(cancelled: cancelled || Task.isCancelled), let userID,
+              activeUserId == userID, session.authSession?.user.id == userID else { return }
+        if attempt.outcome != .succeeded {
+            let stage = attempt.stages.last(where: { $0.outcome != .succeeded })
+            let reference = [
+                String(attempt.attemptId.uuidString.prefix(8)).lowercased(),
+                stage?.stage.rawValue,
+                stage?.error?.reference ?? attempt.errorCode?.rawValue,
+            ].compactMap { $0 }.joined(separator: " · ")
+            updateDiagnostics {
+                $0.errorCode = attempt.errorCode ?? .syncFailed
+                $0.failureReference = reference
+            }
+        }
+        let snapshot = FitFightHealthKitDiagnosticSnapshot(diagnostics, attempts: [attempt])
+        Task { await reportDiagnostics(snapshot, session: session, userID: userID) }
+    }
+
+    private func reportDiagnostics(
+        _ snapshot: FitFightHealthKitDiagnosticSnapshot,
+        session: SessionStore,
+        userID: UUID
+    ) async {
+        guard api.isConfigured, activeUserId == userID, session.authSession?.user.id == userID else { return }
         do {
             let token = try await session.freshAccessToken()
-            _ = try await api.saveHealthKitDiagnostics(diagnostics, accessToken: token)
-        } catch { }
+            guard activeUserId == userID, session.authSession?.user.id == userID else { return }
+            _ = try await api.saveHealthKitDiagnostics(snapshot, accessToken: token)
+        } catch {
+            let failure = HealthKitSyncTrace.Failure(error)
+            let reference = snapshot.attempts.first?.attemptId.uuidString.lowercased() ?? "snapshot"
+            Self.logger.error("diagnostics_delivery_failed trace_id=\(reference, privacy: .public) error=\(failure.reference, privacy: .public)")
+        }
     }
 
     private static var backgroundRefreshStatus: BackgroundRefreshStatus {
@@ -346,7 +422,7 @@ final class HealthKitStepsStore: ObservableObject {
         }
     }
 
-    private static func errorCode(for error: Error) -> SyncErrorCode {
+    static func errorCode(for error: Error) -> SyncErrorCode {
         if error is CancellationError { return .attemptExpired }
         if let urlError = error as? URLError,
            [.notConnectedToInternet, .networkConnectionLost, .cannotConnectToHost,
@@ -366,8 +442,9 @@ final class HealthKitStepsStore: ObservableObject {
             predicate: .quantitySample(type: type, predicate: predicate), options: [.cumulativeSum]
         )
         guard let statistics = try await descriptor.result(for: store) else { return nil }
-        let steps = statistics.sumQuantity()?.doubleValue(for: .count()) ?? 0
-        return steps > 0 ? Int(steps.rounded()) : nil
+        guard let count = HealthKitStepAggregates.integerCount(from: statistics.sumQuantity()),
+              count > 0 else { return nil }
+        return count
     }
 
     private static func askedKey(userId: UUID) -> String {

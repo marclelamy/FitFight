@@ -25,7 +25,7 @@ export default function PrivacyPage() {
       <article className="legal-content">
         <p className="eyebrow">VOS DONNÉES, EN TOUTE CLARTÉ</p>
         <h1>Politique de confidentialité</h1>
-        <p className="legal-updated">En vigueur le 4 septembre 2026</p>
+        <p className="legal-updated">En vigueur le 5 septembre 2026</p>
         <p className="legal-intro">
           FitFight permet à des participants identifiés de comparer le nombre de pas
           enregistrés pendant un défi privé. Cette politique décrit les données utilisées
@@ -62,6 +62,10 @@ export default function PrivacyPage() {
               l’assistance et des journaux serveur limités, comme l’heure de la requête,
               l’adresse IP, les informations sur l’appareil ou le navigateur et les détails
               d’erreur nécessaires à la sécurité et au fonctionnement du service.
+              Des diagnostics privés enregistrent aussi la durée des lectures de Santé
+              et des requêtes réseau, leur réussite ou leur échec, la version de l’app
+              et la taille des requêtes. Ces mesures ne contiennent ni nombre de pas
+              ni échantillons Santé bruts et ne sont pas partagées avec les participants.
             </li>
           </ul>
         </section>
@@ -131,6 +135,12 @@ export default function PrivacyPage() {
             suivent les durées de conservation configurées chez Supabase et Vercel. Des
             données supprimées peuvent rester temporairement dans les sauvegardes ordinaires
             jusqu’à leur expiration, ou plus longtemps lorsque la loi l’exige.
+          </p>
+          <p>
+            Nous conservons au maximum les 100 rapports de durée de synchronisation les
+            plus récents de votre compte. Les rapports de plus de sept jours sont supprimés
+            lors du prochain envoi de diagnostics par votre app. La suppression du compte
+            efface cet historique.
           </p>
         </section>
 

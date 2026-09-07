@@ -62,6 +62,9 @@ jobs:
       - name: Install Fastlane
         run: bundle install
 
+      - name: Check TestFlight distribution
+        run: bundle exec ruby fastlane/testflight_test.rb
+
       # Every TestFlight build talks to staging. Production ships through the App Store flow.
       # Values go into FitFight/Generated/BuildEnv.swift (compiled in). Never print them.
       - name: Write backend environment

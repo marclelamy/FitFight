@@ -201,7 +201,7 @@ struct NewFightView: View {
                 Text("Create or join?")
                     .ffType(.heading)
                     .foregroundStyle(theme.text)
-                Text("Start a new fight, or join one with a short code.")
+                Text("Start a new fight, or join one that's already going.")
                     .ffType(.body)
                     .foregroundStyle(theme.textSecondary)
                     .lineSpacing(2)
@@ -210,15 +210,15 @@ struct NewFightView: View {
             FFGroupedRows {
                 FFGroupedRow(
                     title: String(localized: "Create"),
-                    subtitle: String(localized: "Invite people or share a code"),
+                    subtitle: String(localized: "Start a new fight"),
                     systemImage: "plus",
-                    subtitleTone: .moss,
+                    subtitleTone: .neutral,
                     action: { opening = .create }
                 )
                 FFDivider()
                 FFGroupedRow(
                     title: String(localized: "Join"),
-                    subtitle: String(localized: "Enter a 4-character code or pick a live fight"),
+                    subtitle: String(localized: "Join one that's already going"),
                     systemImage: "person.badge.plus",
                     subtitleTone: .neutral,
                     action: {
@@ -658,6 +658,7 @@ struct NewFightView: View {
                         ? String(localized: "Ready to score this fight")
                         : String(localized: "Connect to score this fight"),
                     systemImage: "heart",
+                    enabled: !model.isRefreshingFights,
                     subtitleTone: steps.hasAsked ? .moss : .ember,
                     trailing: AnyView(
                         FFPill(
@@ -667,6 +668,7 @@ struct NewFightView: View {
                     ),
                     action: steps.hasAsked ? nil : connectAppleHealth
                 )
+                .disabled(model.isRefreshingFights)
             }
 
             FFCard(fill: theme.mossWash, stroke: theme.mossText.opacity(0.18)) {
@@ -788,10 +790,7 @@ struct NewFightView: View {
 
     private func connectAppleHealth() {
         Task {
-            await steps.refresh(requestAccess: true)
-            if session.authSession != nil {
-                await steps.syncToBackend(session: session, trigger: .manual)
-            }
+            await model.refreshFights(session: session, steps: steps, trigger: .manual, requestAccess: true)
         }
     }
 

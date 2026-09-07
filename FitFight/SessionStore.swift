@@ -60,7 +60,13 @@ final class SessionStore: ObservableObject {
     }
 
     func freshAccessToken() async throws -> String {
-        let session = try await client.auth.refreshSession()
+        let userID = authSession?.user.id ?? client.auth.currentUser?.id
+        let session = try await client.auth.session
+        try Task.checkCancellation()
+        guard session.user.id == userID, client.auth.currentUser?.id == userID,
+              (authSession?.user.id ?? client.auth.currentUser?.id) == userID else {
+            throw CancellationError()
+        }
         authSession = session
         return session.accessToken
     }
@@ -230,8 +236,14 @@ final class SessionStore: ObservableObject {
         defer { isBusy = false }
         do {
             let userID = authSession?.user.id ?? client.auth.currentUser?.id
-            let accessToken = try await freshAccessToken()
-            let deletion = try await api.deleteAccount(accessToken: accessToken)
+            let renewedSession = try await client.auth.refreshSession()
+            try Task.checkCancellation()
+            guard renewedSession.user.id == userID, client.auth.currentUser?.id == userID,
+                  (authSession?.user.id ?? client.auth.currentUser?.id) == userID else {
+                throw CancellationError()
+            }
+            authSession = renewedSession
+            let deletion = try await api.deleteAccount(accessToken: renewedSession.accessToken)
             try? await client.auth.signOut()
             authSession = nil
             profile = nil
@@ -251,8 +263,13 @@ final class SessionStore: ObservableObject {
     }
 
     private func listen() async {
-        for await (_, session) in client.auth.authStateChanges {
+        for await (event, session) in client.auth.authStateChanges {
             if let session {
+                if event == .tokenRefreshed, authSession?.user.id == session.user.id,
+                   profile?.userId == session.user.id {
+                    authSession = session
+                    continue
+                }
                 profileUnavailable = false
                 if let data = UserDefaults.standard.data(
                     forKey: Self.profileCachePrefix + session.user.id.uuidString
