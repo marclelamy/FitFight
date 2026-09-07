@@ -10,6 +10,7 @@ export type FightState =
 export type FightMemberState =
   | "invited"
   | "accepted"
+  | "deferred"
   | "declined"
   | "withdrawn"
   | "disqualified";

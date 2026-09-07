@@ -28,6 +28,20 @@ enum Changelog {
             version: "1.0.0",
             year: 2026,
             month: 9,
+            day: 6,
+            notes: "On a repeating fight, after the start day you can join this round or wait for the next one. People waiting for the next round show up on the fight without counting in this round’s standings."
+        ),
+        ReleaseNote(
+            version: "1.0.0",
+            year: 2026,
+            month: 9,
+            day: 6,
+            notes: "A tap anywhere on a Bugs & requests card opens it, not only the title."
+        ),
+        ReleaseNote(
+            version: "1.0.0",
+            year: 2026,
+            month: 9,
             day: 5,
             notes: "Bugs & requests now sits on its own on You, above Settings."
         ),

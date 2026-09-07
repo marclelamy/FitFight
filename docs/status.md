@@ -1,6 +1,6 @@
 # FitFight status — what works, what’s fake, what’s next
 
-Read this before building. Last updated **4 Sep 2026**. App: **1.0.0**.
+Read this before building. Last updated **6 Sep 2026**. App: **1.0.0**.
 
 Do **not** restore removed surfaces. Do **not** build WHOOP, Strava, Active Minutes, Workout Count, payments, notifications, social, or a broader marketing site unless [`backlog.md`](backlog.md) says so. Only the public privacy and support pages exist on the web.
 
@@ -13,7 +13,7 @@ There are two **git** branches and two **hosted databases**. They line up.
 | | Testing | Real users / App Store |
 |---|---|---|
 | GitHub | `develop` | `main` |
-| TestFlight | any push that is **not** `main`, plus the daily scheduled `develop` build | never; `main` does not upload to TestFlight |
+| TestFlight | push/merge to `develop` only (optional manual `workflow_dispatch`; no daily cron) | never; `main` does not upload to TestFlight |
 | Supabase | develop project (`zstzbf…`, version line says `staging`) | production (`pvqn…`, version line says `prod`) |
 | What you do | Merge PRs **into `develop`**. Try the app. | Merge `develop` → `main` only when Marc says ship |
 
@@ -55,7 +55,7 @@ The native Fight path uses the API to create and join; Apple Health synchronizat
 | Username onboarding | Works. Required once after sign-in. |
 | Version line | Release-candidate TestFlight says `1.0.0 · build N · staging`; the App Store build says `prod` |
 | Create Steps challenge | Follow a guided flow: Create or Join, then Steps × highest total, 3 / 7 / 14 / 30 days, invite-only usernames or a joinable code, optional recurring, optional title and loser action, and review. Joinable fights may start with the owner alone. |
-| Accept / Join | Invites still accept in the fight. Joinable fights open the same Accept/Join screen from a code, the live list, or a shared link. Joins go through the server. Leave a joinable or repeating fight from the fight itself so the next window does not copy you in. |
+| Accept / Join | Invites still accept in the fight. Joinable fights open the same Accept/Join screen from a code, the live list, or a shared link. Joins go through the server. If a repeating fight is past its start day, joiners choose this round (steps count from that start date) or the next round. Same-day joins, even hours later, still count as this round. People waiting for the next round are visible on the fight and do not count in this round. Leave a joinable or repeating fight from the fight itself so the next window does not copy you in. |
 | Invite participants | Exact username in New for invite-only fights. Joinable fights use a 4-character code and a live list instead. They must have signed in and chosen a username. There is no friendship or friend-request layer. |
 | Apple Health | Installs background delivery at launch, keeps one interrupted opportunity for foreground reconciliation, and shows private capability/sync status under You. It sends Apple's merged cumulative Steps total for each exact active/ending Fight window in one small authenticated request. It does not send raw samples, deletions, per-source totals, device/source metadata, anchors, or archives. |
 | Daily totals | Sends Apple's merged daily buckets only for days relevant to active Fight charts. They are display data, not the source of the Fight score. |

@@ -1,13 +1,13 @@
 # Archive + upload to TestFlight on GitHub-hosted macOS.
 # Never use self-hosted runners or a home Mac.
+# Staging TestFlight only: push/merge to develop, or manual workflow_dispatch.
+# Feature-branch pushes and cron must not upload. main never uploads to TestFlight.
 name: TestFlight
 
 on:
-  # Any non-main app push so every TestFlight build is staging-only.
-  # `push` (not pull_request) so this works before the workflow exists on main.
   push:
-    branches-ignore:
-      - main
+    branches:
+      - develop
     paths:
       - "FitFight/**"
       - "FitFight.xcodeproj/**"
@@ -15,9 +15,6 @@ on:
       - "Gemfile"
       - "Gemfile.lock"
       - ".github/workflows/ios-testflight.yml"
-  schedule:
-    # 18:00 UTC — evening in western Europe; change if you want a different time
-    - cron: "0 18 * * *"
   workflow_dispatch:
 
 concurrency:
@@ -26,7 +23,7 @@ concurrency:
 
 jobs:
   beta:
-    if: github.event_name == 'schedule' || (github.ref_type == 'branch' && github.ref_name != 'main')
+    if: github.ref_type == 'branch' && github.ref_name != 'main' && (github.event_name == 'workflow_dispatch' || github.ref == 'refs/heads/develop')
     name: Upload
     runs-on: macos-26
     timeout-minutes: 60
@@ -38,11 +35,7 @@ jobs:
       APP_STORE_CONNECT_API_KEY: ${{ secrets.APP_STORE_CONNECT_API_KEY }}
       APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
     steps:
-      # Scheduled workflows run from GitHub's default branch (`main`), but the
-      # daily internal TestFlight must build `develop` and use staging.
       - uses: actions/checkout@v4
-        with:
-          ref: ${{ github.event_name == 'schedule' && 'develop' || github.ref_name }}
 
       - name: Require App Store Connect secrets
         run: |

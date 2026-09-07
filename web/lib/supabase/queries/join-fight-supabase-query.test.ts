@@ -18,6 +18,12 @@ test("join requires a code or fight id", () => {
   );
 });
 
+test("join defaults to this round and can ask for the next round", () => {
+  assert.equal(joinFightRequestSchema.parse({ code: "K7M2" }).start, "now");
+  assert.equal(joinFightRequestSchema.parse({ code: "K7M2", start: "next" }).start, "next");
+  assert.equal(joinFightRequestSchema.safeParse({ code: "K7M2", start: "later" }).success, false);
+});
+
 test("joinable summaries never carry scores", () => {
   const summary = joinableFightSummarySchema.parse({
     fightId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
@@ -31,6 +37,7 @@ test("joinable summaries never carry scores", () => {
     memberCount: 3,
     recurring: true,
     alreadyMember: false,
+    canJoinNext: true,
   });
   assert.equal("score" in summary, false);
   assert.equal("standings" in summary, false);

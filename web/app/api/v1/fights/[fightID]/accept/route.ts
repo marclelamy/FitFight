@@ -1,20 +1,19 @@
-import { z } from "zod";
 import { apiRoute, corsPreflight, json, readJson, requireUuid } from "@/lib/http";
 import { acceptMembership } from "@/lib/supabase/queries/accept-membership-supabase-query";
 import { verifyUser } from "@/lib/supabase/queries/auth-supabase-query";
+import { membershipAcceptRequestSchema } from "@/lib/types/fights/join-start";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-const bodySchema = z.object({
-  personalTarget: z.number().optional(),
-});
-
 export const POST = apiRoute<{ fightID: string }>(async (request, { params }) => {
   const { userId } = await verifyUser(request);
   const fightId = requireUuid(params.fightID, "fightID");
-  const body = bodySchema.parse(await readJson(request));
-  const fight = await acceptMembership(userId, fightId, body.personalTarget);
+  const parsed = membershipAcceptRequestSchema.safeParse(await readJson(request));
+  if (!parsed.success) {
+    throw parsed.error;
+  }
+  const fight = await acceptMembership(userId, fightId, parsed.data.personalTarget, parsed.data.start);
   return json(fight);
 });
 

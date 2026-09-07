@@ -1,8 +1,9 @@
 import { ApiError, ERROR_CODES } from "@/lib/http";
 import { createAdminClient } from "@/lib/supabase/admin";
 import type { FightMemberRow } from "@/lib/types/database";
+import type { FightJoinStart } from "@/lib/types/fights/join-start";
 import { ensureAppleHealthSource } from "./apple-health-source-supabase-query";
-import { fightSummary, loadFight } from "./fight-access-supabase-query";
+import { fightSummary, joinMemberStateForFight, loadFight } from "./fight-access-supabase-query";
 import { recalculateFight } from "./recalculate-fight-supabase-query";
 
 /** In-app accept: the signed-in User is already an invited member. No raw token. */
@@ -10,6 +11,8 @@ export async function acceptMembership(
   userId: string,
   fightId: string,
   personalTarget?: number,
+  start: FightJoinStart = "now",
+  now: Date = new Date(),
 ) {
   const admin = createAdminClient();
   const fight = await loadFight(fightId, admin);
@@ -30,19 +33,20 @@ export async function acceptMembership(
   if (!member) {
     throw new ApiError(403, ERROR_CODES.forbidden, "You were not invited to this fight");
   }
-  if (member.state === "accepted") {
+  if (member.state === "accepted" || member.state === "deferred") {
     return fightSummary(fight);
   }
   if (member.state !== "invited") {
     throw new ApiError(409, ERROR_CODES.conflict, "This membership cannot be accepted");
   }
 
+  const memberState = await joinMemberStateForFight(fight, start, now, admin);
   const source = await ensureAppleHealthSource(userId, { admin });
-  const nowIso = new Date().toISOString();
+  const nowIso = now.toISOString();
   const { error: updateMemberError } = await admin
     .from("fight_members")
     .update({
-      state: "accepted",
+      state: memberState,
       accepted_at: nowIso,
       selected_source_id: source.id,
       source_label: source.sourceLabel,
@@ -63,8 +67,8 @@ export async function acceptMembership(
     .eq("invited_user_id", userId)
     .is("accepted_at", null);
 
-  if (["live", "scheduled", "awaiting_final_sync"].includes(fight.state)) {
-    await recalculateFight(fight.id);
+  if (memberState === "accepted" && ["live", "scheduled", "awaiting_final_sync"].includes(fight.state)) {
+    await recalculateFight(fight.id, now);
   }
 
   if (fight.series_id) {
