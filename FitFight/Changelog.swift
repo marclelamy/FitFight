@@ -35,6 +35,27 @@ enum Changelog {
             version: "1.0.0",
             year: 2026,
             month: 9,
+            day: 6,
+            notes: "A tap anywhere on a Bugs & requests card opens it, not only the title."
+        ),
+        ReleaseNote(
+            version: "1.0.0",
+            year: 2026,
+            month: 9,
+            day: 5,
+            notes: "Create and Join on New now use the same gray captions, and they no longer mention codes or inviting people."
+        ),
+        ReleaseNote(
+            version: "1.0.0",
+            year: 2026,
+            month: 9,
+            day: 5,
+            notes: "Apple Health sync failures now include an error reference on You and diagnostic details to help investigate."
+        ),
+        ReleaseNote(
+            version: "1.0.0",
+            year: 2026,
+            month: 9,
             day: 5,
             notes: "Fights refresh with fewer network requests, and private Apple Health timing logs help diagnose slow syncs."
         ),

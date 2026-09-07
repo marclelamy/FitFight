@@ -104,6 +104,33 @@ test("HealthKit attempt timings preserve fractional elapsed time and server dura
   }
 });
 
+test("HealthKit failures preserve safe native errors and reject device details", async () => {
+  const error = { kind: "healthkit", code: 11 };
+  const attempt = {
+    ...validAttempt, outcome: "failed", error_code: "sync_failed",
+    stages: [{ stage: "healthkit_fight", started_ms: 45, duration_ms: 30, outcome: "failed", error }],
+  };
+  assert.deepEqual(healthKitSyncAttemptSchema.parse(attempt), attempt);
+  for (const invalid of [
+    { kind: "private-device-domain", code: 11 },
+    { ...error, message: "private HealthKit query" },
+    { ...error, user_info: { steps: 123 } },
+    { ...error, code: Number.POSITIVE_INFINITY },
+    { ...error, code: 0.5 },
+  ]) {
+    assert.throws(() => healthKitSyncAttemptSchema.parse({
+      ...attempt, stages: [{ ...attempt.stages[0], error: invalid }],
+    }));
+  }
+  const statements: { text: string; values: unknown[] }[] = [];
+  await saveHealthKitDiagnosticSnapshot(
+    "5b2216f4-762d-4890-a516-63046a01df31",
+    healthKitDiagnosticSnapshotSchema.parse({ ...validSnapshot, attempts: [attempt] }),
+    recordingDatabase(statements),
+  );
+  assert.deepEqual(statements[1].values[3], json([attempt]));
+});
+
 test("HealthKit timing boundaries reject invalid durations, counts and unknown fields", () => {
   for (const value of [-1, Number.NaN, Number.POSITIVE_INFINITY, 604_800_001]) {
     assert.throws(() => healthKitSyncAttemptSchema.parse({ ...validAttempt, total_ms: value }));

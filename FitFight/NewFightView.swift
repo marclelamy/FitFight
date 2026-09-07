@@ -201,7 +201,7 @@ struct NewFightView: View {
                 Text("Create or join?")
                     .ffType(.heading)
                     .foregroundStyle(theme.text)
-                Text("Start a new fight, or join one with a short code.")
+                Text("Start a new fight, or join one that's already going.")
                     .ffType(.body)
                     .foregroundStyle(theme.textSecondary)
                     .lineSpacing(2)
@@ -210,15 +210,15 @@ struct NewFightView: View {
             FFGroupedRows {
                 FFGroupedRow(
                     title: String(localized: "Create"),
-                    subtitle: String(localized: "Invite people or share a code"),
+                    subtitle: String(localized: "Start a new fight"),
                     systemImage: "plus",
-                    subtitleTone: .moss,
+                    subtitleTone: .neutral,
                     action: { opening = .create }
                 )
                 FFDivider()
                 FFGroupedRow(
                     title: String(localized: "Join"),
-                    subtitle: String(localized: "Enter a 4-character code or pick a live fight"),
+                    subtitle: String(localized: "Join one that's already going"),
                     systemImage: "person.badge.plus",
                     subtitleTone: .neutral,
                     action: {

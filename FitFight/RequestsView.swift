@@ -414,7 +414,50 @@ private struct RequestRow: View {
     @Environment(\.ffTheme) private var theme
 
     var body: some View {
-        HStack(alignment: .top, spacing: 10) {
+        ZStack(alignment: .topLeading) {
+            Button(action: onOpen) {
+                HStack(alignment: .top, spacing: 10) {
+                    Color.clear
+                        .frame(width: 44)
+                    VStack(alignment: .leading, spacing: 6) {
+                        HStack(spacing: 8) {
+                            FFTag(
+                                post.kind == "bug" ? String(localized: "Bug") : String(localized: "Feature"),
+                                tone: post.kind == "bug" ? .ember : .moss
+                            )
+                            Spacer(minLength: 0)
+                            Text(post.createdAt, format: .relative(presentation: .named))
+                                .ffType(.caption)
+                                .foregroundStyle(theme.textFaint)
+                        }
+                        Text(post.title)
+                            .ffType(.rowTitle)
+                            .foregroundStyle(theme.text)
+                            .multilineTextAlignment(.leading)
+                        Text(post.body)
+                            .ffType(.caption)
+                            .foregroundStyle(theme.textSecondary)
+                            .lineLimit(2)
+                            .multilineTextAlignment(.leading)
+                        Text(
+                            String(
+                                localized: "feedback.meta",
+                                defaultValue: "@\(post.authorHandle) · \(post.commentCount) comments"
+                            )
+                        )
+                        .ffType(.micro)
+                        .foregroundStyle(theme.textFaint)
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                }
+                .padding(14)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .contentShape(RoundedRectangle(cornerRadius: theme.radius.card, style: .continuous))
+                .background(theme.card, in: RoundedRectangle(cornerRadius: theme.radius.card, style: .continuous))
+                .ffBorder(theme.hairline, radius: theme.radius.card)
+            }
+            .buttonStyle(.plain)
+
             Button(action: onVote) {
                 VStack(spacing: 2) {
                     Image(systemName: post.voted ? "arrow.up.circle.fill" : "arrow.up.circle")
@@ -426,47 +469,13 @@ private struct RequestRow: View {
                 .foregroundStyle(post.voted ? theme.mossText : theme.textSecondary)
                 .frame(width: 44)
                 .padding(.top, 2)
+                .contentShape(Rectangle())
             }
             .buttonStyle(FFPressStyle(scale: 0.92))
             .accessibilityLabel(String(localized: "Upvote"))
-
-            Button(action: onOpen) {
-                VStack(alignment: .leading, spacing: 6) {
-                    HStack(spacing: 8) {
-                        FFTag(
-                            post.kind == "bug" ? String(localized: "Bug") : String(localized: "Feature"),
-                            tone: post.kind == "bug" ? .ember : .moss
-                        )
-                        Spacer(minLength: 0)
-                        Text(post.createdAt, format: .relative(presentation: .named))
-                            .ffType(.caption)
-                            .foregroundStyle(theme.textFaint)
-                    }
-                    Text(post.title)
-                        .ffType(.rowTitle)
-                        .foregroundStyle(theme.text)
-                        .multilineTextAlignment(.leading)
-                    Text(post.body)
-                        .ffType(.caption)
-                        .foregroundStyle(theme.textSecondary)
-                        .lineLimit(2)
-                        .multilineTextAlignment(.leading)
-                    Text(
-                        String(
-                            localized: "feedback.meta",
-                            defaultValue: "@\(post.authorHandle) · \(post.commentCount) comments"
-                        )
-                    )
-                    .ffType(.micro)
-                    .foregroundStyle(theme.textFaint)
-                }
-                .frame(maxWidth: .infinity, alignment: .leading)
-            }
-            .buttonStyle(.plain)
+            .padding(.leading, 14)
+            .padding(.top, 14)
         }
-        .padding(14)
-        .background(theme.card, in: RoundedRectangle(cornerRadius: theme.radius.card, style: .continuous))
-        .ffBorder(theme.hairline, radius: theme.radius.card)
     }
 }
 
