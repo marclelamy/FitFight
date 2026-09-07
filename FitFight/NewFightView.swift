@@ -807,7 +807,8 @@ struct NewFightView: View {
                 endsAt: "2026-09-11T12:00:00Z",
                 memberCount: 8,
                 recurring: true,
-                alreadyMember: false
+                alreadyMember: false,
+                canJoinNext: true
             ),
         ]
     }

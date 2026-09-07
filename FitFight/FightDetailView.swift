@@ -30,10 +30,16 @@ struct FightDetailView: View {
             && (fight.recurring || fight.joinCode != nil)
     }
 
+    private var youDeferred: Bool {
+        you?.deferred == true
+    }
+
     var body: some View {
         FFScreen(top: AnyView(nav)) {
             if pendingJoin {
                 invitedHero
+            } else if youDeferred {
+                deferredHero
             } else if let pair = headToHead {
                 FFVSBlock(
                     you: pair.you,
@@ -130,7 +136,7 @@ struct FightDetailView: View {
         you: (monogram: String, name: String, value: String, progress: Double),
         them: (monogram: String, name: String, value: String, progress: Double)
     )? {
-        let joined = fight.standings.filter { !$0.invited }
+        let joined = fight.standings.filter { !$0.invited && !$0.deferred }
         guard joined.count == 2,
               let mine = joined.first(where: { $0.person.isYou }),
               let theirs = joined.first(where: { !$0.person.isYou })
@@ -177,12 +183,41 @@ struct FightDetailView: View {
                         .fixedSize(horizontal: false, vertical: true)
                         .padding(.bottom, 22)
                 }
-                FFScreenCTA(title: fight.pendingJoin ? String(localized: "Join fight") : String(localized: "Accept challenge")) {
-                    Task {
-                        await model.acceptFight(id: fight.id)
-                        if (model.createError ?? "").isEmpty {
-                            model.joined.insert(fight.id)
-                        }
+                if fight.offersJoinNext {
+                    Text(
+                        String(
+                            localized: "fight.join-now-copy",
+                            defaultValue: "This round started \(joinRoundStarted). Join now and your steps count from that date."
+                        )
+                    )
+                    .ffType(.caption)
+                    .foregroundStyle(theme.textSecondary)
+                    .multilineTextAlignment(.center)
+                    .padding(.bottom, 8)
+                    Text(
+                        String(
+                            localized: "fight.join-next-copy",
+                            defaultValue: "Or start next round, from \(joinRoundNext)."
+                        )
+                    )
+                    .ffType(.caption)
+                    .foregroundStyle(theme.textSecondary)
+                    .multilineTextAlignment(.center)
+                    .padding(.bottom, 22)
+                    FFScreenCTA(title: String(localized: "Join this round")) {
+                        Task { await join(start: "now") }
+                    }
+                    FFButton(
+                        title: String(localized: "Start next round"),
+                        kind: .ghost,
+                        fullWidth: true
+                    ) {
+                        Task { await join(start: "next") }
+                    }
+                    .padding(.top, 8)
+                } else {
+                    FFScreenCTA(title: fight.pendingJoin ? String(localized: "Join fight") : String(localized: "Accept challenge")) {
+                        Task { await join(start: "now") }
                     }
                 }
                 FFButton(
@@ -206,6 +241,42 @@ struct FightDetailView: View {
                 }
             }
             .frame(maxWidth: .infinity)
+        }
+    }
+
+    private var joinRoundStarted: String {
+        fight.windowStart.formatted(date: .abbreviated, time: .omitted)
+    }
+
+    private var joinRoundNext: String {
+        fight.windowEnd.formatted(date: .abbreviated, time: .omitted)
+    }
+
+    private func join(start: String) async {
+        await model.acceptFight(id: fight.id, start: start)
+        if (model.createError ?? "").isEmpty {
+            model.joined.insert(fight.id)
+        }
+    }
+
+    private var deferredHero: some View {
+        FFCard(padding: 24) {
+            VStack(alignment: .leading, spacing: 8) {
+                FFTag(String(localized: "Next round"))
+                Text(String(localized: "You start next round"))
+                    .ffType(.title)
+                    .foregroundStyle(theme.text)
+                Text(
+                    String(
+                        localized: "fight.deferred-copy",
+                        defaultValue: "Your steps count from \(joinRoundNext). This round’s standings are still visible."
+                    )
+                )
+                .ffType(.caption)
+                .foregroundStyle(theme.textSecondary)
+                .fixedSize(horizontal: false, vertical: true)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
         }
     }
 
@@ -291,7 +362,7 @@ struct FightDetailView: View {
 
     private func standingRow(index: Int, row: Standing, now: Date) -> some View {
         Group {
-            if row.invited {
+            if row.invited || row.deferred {
                 HStack(spacing: 13) {
                     Text("—")
                         .ffType(.button)
@@ -302,7 +373,10 @@ struct FightDetailView: View {
                         .ffType(.rowTitle)
                         .foregroundStyle(theme.textSecondary)
                         .frame(maxWidth: .infinity, alignment: .leading)
-                    FFPill(String(localized: "Invited"), style: .gold)
+                    FFPill(
+                        row.deferred ? String(localized: "Next round") : String(localized: "Invited"),
+                        style: .gold
+                    )
                 }
                 .padding(.horizontal, 15)
                 .padding(.vertical, 12)

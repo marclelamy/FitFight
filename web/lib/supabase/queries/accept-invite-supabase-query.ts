@@ -2,14 +2,17 @@ import { hashInviteToken } from "@/lib/domain/invites/token";
 import { ApiError, ERROR_CODES } from "@/lib/http";
 import { createAdminClient } from "@/lib/supabase/admin";
 import type { FightInviteRow, FightMemberRow } from "@/lib/types/database";
+import type { FightJoinStart } from "@/lib/types/fights/join-start";
 import { ensureAppleHealthSource } from "./apple-health-source-supabase-query";
-import { fightSummary, loadFight } from "./fight-access-supabase-query";
+import { fightSummary, joinMemberStateForFight, loadFight } from "./fight-access-supabase-query";
 import { recalculateFight } from "./recalculate-fight-supabase-query";
 
 export async function acceptInvite(
   userId: string,
   rawToken: string,
   personalTarget?: number,
+  start: FightJoinStart = "now",
+  now: Date = new Date(),
 ) {
   const token = decodeURIComponent(rawToken).trim();
   if (!token) {
@@ -33,7 +36,7 @@ export async function acceptInvite(
   if (invite.revoked_at) {
     throw new ApiError(410, ERROR_CODES.invite_revoked, "Invite was revoked");
   }
-  if (new Date(invite.expires_at).getTime() <= Date.now()) {
+  if (new Date(invite.expires_at).getTime() <= now.getTime()) {
     throw new ApiError(410, ERROR_CODES.invite_expired, "Invite expired");
   }
   if (invite.invited_user_id && invite.invited_user_id !== userId) {
@@ -45,18 +48,6 @@ export async function acceptInvite(
     throw new ApiError(409, ERROR_CODES.conflict, "Fight is no longer joinable");
   }
 
-  const source = await ensureAppleHealthSource(userId, { admin });
-  const nowIso = new Date().toISOString();
-  const memberPatch = {
-    state: "accepted" as const,
-    accepted_at: nowIso,
-    selected_source_id: source.id,
-    source_label: source.sourceLabel,
-    personal_target: personalTarget ?? null,
-    target_origin: personalTarget !== undefined ? "user" : null,
-    acceptance_copy_version: 1,
-  };
-
   const { data: existingMember, error: memberLookupError } = await admin
     .from("fight_members")
     .select("fight_id, user_id, state")
@@ -67,10 +58,22 @@ export async function acceptInvite(
     throw new ApiError(500, ERROR_CODES.db_error, "Could not load membership");
   }
   const member = existingMember as Pick<FightMemberRow, "state"> | null;
-
-  if (member?.state === "accepted" && invite.accepted_at) {
+  if (member?.state === "accepted" || member?.state === "deferred") {
     return fightSummary(fight);
   }
+
+  const memberState = await joinMemberStateForFight(fight, start, now, admin);
+  const source = await ensureAppleHealthSource(userId, { admin });
+  const nowIso = now.toISOString();
+  const memberPatch = {
+    state: memberState,
+    accepted_at: nowIso,
+    selected_source_id: source.id,
+    source_label: source.sourceLabel,
+    personal_target: personalTarget ?? null,
+    target_origin: personalTarget !== undefined ? "user" : null,
+    acceptance_copy_version: 1,
+  };
 
   if (member) {
     const { error: updateMemberError } = await admin
@@ -100,8 +103,8 @@ export async function acceptInvite(
     throw new ApiError(500, ERROR_CODES.db_error, "Could not mark invite accepted");
   }
 
-  if (["live", "scheduled", "awaiting_final_sync"].includes(fight.state)) {
-    await recalculateFight(fight.id);
+  if (memberState === "accepted" && ["live", "scheduled", "awaiting_final_sync"].includes(fight.state)) {
+    await recalculateFight(fight.id, now);
   }
 
   if (fight.series_id) {

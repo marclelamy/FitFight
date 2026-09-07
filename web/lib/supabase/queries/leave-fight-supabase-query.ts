@@ -32,7 +32,7 @@ export async function leaveFight(
   if (member.state === "withdrawn") {
     return fightSummary(fight);
   }
-  if (member.state !== "accepted") {
+  if (member.state !== "accepted" && member.state !== "deferred") {
     throw new ApiError(409, ERROR_CODES.conflict, "This membership cannot be left");
   }
 
@@ -71,7 +71,7 @@ export async function leaveFight(
         .update({ state: "withdrawn" })
         .eq("fight_id", currentId)
         .eq("user_id", userId)
-        .eq("state", "accepted");
+        .in("state", ["accepted", "deferred"]);
       if (currentError) {
         throw new ApiError(500, ERROR_CODES.db_error, "Could not leave current fight");
       }

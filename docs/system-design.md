@@ -189,11 +189,11 @@ Recommended states:
 - `final`: scores and outcomes are immutable except through an audited dispute correction.
 - `cancelled`: terminal, with a reason and actor.
 
-A Fight member has a separate state: `invited`, `accepted`, `declined`, `withdrawn`, or `disqualified`. Do not overload the Fight state with membership state.
+A Fight member has a separate state: `invited`, `accepted`, `deferred`, `declined`, `withdrawn`, or `disqualified`. Do not overload the Fight state with membership state.
 
 All members of one Fight use the same `starts_at` and `ends_at`, including a member who accepts late. Different clocks would make standings, daily goals, notifications, and outcomes unnecessarily ambiguous. Personal targets provide accessibility for different fitness levels; different windows do not.
 
-The creator may start immediately without waiting for invitees or schedule a future start. The creator is the initial accepted member. Pre-start invitations remain pending through `scheduled` and `live`, expire at `ends_at`, and do not reveal standings before acceptance. A late member accepts the original rules, selects a source and target once, and is scored over the entire Fight window from accessible historical and new data. Everyone is notified when the lineup changes.
+The creator may start immediately without waiting for invitees or schedule a future start. The creator is the initial accepted member. Pre-start invitations remain pending through `scheduled` and `live`, expire at `ends_at`, and do not reveal standings before acceptance. A late member who joins the current round accepts the original rules, selects a source and target once, and is scored over the entire Fight window from accessible historical and new data. On a **recurring** Fight, late means a later calendar day than the start day in the Fight time zone. That person may join this round or join as `deferred`: they are visible on this Fight, they are not scored until the next window, and the next window copies them in as `accepted`. Joining later on the start day is not late. Everyone is notified when the lineup changes. Non-recurring Fights have no next window, so late joiners only have the current round.
 
 Starting before every invitee answers means every accepted member agrees that the disclosed pending invitees may still join before `ends_at`. When one does, the server atomically adds them and recomputes every lineup-dependent projection for all members, including ranks, Proportional shares, and the informational pot or obligations. The immutable per-person Stake and Result rule do not change; only the result of applying them to the newly accepted lineup does. No undisclosed person can be invited after the Fight starts.
 

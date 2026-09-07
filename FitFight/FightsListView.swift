@@ -80,7 +80,10 @@ struct FightsListView: View {
     /// racing: the leader when you are behind, the runner-up when you are ahead.
     /// Nobody else has a score yet in a fresh fight, so that row shows your total.
     private func difference(in fight: Fight) -> (text: String, ahead: Bool, isGap: Bool) {
-        let rivals = fight.standings.filter { !$0.person.isYou && !$0.invited }.map(\.score)
+        if model.youStanding(in: fight)?.deferred == true {
+            return (String(localized: "Next round"), true, false)
+        }
+        let rivals = fight.standings.filter { !$0.person.isYou && !$0.invited && !$0.deferred }.map(\.score)
         guard let mine = model.youStanding(in: fight)?.score else {
             guard let leader = rivals.max() else { return ("—", true, false) }
             return (stepCount(leader), true, false)
@@ -98,7 +101,7 @@ struct FightsListView: View {
 
     /// The other side of a head-to-head, so the avatar is who you are up against.
     private func initials(_ fight: Fight) -> String {
-        let other = fight.standings.first { !$0.person.isYou && !$0.invited }
+        let other = fight.standings.first { !$0.person.isYou && !$0.invited && !$0.deferred }
         return other?.person.initials ?? fight.standings.first?.person.initials ?? "?"
     }
 }
@@ -146,7 +149,7 @@ struct FinishedRow: View {
             model.openFightID = fight.id
         } label: {
             HStack(spacing: 13) {
-                FFResultGlyph(fight.rank == 1 ? .win : .loss)
+                FFResultGlyph(fight.standings.contains(where: { $0.person.isYou && $0.deferred }) ? .draw : (fight.rank == 1 ? .win : .loss))
                 VStack(alignment: .leading, spacing: 2) {
                     Text(fight.listTitle)
                         .ffType(.rowTitle)

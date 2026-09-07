@@ -1,5 +1,5 @@
 begin;
-select plan(26);
+select plan(29);
 
 create function pg_temp.make_user(uid uuid, email text)
 returns void
@@ -65,7 +65,7 @@ $$;
 select pg_temp.make_user('11111111-1111-4111-8111-111111111111', 'maya@example.com');
 select pg_temp.make_user('22222222-2222-4222-8222-222222222222', 'leo@example.com');
 select pg_temp.make_user('33333333-3333-4333-8333-333333333333', 'ivy@example.com');
-select pg_temp.make_user('44444444-4444-4444-8444-444444444444', 'sam@example.com');
+select pg_temp.make_user('55555555-5555-4555-8555-555555555555', 'nina@example.com');
 
 insert into public.fights (
   id, owner_id, name, state, starts_at, ends_at, time_zone,
@@ -85,7 +85,8 @@ insert into public.fights (
 insert into public.fight_members (fight_id, user_id, state) values
   ('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', '11111111-1111-4111-8111-111111111111', 'accepted'),
   ('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', '22222222-2222-4222-8222-222222222222', 'accepted'),
-  ('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', '33333333-3333-4333-8333-333333333333', 'invited');
+  ('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', '33333333-3333-4333-8333-333333333333', 'invited'),
+  ('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', '55555555-5555-4555-8555-555555555555', 'deferred');
 
 create function pg_temp.as_user(uid uuid)
 returns void
@@ -112,7 +113,7 @@ select lives_ok(
 
 select is(
   (select count(*)::integer from public.fight_members),
-  3,
+  4,
   'accepted member sees the whole lineup'
 );
 
@@ -392,6 +393,30 @@ select is(
   (select count(*)::integer from public.fight_series),
   0,
   'unrelated users cannot read a series they are not in'
+);
+
+reset role;
+select pg_temp.as_user('55555555-5555-4555-8555-555555555555');
+set local role authenticated;
+
+select is(
+  (select count(*)::integer from public.fights),
+  1,
+  'deferred member can still see the fight'
+);
+
+select is(
+  (select count(*)::integer from public.fight_members),
+  4,
+  'deferred member sees the whole lineup'
+);
+
+select is(
+  (select steps from public.step_days
+    where user_id = '11111111-1111-4111-8111-111111111111'
+      and day = current_date),
+  8000,
+  'deferred member can read current racers chart days'
 );
 
 select * from finish();
