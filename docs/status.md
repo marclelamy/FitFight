@@ -72,7 +72,7 @@ The native Fight path uses the API to create and join; Apple Health synchronizat
 | Tabs | Fights, New, You. The old Requests tab and Design are removed. |
 | Look | Night/Day, Nunito, fixed Moss/Ember/Gold semantics; no accent picker or public design-system showcase. |
 | Versions | Works under You → Settings; the version label stays at the top of every root screen. Staging TestFlight also shows an opaque notice under that line when a newer build has been uploaded. |
-| Bugs & requests | Works under You → Settings. Signed-in people can post a bug or a feature request, browse the board, upvote, and comment with their username. |
+| Bugs & requests | Works on You in its own section above Settings. Signed-in people can post a bug or a feature request, browse the board, upvote, and comment with their username. |
 | Privacy / Support | Pages are implemented and linked under You → Settings. Staging uses `staging.fitfight.app`; production uses `fitfight.app`. Each route must be deployed before that build is tested or submitted. |
 | Account deletion | Permanently deletes the profile, username, authentication, Health/Steps data, relationships, invitations, memberships, scores, owned Fights, and bugs/requests the User posted; removes participation from other Fights; clears local Health sync state; and revokes a stored Apple credential when available. |
 | WHOOP / Strava | Not built |
