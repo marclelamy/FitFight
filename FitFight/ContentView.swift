@@ -58,6 +58,17 @@ struct ContentView: View {
                 .fitFightTheme(themeStore.theme)
                 .presentationBackground(themeStore.theme.bg)
         }
+        .alert("Couldn’t save referral", isPresented: Binding(
+            get: { model.pendingReferralError != nil },
+            set: { if !$0 { model.pendingReferralError = nil } }
+        )) {
+            Button("Try again") {
+                Task { await model.consumePendingLinks(session: session) }
+            }
+            Button("Not now", role: .cancel) {}
+        } message: {
+            Text(model.pendingReferralError ?? "")
+        }
     }
 
     @ViewBuilder

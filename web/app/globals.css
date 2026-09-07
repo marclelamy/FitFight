@@ -639,6 +639,10 @@ footer .brand-mark {
   color: var(--text-dim);
 }
 
+.legal-content a.invite-download {
+  color: var(--text);
+}
+
 .legal-email {
   margin-top: 30px;
 }

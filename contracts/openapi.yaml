@@ -10,6 +10,27 @@ info:
 servers:
   - url: /api/v1
 paths:
+  /referrals:
+    post:
+      operationId: claimReferral
+      summary: Record the first referrer for the authenticated User.
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ReferralLink" }
+      responses:
+        "200":
+          description: recorded is false for self-referrals, unavailable codes/accounts, or existing attribution.
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                required: [recorded]
+                properties:
+                  recorded: { type: boolean }
   /provider-connections/apple-health:
     post:
       operationId: connectAppleHealth
@@ -324,6 +345,12 @@ components:
       scheme: bearer
       bearerFormat: JWT
   schemas:
+    ReferralLink:
+      type: object
+      additionalProperties: false
+      required: [code]
+      properties:
+        code: { type: string, format: uuid }
     ApiError:
       type: object
       additionalProperties: false

@@ -305,7 +305,8 @@ struct FightDetailView: View {
                         .buttonStyle(.plain)
                     }
                 }
-                if let url = fight.shareURL {
+                if let code = fight.joinCode, let referralCode = session.profile?.referralCode {
+                    let url = APIConfig.joinShareURL(code: code, referralCode: referralCode)
                     HStack {
                         VStack(alignment: .leading, spacing: 2) {
                             Text("Link")
@@ -326,6 +327,11 @@ struct FightDetailView: View {
                                 .foregroundStyle(theme.mossText)
                         }
                         .buttonStyle(.plain)
+                    }
+                    ShareLink(item: url) {
+                        Label(String(localized: "Share fight"), systemImage: "square.and.arrow.up")
+                            .ffType(.label)
+                            .foregroundStyle(theme.mossText)
                     }
                 }
             }

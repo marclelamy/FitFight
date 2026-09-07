@@ -28,6 +28,13 @@ enum Changelog {
             version: "1.0.0",
             year: 2026,
             month: 9,
+            day: 7,
+            notes: "Refer a friend from You or share a fight directly. Links help friends install FitFight through TestFlight, and reopening the link after installation keeps the referral and challenge together."
+        ),
+        ReleaseNote(
+            version: "1.0.0",
+            year: 2026,
+            month: 9,
             day: 6,
             notes: "On a repeating fight, after the start day you can join this round or wait for the next one. People waiting for the next round show up on the fight without counting in this round’s standings."
         ),

@@ -25,7 +25,7 @@ export default function PrivacyPage() {
       <article className="legal-content">
         <p className="eyebrow">VOS DONNÉES, EN TOUTE CLARTÉ</p>
         <h1>Politique de confidentialité</h1>
-        <p className="legal-updated">En vigueur le 5 septembre 2026</p>
+        <p className="legal-updated">En vigueur le 7 septembre 2026</p>
         <p className="legal-intro">
           FitFight permet à des participants identifiés de comparer le nombre de pas
           enregistrés pendant un défi privé. Cette politique décrit les données utilisées
@@ -41,6 +41,12 @@ export default function PrivacyPage() {
               lorsqu’Apple le fournit, le nom d’utilisateur FitFight que vous choisissez et
               un identifiant Apple chiffré, réservé au serveur, permettant de déconnecter
               Connexion avec Apple lorsque vous supprimez votre compte.
+            </li>
+            <li>
+              <strong>Parrainages :</strong> un code de partage aléatoire, les comptes
+              du parrain et de la personne parrainée, ainsi que la date du parrainage.
+              Cela nous permet de savoir qui invite des amis sur FitFight. Ces liens
+              restent privés et sont supprimés lorsque l’un des deux comptes est supprimé.
             </li>
             <li>
               <strong>Données des défis :</strong> les noms d’utilisateur invités, le gage,
