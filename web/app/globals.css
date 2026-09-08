@@ -428,6 +428,10 @@ footer {
   letter-spacing: -0.05em;
 }
 
+.how > h2 span {
+  color: var(--moss-text);
+}
+
 .steps {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
