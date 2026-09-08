@@ -81,7 +81,7 @@ export default function HomePage() {
 
       <section className="how" id="how-it-works">
         <p className="eyebrow">HOW IT WORKS</p>
-        <h2>Three steps to start. One winner to finish.</h2>
+        <h2>Three <span>steps</span> to start. One <span>winner</span> to finish.</h2>
         <div className="steps">
           <article>
             <span>01</span>
