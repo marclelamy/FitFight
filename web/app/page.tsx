@@ -86,7 +86,7 @@ export default function HomePage() {
           <article>
             <span>01</span>
             <h3>Add your friends</h3>
-            <p>Search by username and add to any fight</p>
+            <p>Search by username and add to any fight.</p>
           </article>
           <article>
             <span>02</span>
