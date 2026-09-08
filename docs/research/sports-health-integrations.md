@@ -1,29 +1,29 @@
 # Sports and health integrations for FitFight
 
-Research date: **29 August 2026**. This is product research, not an implementation plan. FitFight currently reads Apple Health steps only; WHOOP, Strava, Active Minutes, and Workout Count remain unbuilt by design. Vendor behavior and terms change, so re-check the linked first-party documentation before shipping an integration.
+Research date: **29 August 2026**, Google Health Apple Health write path updated **4 September 2026**. Field-level vendor notes live here. The **product collection decision** — pull vendor APIs directly because people do not enable Apple Health export; HealthKit only for Apple Watch/iPhone — is [`data-sources.md`](data-sources.md). FitFight currently still reads Apple Health steps only. Vendor behavior and terms change, so re-check the linked first-party documentation before shipping an adapter.
 
 ## Executive answer
 
-Apple Health should be FitFight's default iPhone ingestion layer. It can normalize steps, weight, heart rate, sleep, workouts, energy, and distance from many apps without FitFight building an API integration for every vendor. It does **not** make every vendor metric available: WHOOP Recovery/Strain, Oura Readiness, Garmin Body Battery, and similar proprietary scores generally require the vendor's API, if the vendor offers one.
+This file is how each vendor’s API and HealthKit export actually behave. It is not the build order. Marc’s call is in [`data-sources.md`](data-sources.md): connect WHOOP, Oura, Polar, Garmin, COROS, and Strava in FitFight. Apple Health is not a substitute for those connections. It is the only path for Apple Watch and iPhone, and a fallback when a vendor has no public API (Amazfit, Nike Run Club, Peloton).
 
-HealthKit access is not automatic. A value is visible to FitFight only if the vendor writes that type, the user enables the vendor's Apple Health export, and the user separately grants FitFight read access. HealthKit intentionally makes “permission denied” look much like “no data,” so an empty query is not proof that the user has no data. [Apple authorization guide](https://developer.apple.com/documentation/healthkit/authorizing-access-to-health-data)
+Apple Health can still normalize steps, workouts, energy, and distance **if** the person enabled that vendor’s export. HealthKit access is not automatic. A value is visible only if the vendor wrote that type, the user enabled the export, and they granted FitFight read access. HealthKit intentionally makes “permission denied” look like “no data.” [Apple authorization guide](https://developer.apple.com/documentation/healthkit/authorizing-access-to-health-data)
 
-For FitFight's current Steps fight, keep Apple Health as the only source and use HealthKit's merged daily step statistic. Direct vendor APIs add cost, review, OAuth, deletion, and policy work without improving the core metric enough. Revisit a direct integration only when a named vendor-only metric becomes an approved product requirement.
+For the current shipped Steps fight, keep Apple Health merged Steps. Direct APIs are now the collection path for the sources above, not a later optional extra.
 
 ### Decision matrix
 
 | Platform | Direct API | Useful data through the direct API | Apple Health path | FitFight decision |
 | --- | --- | --- | --- | --- |
-| **Apple Health / Apple Watch** | Native HealthKit, on device; no public Apple Health REST API | Standardized samples and workouts already in the user's Health store | Native source | **Use now for Steps.** Expand by HealthKit type only when the backlog calls for it. |
-| **WHOOP** | Public OAuth 2 API | Recovery, strain/cycles, HRV RMSSD, RHR, SpO2, skin temperature, sleep, workouts | Strong, but excludes important proprietary metrics and WHOOP HRV | **HealthKit first.** Direct API only for Recovery/Strain/RMSSD. |
-| **Garmin** | Business/enterprise program, approval required | Daily health, sleep, stress, Body Battery, body composition, detailed FIT activities | Strong for standard daily metrics and workouts; no routes | **HealthKit first.** Direct API only for proprietary/detailed Garmin data. |
-| **Oura** | Public OAuth 2 API; production approval after initial user limit | Readiness/activity/sleep scores, HR/HRV, SpO2, temperature, stress, workouts | Very strong for standard metrics | **HealthKit first.** Direct API only for readiness/stress/deeper ring data. |
-| **Withings** | Public OAuth 2 health-data API | Weight/body composition, BP, sleep, activity, HR, temperature, SpO2 and more | Strong for scale/body metrics | **HealthKit first for weight.** Direct API only for broader Withings history/clinical detail. |
-| **Strava** | OAuth 2 activity API, but restrictive 2026 terms | Activities, routes, segments, streams such as GPS, HR, cadence, watts | Partial activity bridge | **Do not use the direct API for shared fights/leaderboards without written Strava approval.** |
-| **Google Health / Fitbit / Pixel Watch** | Google Health API; Fitbit Web API scheduled to shut down in September 2026 | Activity, workouts, HR/HRV, sleep, vitals, body measurements, nutrition and more | Current Help Center says Apple Health is imported but not yet exported | **Not a dependable HealthKit source today.** Evaluate Google Health API if Fitbit becomes a priority. |
-| **Polar** | AccessLink OAuth APIs | Exercises and samples, daily activity, continuous HR, sleep, cardio load, biosensing | Good but one-way and narrower | **HealthKit first** for standard data; direct API for training detail. |
-| **Samsung Health** | Samsung Health Data SDK, partner registration | Broad activity, body, sleep, vitals, nutrition records | Android-only; no official Apple Health bridge | **No iOS path.** Revisit only with an Android app. |
-| **ClassPass** | Merchant inventory/booking API | Venues, schedules, capacity, reservations, attendance | No official health-data integration found | **Not a health source.** Treat attendance as booking data, not measured exercise. |
+| **Apple Health / Apple Watch** | Native HealthKit, on device; no public Apple Health REST API | Standardized samples and workouts already in the user's Health store | Native source | **Only path for Watch/iPhone.** Keep Steps; add workouts next. |
+| **WHOOP** | Public OAuth 2 API | Recovery, strain/cycles, HRV RMSSD, RHR, SpO2, skin temperature, sleep, workouts | Strong, but excludes Recovery, Strain, and WHOOP HRV | **Direct API.** People will not enable Health export. |
+| **Garmin** | Business/enterprise program, approval required | Daily health, sleep, stress, Body Battery, body composition, detailed FIT activities | Strong for standard daily metrics and workouts; no routes | **Direct API** after Marc’s Garmin program approval. |
+| **Oura** | Public OAuth 2 API; production approval after initial user limit | Readiness/activity/sleep scores, HR/HRV, SpO2, temperature, stress, workouts | Very strong for standard metrics | **Direct API.** Readiness is on the same connection. |
+| **Withings** | Public OAuth 2 health-data API | Weight/body composition, BP, sleep, activity, HR, temperature, SpO2 and more | Strong for scale/body metrics | Parked this wave. |
+| **Strava** | OAuth 2 activity API, but restrictive 2026 terms | Activities, routes, segments, streams such as GPS, HR, cadence, watts | Partial activity bridge | **Direct API for that athlete.** Shared Fight display needs written Strava approval. |
+| **Google Health / Fitbit / Pixel Watch** | Google Health API; Fitbit Web API scheduled to shut down in September 2026 | Activity, workouts, HR/HRV, sleep, vitals, body measurements, nutrition and more | Two-way as of Google Health iOS 5.05 (3 Aug 2026) | **Parked.** Pixel is Android. |
+| **Polar** | AccessLink OAuth APIs | Exercises and samples, daily activity, continuous HR, sleep, cardio load, biosensing | Good but one-way and narrower | **Direct API.** |
+| **Samsung Health** | Samsung Health Data SDK, partner registration | Broad activity, body, sleep, vitals, nutrition records | Android-only; no official Apple Health bridge | **No iOS path.** |
+| **ClassPass** | Merchant inventory/booking API | Venues, schedules, capacity, reservations, attendance | No official health-data integration found | **Not a health source.** |
 
 ## What Apple Health actually gives FitFight
 
@@ -152,7 +152,7 @@ Strava's [Apple Health integration](https://support.strava.com/en-us/articles/15
 
 The Fitbit app was renamed Google Health on 19 May 2026. Google's [platform overview](https://developers.google.com/health/about) says the Google Health API replaces the Fitbit Web API, whose shutdown is scheduled for September 2026. The [data-type catalog](https://developers.google.com/health/data-types) covers activity/exercise, steps, energy, distance, floors, HR/HRV, SpO2, respiration, temperature, weight/body fat, sleep, nutrition, ECG and other supported records. Access uses granular Google OAuth scopes and may require OAuth verification. [Google Health scopes](https://developers.google.com/health/scopes), [Google OAuth verification](https://support.google.com/cloud/answer/13463073?hl=en)
 
-The current [Google Health Apple Health article](https://support.google.com/googlehealth/answer/17037331?hl=en) says Apple Health → Google Health import is supported but Google Health does **not yet** write to Apple Health. Treat Fitbit/Pixel data as **not dependable through HealthKit** until the first-party Help Center changes and the flow is verified on-device. Direct Google Health API is the current credible route if Fitbit becomes a product priority.
+The current [Google Health Apple Health article](https://support.google.com/googlehealth/answer/17037331?hl=en) documents two-way sync: Google Health can read Apple Health and, as of iOS app 5.05 (3 August 2026), can write Fitbit/Pixel exercise, steps, sleep, vitals, and related types into Apple Health when the person grants write categories. [9to5Mac](https://9to5mac.com/2026/08/03/google-health-adds-two-way-apple-health-syncing-on-iphone/). Treat Fitbit/Pixel as a **HealthKit source after that export is enabled and verified on-device**. The Google Health API remains the cloud path if FitFight must sync without the iPhone opening. Do not build against the Fitbit Web API; Google turns it down in September 2026.
 
 ### Polar
 
@@ -183,18 +183,19 @@ The likely transcription was **ClassPass**. Its [developer API](https://develope
 
 ## Recommended FitFight architecture
 
-1. **Stay HealthKit-first on iPhone.** Request only the types attached to a shipped metric. Use Apple's merged cumulative statistic over each exact Fight window for Steps fights.
-2. **Collect provenance only for a shipped purpose.** Source name/bundle ID could help support and fraud review, but it is not a reliable physical-device identity and is deliberately not collected by the Steps MVP.
-3. **Show sync health honestly.** Display last successful import and categories requested. Never say “permission denied” based on an empty read result because HealthKit does not reveal that state.
-4. **Prevent duplicates at the metric layer.** For cumulative daily values use HealthKit statistics; for workouts retain UUID/source and reconcile updates/deletions with anchored queries. Do not sum workout totals and detail samples.
-5. **Add direct APIs only for named vendor-only value.** Best candidates are WHOOP Recovery/Strain/RMSSD, Oura Readiness, Garmin Body Battery/stress, or Polar training detail—not ordinary steps, weight, or workouts already normalized in Health.
-6. **Exclude direct Strava leaderboard use under current terms.** Get written approval before designing a shared competition around data fetched from Strava's API.
-7. **Treat Google/Fitbit as a separate integration until export is settled.** Re-test Google Health → Apple Health after first-party documentation confirms it.
-8. **If Android is built later, use Health Connect as the normalization layer** and consider Samsung/Google direct APIs only for proprietary value.
+Build order and which sources are in: [`data-sources.md`](data-sources.md). Technical rules that still apply:
+
+1. **Apple Watch / iPhone stay HealthKit.** There is no Apple cloud API. Request only the types attached to a shipped collection slice. Steps fights still use Apple's merged cumulative statistic over each exact Fight window.
+2. **Vendor clouds are first-class connections**, not a HealthKit fallback. People will not enable WHOOP/Oura/Garmin export.
+3. **One selected Data source per member per Metric per Fight.** Do not add a WHOOP workout to its Strava copy.
+4. **Show sync health honestly.** Never say “permission denied” from an empty HealthKit read.
+5. **Strava is in.** Connect it. Fight standings from Strava wait on an email to `developers@strava.com`.
+6. **Do not scrape** Nike, Peloton, or Amazfit. No public API.
+7. **Android / Health Connect / Pixel** are out until there is an Android app.
 
 ## FitFight-specific gap today
 
-The current Steps implementation keeps only Apple's merged cumulative total for each exact Fight window and the relevant merged daily chart buckets. It does not collect raw samples, deletion tombstones, per-source statistics, or provenance. Before adding any new metric, the product and backend still need to define its unit, aggregation window, source-merging rule, late-update/deletion behavior, user-facing permission state, and anti-cheat expectations. This report deliberately does not add WHOOP, Strava, Workout Count, or Active Minutes to the backlog or implement them.
+The current Steps implementation keeps only Apple's merged cumulative total for each exact Fight window and the relevant merged daily chart buckets. It does not collect raw samples, deletion tombstones, per-source statistics, or provenance. Before adding any new metric, the product and backend still need to define its unit, aggregation window, source-merging rule, late-update/deletion behavior, user-facing permission state, and anti-cheat expectations. The source inventory and the vendor-API collection decision now live on the backlog via [`data-sources.md`](data-sources.md). This report still does not implement WHOOP, Strava, Workout Count, or Active Minutes.
 
 ## Primary-source index
 

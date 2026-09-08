@@ -394,11 +394,13 @@ attribution()
 | Garmin app/watch → Apple Health | Steps and workouts among other types | Garmin states its app must be foregrounded to send to Apple Health | **Supported with freshness warning** |
 | Strava app → Apple Health | Recorded activity type, time, distance, calories | Depends on Strava's sync to HealthKit | **Use HealthKit copy where valid** |
 | Direct WHOOP API | Workouts, cycles/strain, recovery, sleep; current API does not provide a general step feed | Yes, via refresh tokens, webhooks, and reconciliation | **Second-wave candidate after approval** |
-| Direct Strava API | Recorded activities, not general daily step totals | Yes, via refresh tokens and webhooks | **Blocked pending written social-display approval** |
+| Direct Strava API | Recorded activities, not general daily step totals | Yes, via refresh tokens and webhooks | **Connect it.** Fight standings from Strava wait on written approval |
 | Health Connect | Android steps, exercise, intensity and other approved records | Background read can be requested where supported | **Adapter seam now; build with Android** |
 | Direct Bluetooth hardware | Device-specific | Only while supported device/app execution allows | **Do not build in v1** |
 
 Apple Health is a hub, not a guarantee that every manufacturer's cloud is current. WHOOP can export workouts and optional steps to Apple Health, while Garmin documents that Garmin Connect must be open in the foreground to transfer data to Apple Health ([WHOOP Apple Health](https://support.whoop.com/s/article/Apple-Health-Integration?language=en_US), [Garmin Apple Health](https://support.garmin.com/en-AU/?faq=lK5FPB9iPF5PXFkIpFlFPA)). FitFight must show freshness rather than claim “automatic” without qualification.
+
+The inventory of sources FitFight will collect from — vendor APIs first, HealthKit for Apple Watch/iPhone — is [`research/data-sources.md`](research/data-sources.md).
 
 Apple Health also lets users prioritize multiple sources. FitFight uses the default merged HealthKit cumulative statistic as the v1 Steps total and never naïvely sums raw sources. It queries each exact Fight interval directly; merged daily buckets may accompany the request for charts but never replace that interval total. The MVP does not run a raw anchored query or `separateBySource`, and it does not send deletion UUIDs, `HKSourceRevision`, `HKDevice`, or metadata. The UI therefore says **Apple Health**, not “Apple Watch” or another contributing device ([Apple Health sources](https://support.apple.com/en-lamr/108779)).
 
