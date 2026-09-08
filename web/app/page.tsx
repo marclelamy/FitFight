@@ -13,13 +13,13 @@ export default function HomePage() {
 
       <section className="hero" id="top">
         <div className="hero-copy">
-          <p className="eyebrow">PRIVATE STEPS CHALLENGES</p>
+          <p className="eyebrow">YOUR STEP COMPETITION SCOREKEEPER</p>
           <h1>
-            See who takes<br />
-            the most <span>steps.</span>
+            Let friendly competition<br />
+            <span>move you.</span>
           </h1>
           <p className="lede">
-            Start a private challenge with friends, connect Apple Health, and
+            Connect Apple Health, start a private group challenge, and
             see who records the most steps.
           </p>
           <div className="hero-actions">
@@ -42,7 +42,7 @@ export default function HomePage() {
             <div className="fight-title-row">
               <div>
                 <p className="card-label">STEPS TOTAL</p>
-                <h2>Weekend Walk-Off</h2>
+                <h2>Weekly Step Challenge</h2>
               </div>
               <div className="rank"><strong>#1</strong><span>OF 2</span></div>
             </div>
@@ -81,16 +81,16 @@ export default function HomePage() {
 
       <section className="how" id="how-it-works">
         <p className="eyebrow">HOW IT WORKS</p>
-        <h2>Three moves. One winner.</h2>
+        <h2>Three steps to start. One winner to finish.</h2>
         <div className="steps">
           <article>
             <span>01</span>
-            <h3>Add a friend</h3>
-            <p>Start a private Steps fight with their exact username.</p>
+            <h3>Add your friends</h3>
+            <p>Search by username and add to any fight</p>
           </article>
           <article>
             <span>02</span>
-            <h3>Move normally</h3>
+            <h3>Move to win</h3>
             <p>Apple Health securely keeps the score while you live your day.</p>
           </article>
           <article>
@@ -106,7 +106,7 @@ export default function HomePage() {
           <span className="brand-mark">FF</span>
           <span>FitFight</span>
         </a>
-        <p>Challenge friends. Keep moving.</p>
+        <p>Challenge friends. Move to win.</p>
         <span>© 2026 FitFight</span>
       </footer>
     </main>

@@ -25,9 +25,9 @@ const nunito = localFont({
 });
 
 export const metadata = {
-  title: "FitFight — Make every step count",
+  title: "FitFight — Challenge friends. Move to win",
   description:
-    "Challenge your friends, connect Apple Health, and turn everyday steps into a fight worth winning.",
+    "Your step competition scorekeeper. Connect Apple Health, start a private group challenge, and see who records the most steps.",
   robots: { index: false, follow: false },
 };
 
