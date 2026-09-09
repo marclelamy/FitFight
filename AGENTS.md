@@ -4,7 +4,7 @@ Read this first, then `docs/`. Marc talks from his phone, often transcribing. Be
 
 **Owner:** Marc Lamy (`marc@marclamy.com`)  
 **Repo:** https://github.com/marclelamy/FitFight (public)  
-**Loop:** Marc (phone) → Cursor **cloud** agent → prepare changes → PR into `develop` only when Marc explicitly asks for a PR → merge `develop` → `staging` for a TestFlight → merge `staging` → `preview` for the next TestFlight → merge `preview` → `main` when it should be production → App Store flow only when Marc asks.
+**Loop:** Marc (phone) → Cursor **cloud** agent → prepare changes → PR into `develop` only when Marc explicitly asks for a PR → merge `develop` → `preview` for a TestFlight → merge `preview` → `main` when it should be production → App Store flow only when Marc asks.
 
 ## Hard rules
 
@@ -17,8 +17,8 @@ Read this first, then `docs/`. Marc talks from his phone, often transcribing. Be
 - Permanent **Versions** button: under You → Settings, and the version label at the top. Every user-facing ship adds a `ReleaseNote` in `FitFight/Changelog.swift` (same marketing version, new date/notes) and updates **Last TestFlight** in `docs/backlog.md`.
 - **Do not bump `MARKETING_VERSION` for TestFlight.** The App Store release version is **1.0.0**. Stay on `1.0.0`; CI increments the **build number**. Changelog rows reuse `1.0.0`. Only bump marketing version for the next App Store version or if Marc asks.
 - Design tokens live in `docs/design/source/tokens.json` and are copied byte-for-byte into `FitFight/DesignSystem/tokens.json` for the app bundle. Don’t hardcode colours. The current system is **Night/Day with fixed semantic families**: Moss is you/winning, Ember is urgency/losing, and Gold is progress only. There is no accent picker.
-- Talk to Marc only for things only he can do: Apple login, GitHub secrets, TestFlight testers, legal, the hosted Supabase dashboard. Agents cannot `workflow_dispatch`. Staging TestFlight uploads only on push/merge to `staging` or `preview` (plus optional manual `workflow_dispatch` on those branches). Feature-branch, `develop`, and cron do not upload. `main` never uploads to TestFlight. After a `staging` or `preview` merge, tell Marc a staging build is coming; he opens TestFlight → Update. Do not ask him to Run workflow.
-- Never nuke the hosted database. No `supabase db reset` / `db push` against production or `develop`, no `DROP TABLE` / `TRUNCATE` / `DROP SCHEMA` / `DROP DATABASE` unless Marc asked in that chat and the migration starts with `-- allow-destructive`. Never put `sb_secret_...`, `service_role`, or the database password in git, chat, or iOS. Never merge to `main` unless Marc asked to ship to production. Never merge to `develop`, `staging`, or `preview` unless Marc asked. Production migrations apply only after `preview` is merged to `main`.
+- Talk to Marc only for things only he can do: Apple login, GitHub secrets, TestFlight testers, legal, the hosted Supabase dashboard. Agents cannot `workflow_dispatch`. Staging TestFlight uploads only on push/merge to `preview` (plus optional manual `workflow_dispatch` on that branch). Feature-branch, `develop`, and cron do not upload. `main` never uploads to TestFlight. After a `preview` merge, tell Marc a staging build is coming; he opens TestFlight → Update. Do not ask him to Run workflow.
+- Never nuke the hosted database. No `supabase db reset` / `db push` against production or `develop`, no `DROP TABLE` / `TRUNCATE` / `DROP SCHEMA` / `DROP DATABASE` unless Marc asked in that chat and the migration starts with `-- allow-destructive`. Never put `sb_secret_...`, `service_role`, or the database password in git, chat, or iOS. Never merge to `main` unless Marc asked to ship to production. Never merge to `develop` or `preview` unless Marc asked. Production migrations apply only after `preview` is merged to `main`.
 - Do not create or call app-facing Postgres RPCs (`.rpc(...)`). Server-owned business logic belongs in the TypeScript backend. Small internal Postgres functions used only by RLS policies or triggers, such as signup plumbing, are allowed.
 
 ## What exists (2026-08-30)
@@ -27,7 +27,7 @@ Current map: [`docs/status.md`](docs/status.md). Sign-in, username, direct-usern
 
 - Native SwiftUI iOS app, scheme `FitFight`, bundle ID `com.fitfight.mvp`.
 - First TestFlight upload **succeeded** (build `0.1.0 (1)`). Current release/TestFlight marketing version: **1.0.0**.
-- Staging TestFlight only on push/merge to `staging` or `preview` (optional manual `workflow_dispatch` on those branches). No daily cron. Feature branches and `develop` do not upload. `main` never uploads to TestFlight.
+- Staging TestFlight only on push/merge to `preview` (optional manual `workflow_dispatch` on that branch). No daily cron. Feature branches and `develop` do not upload. `main` never uploads to TestFlight.
 - Simulator compile on every PR.
 - Approved design source remains in `docs/design/source/`. The app uses Night/Day and one fixed semantic palette.
 - Four tabs: **Fights, New, Feed, You**. Requests, persistent friends, money, unsupported Metrics, and dead settings are gone.
@@ -60,12 +60,12 @@ He asks for several designs of a screen. He wants to **tap them on his phone**, 
 
 ## When you change the native iOS app
 
-1. Branch off `develop`. Only when Marc explicitly asks for a PR, open it **into `develop`**. Do not PR into `staging`, `preview`, or `main` unless Marc is cutting that release.
+1. Branch off `develop`. Only when Marc explicitly asks for a PR, open it **into `develop`**. Do not PR into `preview` or `main` unless Marc is cutting that release.
 2. Add new `.swift` files to `FitFight.xcodeproj/project.pbxproj` (explicit file list, not a synchronized group). JSON in `DesignSystem/` must also be in the Resources build phase.
 3. If users will see it: append a `ReleaseNote` in `Changelog.swift` using the current `MARKETING_VERSION` (`1.0.0`). Do **not** change `MARKETING_VERSION` in `project.pbxproj`. CI bumps the build number. Only bump marketing version for the next App Store version or when Marc asks in that chat.
-4. Don’t ask Marc to open Xcode or his Mac. Feature-branch and `develop` pushes do not upload TestFlight. A staging build uploads when the change lands on `staging` or `preview`. Then he opens TestFlight → Update. Do not ask him to Run workflow.
+4. Don’t ask Marc to open Xcode or his Mac. Feature-branch and `develop` pushes do not upload TestFlight. A staging build uploads when the change lands on `preview`. Then he opens TestFlight → Update. Do not ask him to Run workflow.
 5. Shipping to production is Marc merging `preview` → `main`. Agents do not do that unless he said so in that chat.
-6. Merged feature branches are deleted by CI. `main`, `develop`, `staging`, `preview`, and `testflight-latest` stay. Do not enable GitHub’s “Automatically delete head branches.”
+6. Merged feature branches are deleted by CI. `main`, `develop`, `preview`, and `testflight-latest` stay. Do not enable GitHub’s “Automatically delete head branches.”
 
 ## Coding conduct — all languages
 

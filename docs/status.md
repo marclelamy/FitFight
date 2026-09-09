@@ -22,10 +22,10 @@ There are two **hosted databases**. Git uses a promotion train.
 
 | | Integration | TestFlight | Real users / App Store |
 |---|---|---|---|
-| GitHub | `develop` | `staging`, then `preview` | `main` |
-| TestFlight | no upload | push/merge to `staging` or `preview` (optional manual `workflow_dispatch` on those branches; no daily cron) | never; `main` does not upload to TestFlight |
+| GitHub | `develop` | `preview` | `main` |
+| TestFlight | no upload | push/merge to `preview` (optional manual `workflow_dispatch` on that branch; no daily cron) | never; `main` does not upload to TestFlight |
 | Supabase | develop project (`zstzbf…`, version line says `staging`) | same staging backend | production (`pvqn…`, version line says `prod`) |
-| What you do | Merge PRs **into `develop`**. | Merge `develop` → `staging` for a TestFlight, then `staging` → `preview` for the next build. | Merge `preview` → `main` only when Marc says ship |
+| What you do | Merge PRs **into `develop`**. | Merge `develop` → `preview` for a TestFlight. | Merge `preview` → `main` only when Marc says ship |
 
 A feature PR is another git branch. Merge it **into `develop`**. That updates the **staging** database (new SQL) and is the home for later chats. It does **not** upload TestFlight.
 
@@ -50,7 +50,7 @@ The 5 Sep performance changes require the timing-history migration and the backe
 
 Apple Health synchronization requires `FITFIGHT_API_URL=https://staging.fitfight.app` plus Vercel's server-only Supabase URL/secret and pooled `DATABASE_URL`. Fresh Apple sign-in and automatic revocation also require the Vercel Sign in with Apple Team/key/private-key/client-ID values and stable token-encryption key. Configure those first; otherwise sign-in fails visibly. Do not expose schema `private`.
 
-After the backend is configured, merge the feature PR into **`develop`**, not `main`. The staging migration must land before merging `develop` → `staging` for the TestFlight build.
+After the backend is configured, merge the feature PR into **`develop`**, not `main`. The staging migration must land before merging `develop` → `preview` for the TestFlight build.
 
 Verify the minimal product alongside Apple Health synchronization:
 

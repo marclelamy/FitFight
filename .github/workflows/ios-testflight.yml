@@ -1,14 +1,13 @@
 # Archive + upload to TestFlight on GitHub-hosted macOS.
 # Never use self-hosted runners or a home Mac.
-# Staging TestFlight only: push/merge to staging or preview, or manual
-# workflow_dispatch on those branches. Feature-branch, develop, and cron
+# Staging TestFlight only: push/merge to preview, or manual
+# workflow_dispatch on that branch. Feature-branch, develop, and cron
 # must not upload. main never uploads to TestFlight.
 name: TestFlight
 
 on:
   push:
     branches:
-      - staging
       - preview
     paths:
       - "FitFight/**"
@@ -26,7 +25,7 @@ concurrency:
 
 jobs:
   beta:
-    if: github.ref_type == 'branch' && (github.ref == 'refs/heads/staging' || github.ref == 'refs/heads/preview')
+    if: github.ref_type == 'branch' && github.ref == 'refs/heads/preview'
     name: Upload
     runs-on: macos-26
     timeout-minutes: 60

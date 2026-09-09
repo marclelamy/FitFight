@@ -2,8 +2,7 @@
 
 ```
 Marc (phone) → cloud Cursor agent → PR into develop
-  → merge develop → staging when you want a TestFlight
-  → merge staging → preview when you want the next TestFlight
+  → merge develop → preview when you want a TestFlight
   → merge preview → main when it should be production
   → App Store flow only when Marc asks
 ```
@@ -14,11 +13,11 @@ Not: agent on Marc’s laptop or home Mac → local Xcode.
 
 | Workflow | File | When | Runner |
 | --- | --- | --- | --- |
-| Simulator | `.github/workflows/ios-build.yml` | PR + push to `main`, `develop`, `staging`, or `preview` | `macos-26` |
-| Screenshots | `.github/workflows/ios-screenshots.yml` | PR + push to `main`, `develop`, `staging`, or `preview` | `macos-26` |
-| TestFlight | `.github/workflows/ios-testflight.yml` | push to `staging` or `preview` (app/fastlane paths), plus optional `workflow_dispatch` on those branches. No cron. Feature branches and `develop` do not upload. | `macos-26` |
+| Simulator | `.github/workflows/ios-build.yml` | PR + push to `main`, `develop`, or `preview` | `macos-26` |
+| Screenshots | `.github/workflows/ios-screenshots.yml` | PR + push to `main`, `develop`, or `preview` | `macos-26` |
+| TestFlight | `.github/workflows/ios-testflight.yml` | push to `preview` (app/fastlane paths), plus optional `workflow_dispatch` on that branch. No cron. Feature branches and `develop` do not upload. | `macos-26` |
 | App Store candidate | `.github/workflows/ios-app-store.yml` | app push to `main`; uploads only and never submits for review | `macos-26` |
-| Database | `.github/workflows/database.yml` | PR + push to `main`, `develop`, `staging`, or `preview` | `ubuntu-latest` |
+| Database | `.github/workflows/database.yml` | PR + push to `main`, `develop`, or `preview` | `ubuntu-latest` |
 | Delete merged branch | `.github/workflows/delete-merged-branch.yml` | PR merged | `ubuntu-latest` |
 
 The iOS workflows **must** stay GitHub-hosted. Never `self-hosted`. Apple requires **Xcode 26 / iOS 26 SDK** to upload (Xcode 16.4 / iOS 18.5 is rejected).
@@ -97,7 +96,7 @@ Names only. Never print values. Settings → Secrets and variables → Actions �
 | `SUPABASE_STAGING_PUBLISHABLE_KEY` | every TestFlight | Publishable key for that project (`sb_publishable_...`) |
 | `FITFIGHT_API_URL` | every TestFlight | `https://staging.fitfight.app` |
 
-Every TestFlight ships `https://zstzbfocunthczzubggz.supabase.co` (GitHub `SUPABASE_STAGING_*` variables override if set). The staging publishable key must be that project’s key, not production’s. Persistent `develop` must stay persistent so merging to `main` does not delete it. TestFlight CI builds the `staging` or `preview` commit that triggered it. The top version label always shows `staging`. `main` never uploads to TestFlight.
+Every TestFlight ships `https://zstzbfocunthczzubggz.supabase.co` (GitHub `SUPABASE_STAGING_*` variables override if set). The staging publishable key must be that project’s key, not production’s. Persistent `develop` must stay persistent so merging to `main` does not delete it. TestFlight CI builds the `preview` commit that triggered it. The top version label always shows `staging`. `main` never uploads to TestFlight.
 
 ## App Store production candidate
 
@@ -110,13 +109,13 @@ An app change merged to `main` starts `.github/workflows/ios-app-store.yml`. It 
 
 The workflow injects the production Supabase project, its iOS publishable key, and `https://fitfight.app` into `BuildEnv.swift`. Before upload it verifies the production Supabase URL/key, confirms its Apple provider is enabled, and requires the API health check to prove the production database, latest deletion migration, server key, and Apple server credentials are ready. It then checks the signed IPA for HealthKit background delivery, a valid privacy manifest, and the production configuration, and rejects any generated staging configuration. The public defaults match the values already compiled in the app; optional repository variables `SUPABASE_PRODUCTION_URL` and `SUPABASE_PRODUCTION_PUBLISHABLE_KEY` can rotate them, but the URL must remain the documented production project and the key must validate against it.
 
-Fastlane increments only the build number. The workflow requires the project marketing version to equal `FITFIGHT_RELEASE_VERSION` (`1.0.0`) and requires a matching `1.0.0` release note. The reviewed App Store release PR into `develop` carries that version and launch note. Marc then merges `develop` → `staging` and `staging` → `preview` when he wants TestFlight builds, and `preview` → `main` when he approves the production ship. The workflow does not change `MARKETING_VERSION`, upload metadata or screenshots, submit the build for review, or release it. After it succeeds, the candidate waits in App Store Connect for the separate metadata, review-information, build-selection, and submission steps.
+Fastlane increments only the build number. The workflow requires the project marketing version to equal `FITFIGHT_RELEASE_VERSION` (`1.0.0`) and requires a matching `1.0.0` release note. The reviewed App Store release PR into `develop` carries that version and launch note. Marc then merges `develop` → `preview` when he wants a TestFlight, and `preview` → `main` when he approves the production ship. The workflow does not change `MARKETING_VERSION`, upload metadata or screenshots, submit the build for review, or release it. After it succeeds, the candidate waits in App Store Connect for the separate metadata, review-information, build-selection, and submission steps.
 
 Vercel also needs `CRON_SECRET` (Preview + Production). Vercel Cron sends it as `Authorization: Bearer …` to `/api/internal/close-fights` once daily at **03:00 UTC**, which is compatible with Hobby. Opening the app also closes due fights, so the cron is a safety net rather than the only close path. Never put this value in git or chat.
 
 ## What Marc still does
 
-- TestFlight install / Update when a build is ready (~10–20 min after a `staging` or `preview` push).
+- TestFlight install / Update when a build is ready (~10–20 min after a `preview` push).
 - Internal testers (himself) vs external friends. Internal: no beta review. External: the build must be approved and distributed to their group; later builds of the same version may still need review. Friends can enable Automatic Updates inside TestFlight.
 - Apple account / legal / new secrets if they rotate.
 - After a production candidate passes: finish the App Store Connect metadata and review information, select the uploaded build, and explicitly submit it when ready.
@@ -125,17 +124,17 @@ He should **not** operate certificates day to day, open Xcode, or use a Mac for 
 
 ## Feature branches
 
-After a feature PR merges, CI deletes that branch. `main`, `develop`, `staging`, `preview`, and `testflight-latest` stay — we ship by merging `preview` into `main`, so GitHub’s “Automatically delete head branches” toggle must stay **off** (it would delete `develop`). `testflight-latest` stores public release metadata (`releases.json`), the builds that contain the update gate (`builds.json`), and `latest.json` for older TestFlight notices; it is not app code.
+After a feature PR merges, CI deletes that branch. `main`, `develop`, `preview`, and `testflight-latest` stay — we ship by merging `preview` into `main`, so GitHub’s “Automatically delete head branches” toggle must stay **off** (it would delete `develop`). `testflight-latest` stores public release metadata (`releases.json`), the builds that contain the update gate (`builds.json`), and `latest.json` for older TestFlight notices; it is not app code.
 
 ## Agent limits on GitHub
 
 - `gh` here is effectively read-only for Actions (cannot `workflow_dispatch` or set secrets).
 - Opening/updating PRs: use the PR tool, not `gh pr create`.
-- Don’t merge unless Marc asks. Feature PRs go onto `develop`. TestFlight is merging `develop` → `staging`, then `staging` → `preview`. Production is merging `preview` into `main`.
+- Don’t merge unless Marc asks. Feature PRs go onto `develop`. TestFlight is merging `develop` → `preview`. Production is merging `preview` into `main`.
 
 ## After you push app changes
 
-A push to `staging` or `preview` that touches the app or Fastlane starts TestFlight. Feature-branch and `develop` pushes do not. Tell Marc only after that upload: wait for the TestFlight notification, then **Update**. Processing often takes ~10–20 minutes; external testers may also wait for beta review. Check the workflow result before promising a build: upload or review limits can prevent distribution. Do not ask him to Run workflow.
+A push to `preview` that touches the app or Fastlane starts TestFlight. Feature-branch and `develop` pushes do not. Tell Marc only after that upload: wait for the TestFlight notification, then **Update**. Processing often takes ~10–20 minutes; external testers may also wait for beta review. Check the workflow result before promising a build: upload or review limits can prevent distribution. Do not ask him to Run workflow.
 
 Both staging and production binaries check `/api/app-release` at launch, on foregrounding, and every minute while active. Access is blocked unless version and build match the available release (or its registered Apple review candidate). The update screen has no dismissal and links to TestFlight or the App Store. Known mismatches survive relaunch and failed checks; a launch that cannot verify its version shows a retry screen.
 
