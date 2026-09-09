@@ -32,7 +32,7 @@ export const createFightPostRequestSchema = z.object({
   body: z.string().trim().max(500).default(""),
   media_ids: z.array(z.string().uuid()).max(4).default([]),
 }).strict().refine((input) => input.body.length > 0 || input.media_ids.length > 0, {
-  message: "Add a photo or a short note",
+  message: "Add a photo, a video, or a short note",
 });
 
 export const listFightPostsQuerySchema = z.object({

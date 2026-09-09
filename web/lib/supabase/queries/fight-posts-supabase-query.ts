@@ -182,11 +182,33 @@ export async function listFightPosts(
           on profile.user_id = post.author_id and profile.deleted_at is null
         left join public.media_objects as avatar
           on avatar.id = profile.avatar_media_id and avatar.status = 'ready'
-        join public.fight_members as membership
-          on membership.fight_id = post.fight_id
-         and membership.user_id = ${userId}
-         and membership.state in ('accepted', 'deferred')
-        where (${fightId ?? null}::uuid is null or post.fight_id = ${fightId ?? null})
+        where exists (
+          select 1
+          from public.fight_members as membership
+          where membership.user_id = ${userId}
+            and membership.state in ('accepted', 'deferred')
+            and (
+              membership.fight_id = post.fight_id
+              or (
+                fight.series_id is not null
+                and exists (
+                  select 1 from public.fights as sibling
+                  where sibling.series_id = fight.series_id
+                    and sibling.id = membership.fight_id
+                )
+              )
+            )
+        )
+          and (
+            ${fightId ?? null}::uuid is null
+            or post.fight_id = ${fightId ?? null}
+            or (
+              fight.series_id is not null
+              and fight.series_id = (
+                select viewed.series_id from public.fights as viewed where viewed.id = ${fightId ?? null}
+              )
+            )
+          )
           and not exists (
             select 1 from private.feed_blocks as blocked
             where blocked.blocker_id = ${userId} and blocked.blocked_id = post.author_id
@@ -211,11 +233,33 @@ export async function listFightPosts(
           on profile.user_id = post.author_id and profile.deleted_at is null
         left join public.media_objects as avatar
           on avatar.id = profile.avatar_media_id and avatar.status = 'ready'
-        join public.fight_members as membership
-          on membership.fight_id = post.fight_id
-         and membership.user_id = ${userId}
-         and membership.state in ('accepted', 'deferred')
-        where (${fightId ?? null}::uuid is null or post.fight_id = ${fightId ?? null})
+        where exists (
+          select 1
+          from public.fight_members as membership
+          where membership.user_id = ${userId}
+            and membership.state in ('accepted', 'deferred')
+            and (
+              membership.fight_id = post.fight_id
+              or (
+                fight.series_id is not null
+                and exists (
+                  select 1 from public.fights as sibling
+                  where sibling.series_id = fight.series_id
+                    and sibling.id = membership.fight_id
+                )
+              )
+            )
+        )
+          and (
+            ${fightId ?? null}::uuid is null
+            or post.fight_id = ${fightId ?? null}
+            or (
+              fight.series_id is not null
+              and fight.series_id = (
+                select viewed.series_id from public.fights as viewed where viewed.id = ${fightId ?? null}
+              )
+            )
+          )
           and not exists (
             select 1 from private.feed_blocks as blocked
             where blocked.blocker_id = ${userId} and blocked.blocked_id = post.author_id
@@ -253,7 +297,11 @@ export async function createFightPost(
   const uniqueMediaIds = [...new Set(input.media_ids)];
   const media = await loadReadyMedia(userId, uniqueMediaIds, "fight_post", database);
   if (media.length !== uniqueMediaIds.length) {
-    throw new ApiError(400, ERROR_CODES.validation, "Every photo must be one you just uploaded");
+    throw new ApiError(400, ERROR_CODES.validation, "Every photo or video must be one you just uploaded");
+  }
+  const videoCount = media.filter((row) => row.kind === "video").length;
+  if (videoCount > 1 || (videoCount > 0 && media.length > 1)) {
+    throw new ApiError(400, ERROR_CODES.validation, "Post one video by itself");
   }
 
   const createdId = await database.begin("read write", async (sql) => {

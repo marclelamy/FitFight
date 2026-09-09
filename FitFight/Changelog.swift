@@ -29,7 +29,7 @@ enum Changelog {
             year: 2026,
             month: 9,
             day: 9,
-            notes: "A Feed tab collects photos and notes from every fight you’re in. Each fight also has its own posts, and you can add a profile photo when you pick a username. New accounts are asked to connect Apple Health during setup."
+            notes: "A Feed tab collects photos, videos, and notes from every fight you’re in. Tap + to post to a fight. Recurring fights keep their posts when a new round starts. You can add a profile photo when you pick a username. New accounts are asked to connect Apple Health during setup."
         ),
         ReleaseNote(
             version: "1.0.0",

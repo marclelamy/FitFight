@@ -41,13 +41,31 @@ test("listing fight posts requires roster membership before reading rows", async
   const query = ((first: TemplateStringsArray) => {
     const sql = first.join("?").replace(/\s+/g, " ").trim();
     queries.push(sql);
-    if (sql.includes("from public.fight_members")) return Promise.resolve([]);
+    if (sql.includes("from public.fight_members") && !sql.includes("fight_posts")) {
+      return Promise.resolve([]);
+    }
     return Promise.resolve([]);
   }) as unknown as Sql;
   await assert.rejects(listFightPosts(userId, fightId, { limit: 30 }, query), (error: unknown) => (
     error instanceof Error && error.message === "Join this fight to see its posts"
   ));
   assert.match(queries[0] ?? "", /from public.fight_members/);
+});
+
+test("fight post listing keeps posts from other windows in the same series", async () => {
+  const queries: string[] = [];
+  const query = ((first: TemplateStringsArray) => {
+    const sql = first.join("?").replace(/\s+/g, " ").trim();
+    queries.push(sql);
+    if (sql.includes("from public.fight_members") && !sql.includes("fight_posts")) {
+      return Promise.resolve([{ state: "accepted" }]);
+    }
+    return Promise.resolve([]);
+  }) as unknown as Sql;
+  const result = await listFightPosts(userId, fightId, { limit: 30 }, query);
+  assert.deepEqual(result, { posts: [], next_cursor: null });
+  assert.match(queries[1] ?? "", /series_id/);
+  assert.match(queries[1] ?? "", /sibling/);
 });
 
 test("feed and fight post routes authenticate before reading or writing", async () => {

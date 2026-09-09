@@ -463,11 +463,13 @@ struct FitFightAPI {
 
     func createMediaUpload(
         purpose: String,
+        kind: String = "photo",
         filename: String,
         contentType: String,
         byteSize: Int,
         width: Int,
         height: Int,
+        durationMs: Int? = nil,
         sha256: String,
         accessToken: String
     ) async throws -> FitFightMediaUpload {
@@ -476,11 +478,13 @@ struct FitFightAPI {
             accessToken: accessToken,
             body: MediaUploadBody(
                 purpose: purpose,
+                kind: kind,
                 originalFilename: filename,
                 contentType: contentType,
                 byteSize: byteSize,
                 width: width,
                 height: height,
+                durationMs: durationMs,
                 sha256: sha256
             ),
             expected: [201]
@@ -930,19 +934,34 @@ private struct ProfileUpdate: Encodable {
 
 private struct MediaUploadBody: Encodable {
     let purpose: String
+    let kind: String
     let originalFilename: String
     let contentType: String
     let byteSize: Int
     let width: Int
     let height: Int
+    let durationMs: Int?
     let sha256: String
 
     enum CodingKeys: String, CodingKey {
-        case purpose
+        case purpose, kind, width, height, sha256
         case originalFilename = "original_filename"
         case contentType = "content_type"
         case byteSize = "byte_size"
-        case width, height, sha256
+        case durationMs = "duration_ms"
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(purpose, forKey: .purpose)
+        try container.encode(kind, forKey: .kind)
+        try container.encode(originalFilename, forKey: .originalFilename)
+        try container.encode(contentType, forKey: .contentType)
+        try container.encode(byteSize, forKey: .byteSize)
+        try container.encode(width, forKey: .width)
+        try container.encode(height, forKey: .height)
+        try container.encodeIfPresent(durationMs, forKey: .durationMs)
+        try container.encode(sha256, forKey: .sha256)
     }
 }
 

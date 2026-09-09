@@ -22,8 +22,8 @@ select is(
 );
 select is(
   (select file_size_limit from storage.buckets where id = 'user-media'),
-  8388608::bigint,
-  'user-media stays at 8 MiB'
+  52428800::bigint,
+  'user-media allows photos and short videos'
 );
 
 select is(

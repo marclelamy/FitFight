@@ -70,7 +70,7 @@ jobs:
 
       - name: Verify native API contracts
         run: |
-          swiftc -swift-version 5 -target "$(uname -m)-apple-macosx13.0" FitFight/Profile.swift FitFight/FightSnapshot.swift tests/APIContractTests.swift -o /tmp/fitfight-contract-tests
+          swiftc -swift-version 5 -target "$(uname -m)-apple-macosx13.0" FitFight/Media.swift FitFight/Profile.swift FitFight/FightSnapshot.swift tests/APIContractTests.swift -o /tmp/fitfight-contract-tests
           /tmp/fitfight-contract-tests contracts/fixtures
 
       - name: Build for iOS Simulator

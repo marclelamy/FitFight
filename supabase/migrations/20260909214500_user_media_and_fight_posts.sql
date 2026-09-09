@@ -7,13 +7,13 @@ values (
   'user-media',
   'user-media',
   false,
-  8388608,
-  array['image/jpeg', 'image/png', 'image/webp']::text[]
+  52428800,
+  array['image/jpeg', 'image/png', 'image/webp', 'video/mp4', 'video/quicktime']::text[]
 )
 on conflict (id) do update
 set public = false,
-    file_size_limit = 8388608,
-    allowed_mime_types = array['image/jpeg', 'image/png', 'image/webp']::text[];
+    file_size_limit = 52428800,
+    allowed_mime_types = array['image/jpeg', 'image/png', 'image/webp', 'video/mp4', 'video/quicktime']::text[];
 
 create type public.media_kind as enum ('photo', 'video');
 create type public.media_purpose as enum ('profile', 'fight_post');
@@ -41,9 +41,13 @@ create table public.media_objects (
   ),
   constraint media_objects_filename_len check (char_length(original_filename) between 1 and 200),
   constraint media_objects_content_type check (
-    content_type in ('image/jpeg', 'image/png', 'image/webp')
+    content_type in ('image/jpeg', 'image/png', 'image/webp', 'video/mp4', 'video/quicktime')
   ),
-  constraint media_objects_size check (byte_size between 1 and 8388608),
+  constraint media_objects_size check (byte_size between 1 and 52428800),
+  constraint media_objects_kind_mime check (
+    (kind = 'photo' and content_type in ('image/jpeg', 'image/png', 'image/webp') and byte_size <= 8388608)
+    or (kind = 'video' and content_type in ('video/mp4', 'video/quicktime'))
+  ),
   constraint media_objects_dimensions check (
     width between 1 and 8192 and height between 1 and 8192
   ),

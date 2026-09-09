@@ -22,7 +22,7 @@ export type MediaRow = {
   status: "pending" | "ready" | "rejected";
   object_path: string;
   original_filename: string;
-  content_type: "image/jpeg" | "image/png" | "image/webp";
+  content_type: MediaObject["content_type"];
   byte_size: string | number;
   width: number;
   height: number;
@@ -81,11 +81,11 @@ export async function createMediaUpload(
   const [row] = await database<MediaRow[]>`
     insert into public.media_objects (
       id, owner_id, kind, purpose, original_filename, content_type,
-      byte_size, width, height, sha256, object_path
+      byte_size, width, height, duration_ms, sha256, object_path
     ) values (
-      ${id}, ${userId}, 'photo', ${input.purpose}::public.media_purpose,
+      ${id}, ${userId}, ${input.kind}::public.media_kind, ${input.purpose}::public.media_purpose,
       ${input.original_filename}, ${input.content_type}, ${input.byte_size},
-      ${input.width}, ${input.height}, ${input.sha256}, ${objectPath}
+      ${input.width}, ${input.height}, ${input.duration_ms ?? null}, ${input.sha256}, ${objectPath}
     )
     returning id, owner_id, kind::text as kind, purpose::text as purpose,
       status::text as status, object_path, original_filename, content_type,

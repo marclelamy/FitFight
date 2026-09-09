@@ -93,6 +93,7 @@ struct Fight: Codable, Identifiable, Hashable {
     var windowEnd: Date = Date().addingTimeInterval(86400)
     var serverState: String? = nil
     var joinCode: String? = nil
+    var seriesId: String? = nil
     var recurring: Bool = false
     var pendingJoin: Bool = false
     var offersJoinNext: Bool = false
@@ -1031,6 +1032,7 @@ final class AppModel: ObservableObject {
             windowEnd: ends,
             serverState: row.state,
             joinCode: series?.joinCode,
+            seriesId: series?.id.uuidString,
             recurring: series?.recurring ?? false,
             offersJoinNext: (series?.recurring ?? false)
                 && Self.isAfterFightStartDay(starts)

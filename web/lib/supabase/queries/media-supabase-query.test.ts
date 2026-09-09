@@ -21,12 +21,76 @@ test("media uploads accept only bounded photo metadata", () => {
     sha256: "a".repeat(64),
   });
   assert.equal(parsed.purpose, "fight_post");
+  assert.equal(parsed.kind, "photo");
   for (const input of [
     { purpose: "avatar", original_filename: "a.jpg", content_type: "image/jpeg", byte_size: 1, width: 1, height: 1, sha256: "a".repeat(64) },
     { purpose: "profile", original_filename: "../a.jpg", content_type: "image/jpeg", byte_size: 1, width: 1, height: 1, sha256: "a".repeat(64) },
     { purpose: "profile", original_filename: "a.jpg", content_type: "image/gif", byte_size: 1, width: 1, height: 1, sha256: "a".repeat(64) },
     { purpose: "profile", original_filename: "a.jpg", content_type: "image/jpeg", byte_size: 9_000_000, width: 1, height: 1, sha256: "a".repeat(64) },
     { purpose: "profile", original_filename: "a.jpg", content_type: "image/jpeg", byte_size: 1, width: 1, height: 1, sha256: "zz" },
+  ]) {
+    assert.equal(createMediaUploadRequestSchema.safeParse(input).success, false);
+  }
+});
+
+test("media uploads accept short fight-post videos and reject invalid ones", () => {
+  const parsed = createMediaUploadRequestSchema.parse({
+    purpose: "fight_post",
+    kind: "video",
+    original_filename: "clip.mp4",
+    content_type: "video/mp4",
+    byte_size: 4_000_000,
+    width: 1080,
+    height: 1920,
+    duration_ms: 12_000,
+    sha256: "a".repeat(64),
+  });
+  assert.equal(parsed.kind, "video");
+  assert.equal(parsed.duration_ms, 12_000);
+  for (const input of [
+    {
+      purpose: "profile",
+      kind: "video",
+      original_filename: "clip.mp4",
+      content_type: "video/mp4",
+      byte_size: 4_000_000,
+      width: 1080,
+      height: 1920,
+      duration_ms: 12_000,
+      sha256: "a".repeat(64),
+    },
+    {
+      purpose: "fight_post",
+      kind: "video",
+      original_filename: "clip.mp4",
+      content_type: "image/jpeg",
+      byte_size: 4_000_000,
+      width: 1080,
+      height: 1920,
+      duration_ms: 12_000,
+      sha256: "a".repeat(64),
+    },
+    {
+      purpose: "fight_post",
+      kind: "video",
+      original_filename: "clip.mp4",
+      content_type: "video/mp4",
+      byte_size: 4_000_000,
+      width: 1080,
+      height: 1920,
+      sha256: "a".repeat(64),
+    },
+    {
+      purpose: "fight_post",
+      kind: "video",
+      original_filename: "clip.mp4",
+      content_type: "video/mp4",
+      byte_size: 52_428_801,
+      width: 1080,
+      height: 1920,
+      duration_ms: 12_000,
+      sha256: "a".repeat(64),
+    },
   ]) {
     assert.equal(createMediaUploadRequestSchema.safeParse(input).success, false);
   }

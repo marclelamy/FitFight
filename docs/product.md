@@ -18,7 +18,7 @@ Do not rename the bundle ID without Apple + CI updates.
 ## Current 1.0 scope — 9 Sep 2026
 
 - Four tabs: **Fights**, **New**, **Feed**, **You**.
-- Each fight has posts (photos and a short note). Feed shows posts from every fight you are in.
+- Each fight has posts (photos, a short video, or a note). Feed shows posts from every fight you are in, including earlier rounds of a repeating fight. Tap + on Feed to post to a specific fight.
 - New accounts pick an optional photo with their username, then connect Apple Health.
 - Every fight is **Steps × highest total**. There are no other metrics or scoring modes.
 - Add participants directly by exact username. There is no friends list or friend-request flow.
