@@ -1,0 +1,51 @@
+{
+  "fights": [{
+    "id": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+    "owner_id": "11111111-1111-4111-8111-111111111111",
+    "name": "September Steps",
+    "state": "live",
+    "starts_at": "2026-09-01T00:00:00Z",
+    "ends_at": "2026-09-08T00:00:00Z",
+    "action_text": null,
+    "series_id": "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb"
+  }],
+  "members": [{
+    "fight_id": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+    "user_id": "11111111-1111-4111-8111-111111111111",
+    "state": "accepted",
+    "current_value": 8500,
+    "rank": 1,
+    "final_value": null,
+    "last_synced_at": "2026-09-02T10:30:00.123Z",
+    "final_steps_complete": false
+  }, {
+    "fight_id": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+    "user_id": "33333333-3333-4333-8333-333333333333",
+    "state": "deferred",
+    "current_value": null,
+    "rank": null,
+    "final_value": null,
+    "last_synced_at": null,
+    "final_steps_complete": false
+  }],
+  "profiles": [{
+    "user_id": "11111111-1111-4111-8111-111111111111",
+    "handle": "marc",
+    "display_name": "Marc Lamy"
+  }, {
+    "user_id": "33333333-3333-4333-8333-333333333333",
+    "handle": "maya",
+    "display_name": "Maya"
+  }],
+  "series": [{
+    "id": "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+    "join_code": "ABCD",
+    "visibility": "joinable",
+    "recurring": true
+  }],
+  "step_days": [{
+    "user_id": "11111111-1111-4111-8111-111111111111",
+    "day": "2026-09-02",
+    "steps": 8500
+  }]
+}

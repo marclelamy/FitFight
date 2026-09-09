@@ -1,8 +1,22 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
+import { readFileSync } from "node:fs";
 import { readFightSnapshot } from "./fight-snapshot-supabase-query";
 import { closeDueFightsForUser } from "./close-due-fights-supabase-query";
 import { fightSnapshotRequestSchema, fightSnapshotSchema } from "@/lib/types/fights/fight-snapshot";
+
+test("the shared native snapshot fixture preserves the API contract and strips internal fields", () => {
+  const fixture = fightSnapshotSchema.parse(JSON.parse(readFileSync(
+    new URL("../../../../contracts/fixtures/fight-snapshot.json", import.meta.url), "utf8",
+  )));
+  assert.deepEqual(fightSnapshotSchema.parse({
+    ...fixture,
+    future_field: true,
+    profiles: fixture.profiles.map((profile) => ({ ...profile, internal_column: "private" })),
+  }), fixture);
+  assert.equal(fixture.members[1].state, "deferred");
+  assert.equal(fixture.members[0].current_value, 8500);
+});
 
 test("snapshot validates the requested timezone and returns five empty arrays", () => {
   assert.deepEqual(fightSnapshotRequestSchema.parse({ time_zone: "Europe/Paris" }), { time_zone: "Europe/Paris" });
@@ -29,7 +43,7 @@ test("snapshot establishes transaction-local caller permissions before its singl
   };
   assert.deepEqual(await readFightSnapshot(userId, "Europe/Paris", database as never), snapshot);
   assert.equal(calls.length, 3);
-  assert.equal(calls[0].query, "set local role authenticated");
+  assert.equal(calls[0].query, "set local role fitfight_backend_reader");
   assert.ok(calls[1].query.includes("set_config('request.jwt.claim.sub', ?, true)"));
   assert.deepEqual(calls[1].values, [userId, JSON.stringify({ sub: userId, role: "authenticated" })]);
   assert.ok(calls[2].values.includes("Europe/Paris"));

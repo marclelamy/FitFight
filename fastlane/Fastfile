@@ -108,16 +108,72 @@ def cloud_signing_flags(key_path, key_id, issuer_id, team_id)
   ].join(" ")
 end
 
-def write_testflight_latest_pointer(version, build_number)
-  path = "/tmp/fitfight-testflight-latest.json"
+def record_uploaded_release(channel, version, build_number)
+  path = "/tmp/fitfight-uploaded-release.json"
   File.write(
     path,
     JSON.pretty_generate(
+      "channel" => channel,
       "version" => version.to_s,
       "build" => Integer(build_number)
     ) + "\n"
   )
-  UI.message("Wrote TestFlight pointer #{version} (#{build_number})")
+  UI.message("Registered #{channel} candidate #{version} (#{build_number}); it is not yet mandatory")
+end
+
+# Only installable builds become mandatory. Registered review candidates are admitted
+# separately so neither TestFlight nor App Store review is blocked by the old minimum.
+def available_app_releases(app, registered, previous)
+  builds = Spaceship::ConnectAPI::Build.all(app_id: app.id, platform: "IOS", processing_states: "VALID")
+  external_groups = app.get_beta_groups.reject(&:is_internal_group)
+  group_build_ids = external_groups.map { |group| group.fetch_builds.map(&:id) }
+  staging = builds.select do |build|
+    build.processing_state == "VALID" && !build.expired &&
+      build.build_beta_detail.external_build_state == "IN_BETA_TESTING" &&
+      !group_build_ids.empty? && group_build_ids.all? { |ids| ids.include?(build.id) }
+  end.max_by { |build| [Gem::Version.new(build.app_version), Integer(build.version)] }
+  staging_candidate = builds.select do |build|
+    build.processing_state == "VALID" && !build.expired &&
+      %w[WAITING_FOR_BETA_REVIEW IN_BETA_REVIEW].include?(build.build_beta_detail.external_build_state) &&
+      registered.any? { |entry|
+        entry["channel"] == "staging" && entry["version"] == build.app_version &&
+          entry["build"] == Integer(build.version)
+      }
+  end.max_by { |build| [Gem::Version.new(build.app_version), Integer(build.version)] }
+
+  # Fastlane's get_live_app_store_version also includes PROCESSING_FOR_DISTRIBUTION.
+  live = app.get_app_store_versions(
+    filter: { platform: "IOS", appVersionState: "READY_FOR_DISTRIBUTION" }, includes: "build"
+  ).max_by { |version| Gem::Version.new(version.version_string) }
+  candidate = app.get_latest_app_store_version(platform: "IOS", includes: "build")
+  manifest = {}
+  { "staging" => staging, "prod" => live&.build }.each do |channel, build|
+    version = channel == "staging" ? build&.app_version : live&.version_string
+    update_url = channel == "staging" ? "itms-beta://" : "https://apps.apple.com/app/id#{app.id}"
+    latest = build && { "version" => version, "build" => Integer(build.version), "update_url" => update_url }
+    known = registered.any? do |entry|
+      entry["channel"] == channel && entry["version"] == version && entry["build"] == latest&.fetch("build")
+    end
+    was_enforced = previous.dig(channel, "enforced") == true
+    if was_enforced && latest && !known
+      UI.user_error!("#{channel} latest build lacks the required-update implementation; refusing to require it")
+    end
+    review = nil
+    review_build = channel == "staging" ? staging_candidate : candidate&.build
+    review_version = channel == "staging" ? staging_candidate&.app_version : candidate&.version_string
+    if review_build && registered.any? { |entry|
+      entry["channel"] == channel && entry["version"] == review_version &&
+        entry["build"] == Integer(review_build.version)
+    }
+      review = { "version" => review_version, "build" => Integer(review_build.version), "update_url" => update_url }
+      if latest && ([Gem::Version.new(review["version"]), review["build"]] <=>
+                    [Gem::Version.new(latest["version"]), latest["build"]]) <= 0
+        review = nil
+      end
+    end
+    manifest[channel] = { "latest" => latest, "review" => review, "enforced" => was_enforced || known }
+  end
+  manifest
 end
 
 def verify_healthkit_background_delivery(ipa_path)
@@ -154,9 +210,6 @@ def verify_production_configuration(ipa_path)
   end
   if build_env.include?("zstzbfocunthczzubggz") || build_env.include?("staging.fitfight.app")
     UI.user_error!("Generated BuildEnv contains staging configuration")
-  end
-  unless build_env.include?('static let latestTestFlightURL = ""')
-    UI.user_error!("Production BuildEnv must not advertise a TestFlight update URL")
   end
 
   Dir.mktmpdir("fitfight-production-ipa") do |directory|
@@ -245,8 +298,8 @@ platform :ios do
       changelog: "FitFight #{version} (#{build_number})"
     )
 
+    record_uploaded_release("staging", version, build_number)
     distribute_and_report(version, build_number, api_key: api_key)
-    write_testflight_latest_pointer(version, build_number)
   ensure
     FileUtils.rm_f(key_path) if defined?(key_path) && key_path
   end
@@ -330,8 +383,46 @@ platform :ios do
       run_precheck_before_submit: false,
       force: true
     )
+    record_uploaded_release("prod", version, build_number)
     UI.success("Production candidate uploaded to App Store Connect; it was not submitted for review")
   ensure
     FileUtils.rm_f(key_path) if defined?(key_path) && key_path
+  end
+
+  desc "Read Apple release availability and refresh the mandatory app versions"
+  lane :refresh_app_releases do
+    require "spaceship"
+    app_store_connect_api_key(
+      key_id: ENV.fetch("APP_STORE_CONNECT_KEY_ID"),
+      issuer_id: ENV.fetch("APP_STORE_CONNECT_ISSUER_ID"),
+      key_content: decode_api_key(ENV.fetch("APP_STORE_CONNECT_API_KEY")),
+      duration: 1200,
+      in_house: false
+    )
+    app = Spaceship::ConnectAPI::App.find(BUNDLE_ID)
+    UI.user_error!("No App Store Connect app for #{BUNDLE_ID}") if app.nil?
+    directory = ENV.fetch("FITFIGHT_RELEASE_STATE_DIR")
+    registry_path = File.join(directory, "builds.json")
+    manifest_path = File.join(directory, "releases.json")
+    registered = File.exist?(registry_path) ? JSON.parse(File.read(registry_path)) : []
+    uploaded_path = "/tmp/fitfight-uploaded-release.json"
+    registered << JSON.parse(File.read(uploaded_path)) if File.exist?(uploaded_path)
+    unless registered.is_a?(Array) && registered.all? { |entry|
+      entry.is_a?(Hash) && %w[staging prod].include?(entry["channel"]) &&
+        entry["version"].is_a?(String) && entry["version"].match?(/\A\d+\.\d+\.\d+\z/) &&
+        entry["build"].is_a?(Integer) && entry["build"].positive?
+    }
+      UI.user_error!("Invalid app release registry")
+    end
+    registered.uniq!
+    previous = File.exist?(manifest_path) ? JSON.parse(File.read(manifest_path)) : {}
+    manifest = available_app_releases(app, registered, previous)
+    File.write(registry_path, JSON.pretty_generate(registered) + "\n")
+    File.write(manifest_path, JSON.pretty_generate(manifest) + "\n")
+    latest_path = File.join(directory, "latest.json")
+    if manifest["staging"]["latest"]
+      File.write(latest_path, JSON.pretty_generate(manifest["staging"]["latest"]) + "\n")
+    end
+    UI.message("Release availability refreshed; minimum supported always follows the latest public build")
   end
 end

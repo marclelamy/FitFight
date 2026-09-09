@@ -9,6 +9,7 @@ on:
       - "FitFight/**"
       - "FitFight.xcodeproj/**"
       - "fastlane/**"
+      - "scripts/publish-app-releases.sh"
       - "Gemfile"
       - "Gemfile.lock"
       - ".github/workflows/ios-app-store.yml"
@@ -24,7 +25,7 @@ jobs:
     runs-on: macos-26
     timeout-minutes: 60
     permissions:
-      contents: read
+      contents: write
     env:
       SUPABASE_PRODUCTION_URL: ${{ vars.SUPABASE_PRODUCTION_URL || 'https://pvqntpteehdvhqyctwum.supabase.co' }}
       SUPABASE_PRODUCTION_PUBLISHABLE_KEY: ${{ vars.SUPABASE_PRODUCTION_PUBLISHABLE_KEY || 'sb_publishable_6wP1KNFvJwIE_hX1U2aTfg_u3sk40Li' }}
@@ -103,10 +104,12 @@ jobs:
                   raise SystemExit("Sign in with Apple is not enabled on production Supabase")
 
           checks = {
+              "/api/app-release": lambda body: {"latest", "review", "enforced"}.issubset(json.loads(body)),
               "/api/health": lambda body: (
                   json.loads(body).get("ok") is True
                   and json.loads(body).get("backend") == "prod"
                   and json.loads(body).get("schema") == "ready"
+                  and json.loads(body).get("profile_api") is True
               ),
               "/privacy": lambda body: "Privacy Policy" in body,
               "/support": lambda body: "FitFight Support" in body or "FITFIGHT SUPPORT" in body,
@@ -148,7 +151,6 @@ jobs:
               f"    static let supabaseURL = {swift_string(supabase_url)}\n"
               f"    static let supabasePublishableKey = {swift_string(publishable_key)}\n"
               f"    static let apiBaseURL = {swift_string(api_url)}\n"
-              '    static let latestTestFlightURL = ""\n'
               "}\n"
           )
           print("Production services and generated build environment are ready")
@@ -168,3 +170,11 @@ jobs:
           APP_STORE_CONNECT_API_KEY: ${{ secrets.APP_STORE_CONNECT_API_KEY }}
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
         run: bundle exec fastlane app_store_candidate
+
+      - name: Register production candidate and refresh available releases
+        if: ${{ !cancelled() }}
+        env:
+          APP_STORE_CONNECT_KEY_ID: ${{ secrets.APP_STORE_CONNECT_KEY_ID }}
+          APP_STORE_CONNECT_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
+          APP_STORE_CONNECT_API_KEY: ${{ secrets.APP_STORE_CONNECT_API_KEY }}
+        run: bash scripts/publish-app-releases.sh

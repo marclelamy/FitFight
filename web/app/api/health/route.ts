@@ -18,7 +18,7 @@ export const GET = apiRoute(async () => {
 
   verifyAppleSignInConfiguration();
   await verifyBackendReadiness();
-  return json({ ok: true, backend, schema: "ready" });
+  return json({ ok: true, backend, schema: "ready", profile_api: true });
 });
 
 export function OPTIONS(request: Request) {
