@@ -74,6 +74,8 @@ enum MediaUploader {
         var request = URLRequest(url: issued.upload.url)
         request.httpMethod = "PUT"
         request.setValue(prepared.contentType, forHTTPHeaderField: "Content-Type")
+        request.setValue("Bearer \(issued.upload.token)", forHTTPHeaderField: "Authorization")
+        request.setValue("false", forHTTPHeaderField: "x-upsert")
         let (_, response) = try await URLSession.shared.upload(for: request, from: prepared.data)
         let status = (response as? HTTPURLResponse)?.statusCode ?? 0
         guard (200...299).contains(status) else {

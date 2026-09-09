@@ -108,11 +108,11 @@ struct OnboardingView: View {
         isSaving = true
         defer { isSaving = false }
         do {
-            try await session.setHandle(handle)
+            var avatarMediaId: UUID?
             if let photo {
-                let media = try await MediaUploader.upload(photo, purpose: "profile", session: session)
-                try await session.setAvatar(media)
+                avatarMediaId = try await MediaUploader.upload(photo, purpose: "profile", session: session).id
             }
+            try await session.setHandle(handle, avatarMediaId: avatarMediaId)
         } catch {
             self.error = error.localizedDescription
         }

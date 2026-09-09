@@ -183,7 +183,7 @@ final class SessionStore: ObservableObject {
             .lowercased()
     }
 
-    func setHandle(_ raw: String) async throws {
+    func setHandle(_ raw: String, avatarMediaId: UUID? = nil) async throws {
         guard await AppUpdateChecker.shared.permitsRequests() else {
             let requiresUpdate = AppUpdateChecker.shared.status == .updateRequired
             throw FitFightAPIError.http(
@@ -201,7 +201,11 @@ final class SessionStore: ObservableObject {
         }
         do {
             let token = try await freshAccessToken()
-            let updated = try await api.updateProfile(handle: handle, accessToken: token)
+            let updated = try await api.updateProfile(
+                handle: handle,
+                avatarMediaId: avatarMediaId,
+                accessToken: token
+            )
             try Task.checkCancellation()
             guard authSession?.user.id == userId, client.auth.currentUser?.id == userId else {
                 throw CancellationError()

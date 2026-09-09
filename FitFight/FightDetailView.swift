@@ -72,7 +72,7 @@ struct FightDetailView: View {
 
                 if let fightID = UUID(uuidString: fight.id) {
                     FFSection(title: String(localized: "Posts")) {
-                        FightPostsSection(fightID: fightID, canPost: !youDeferred)
+                        FightPostsSection(fightID: fightID)
                     }
                 }
 

@@ -141,7 +141,6 @@ struct FeedView: View {
 
 struct FightPostsSection: View {
     let fightID: UUID
-    var canPost: Bool
 
     @EnvironmentObject private var session: SessionStore
     @Environment(\.ffTheme) private var theme
@@ -149,9 +148,7 @@ struct FightPostsSection: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: theme.space.cardGap) {
-            if canPost {
-                FightPostComposer(fightID: fightID)
-            }
+            FightPostComposer(fightID: fightID)
             if let error = fightFeed.error, !error.isEmpty {
                 Text(error)
                     .ffType(.caption)
@@ -218,6 +215,7 @@ struct FightPostComposer: View {
                             .foregroundStyle(theme.mossText)
                     }
                     .buttonStyle(FFHapticPlainStyle())
+                    .disabled(images.count >= 4)
                     Spacer()
                     FFButton(
                         title: feed.isSaving ? String(localized: "Posting…") : String(localized: "Post"),
@@ -292,6 +290,11 @@ struct FightPostCard: View {
                                 .foregroundStyle(theme.textFaint)
                         }
                     }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .contentShape(Rectangle())
+                    .onTapGesture {
+                        onOpen?()
+                    }
                     Spacer(minLength: 0)
                     Menu {
                         if post.mine {
@@ -346,10 +349,6 @@ struct FightPostCard: View {
                         .foregroundStyle(theme.textFaint)
                 }
             }
-        }
-        .contentShape(Rectangle())
-        .onTapGesture {
-            onOpen?()
         }
     }
 }

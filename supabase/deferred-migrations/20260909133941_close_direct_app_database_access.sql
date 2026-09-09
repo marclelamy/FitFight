@@ -7,7 +7,7 @@ revoke all on public.profiles, public.friendships, public.fights,
   from public, anon, authenticated;
 
 -- Table revocation does not remove privileges granted separately on columns.
-revoke all (handle, handle_set_at, display_name, avatar_path, time_zone)
+revoke all (handle, handle_set_at, display_name, avatar_path, time_zone, avatar_media_id)
   on public.profiles from public, anon, authenticated;
 revoke all (state) on public.friendships from public, anon, authenticated;
 revoke all (id, fight_id, invited_user_id, expires_at, revoked_at, accepted_at)
@@ -37,3 +37,6 @@ alter policy fights_select_involved on public.fights to fitfight_backend_reader;
 alter policy fight_members_select_self_or_roster_peer on public.fight_members to fitfight_backend_reader;
 alter policy fight_series_select_involved on public.fight_series to fitfight_backend_reader;
 alter policy step_days_select_self_or_fight on public.step_days to fitfight_backend_reader;
+alter policy media_objects_select_owner_or_shared on public.media_objects to fitfight_backend_reader;
+alter policy fight_posts_select_roster on public.fight_posts to fitfight_backend_reader;
+alter policy fight_post_media_select_roster on public.fight_post_media to fitfight_backend_reader;
