@@ -1,3 +1,4 @@
+import PhotosUI
 import SwiftUI
 import UIKit
 
@@ -10,6 +11,8 @@ struct YouView: View {
     @Environment(\.ffStaticRender) private var staticRender
     @State private var confirmDelete = false
     @State private var copied = false
+    @State private var pickerItem: PhotosPickerItem?
+    @State private var isUploadingPhoto = false
 
     var body: some View {
         FFScreen {
@@ -61,7 +64,7 @@ struct YouView: View {
             }
             Button("Cancel", role: .cancel) {}
         } message: {
-            Text("This permanently deletes your profile, uploaded Steps, referrals, invitations, fights you created, and bugs or requests you posted; removes you from other fights; and signs you out. This can’t be undone.")
+            Text("This permanently deletes your profile, photos, uploaded Steps, referrals, invitations, fights you created, and bugs or requests you posted; removes you from other fights; and signs you out. This can’t be undone.")
         }
     }
 
@@ -69,7 +72,27 @@ struct YouView: View {
     private var profile: some View {
         if session.isSignedIn {
             HStack(spacing: 14) {
-                FFAvatar(monogram: session.profile?.initials ?? "FF", size: 68, selected: true)
+                PhotosPicker(selection: $pickerItem, matching: .images) {
+                    FFAvatar(
+                        monogram: session.profile?.initials ?? "FF",
+                        size: 68,
+                        selected: true,
+                        photoURL: session.profile?.avatar?.url
+                    )
+                    .overlay {
+                        if isUploadingPhoto {
+                            ZStack {
+                                Circle().fill(theme.bg.opacity(0.45))
+                                ProgressView().tint(theme.text)
+                            }
+                        }
+                    }
+                }
+                .buttonStyle(FFHapticPlainStyle())
+                .disabled(isUploadingPhoto)
+                .onChange(of: pickerItem) { _, item in
+                    Task { await uploadPhoto(item) }
+                }
                 VStack(alignment: .leading, spacing: 3) {
                     Text(verbatim: session.profile?.displayName ?? String(localized: "Signed in"))
                         .ffType(.heading)
@@ -173,6 +196,20 @@ struct YouView: View {
                     subtitleTone: .neutral
                 )
             }
+        }
+    }
+
+    private func uploadPhoto(_ item: PhotosPickerItem?) async {
+        guard let item,
+              let data = try? await item.loadTransferable(type: Data.self),
+              let image = UIImage(data: data) else { return }
+        isUploadingPhoto = true
+        defer { isUploadingPhoto = false }
+        do {
+            let media = try await MediaUploader.upload(image, purpose: "profile", session: session)
+            try await session.setAvatar(media)
+        } catch {
+            session.authError = error.localizedDescription
         }
     }
 

@@ -444,14 +444,110 @@ struct FitFightAPI {
     func updateProfile(
         handle: String? = nil,
         displayName: String? = nil,
+        avatarMediaId: UUID? = nil,
         accessToken: String
     ) async throws -> FitFightProfile {
         try await request(
             path: "me",
             method: "PATCH",
             accessToken: accessToken,
-            body: Self.encoder.encode(ProfileUpdate(handle: handle, displayName: displayName)),
+            body: Self.encoder.encode(ProfileUpdate(
+                handle: handle,
+                displayName: displayName,
+                avatarMediaId: avatarMediaId
+            )),
             idempotencyKey: nil,
+            expected: [200]
+        )
+    }
+
+    func createMediaUpload(
+        purpose: String,
+        filename: String,
+        contentType: String,
+        byteSize: Int,
+        width: Int,
+        height: Int,
+        sha256: String,
+        accessToken: String
+    ) async throws -> FitFightMediaUpload {
+        try await post(
+            path: "media",
+            accessToken: accessToken,
+            body: MediaUploadBody(
+                purpose: purpose,
+                originalFilename: filename,
+                contentType: contentType,
+                byteSize: byteSize,
+                width: width,
+                height: height,
+                sha256: sha256
+            ),
+            expected: [201]
+        )
+    }
+
+    func commitMedia(id: UUID, accessToken: String) async throws -> FitFightMediaResponse {
+        try await post(
+            path: "media/\(id.uuidString.lowercased())/commit",
+            accessToken: accessToken,
+            body: EmptyJSON(),
+            expected: [200]
+        )
+    }
+
+    func feed(cursor: String?, accessToken: String) async throws -> FitFightFightPostList {
+        var path = "feed"
+        if let cursor, let encoded = cursor.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) {
+            path += "?cursor=\(encoded)"
+        }
+        return try await get(path: path, accessToken: accessToken, expected: [200])
+    }
+
+    func fightPosts(fightID: UUID, cursor: String?, accessToken: String) async throws -> FitFightFightPostList {
+        var path = "fights/\(fightID.uuidString.lowercased())/posts"
+        if let cursor, let encoded = cursor.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) {
+            path += "?cursor=\(encoded)"
+        }
+        return try await get(path: path, accessToken: accessToken, expected: [200])
+    }
+
+    func createFightPost(
+        fightID: UUID,
+        body: String,
+        mediaIDs: [UUID],
+        accessToken: String
+    ) async throws -> FitFightFightPostResponse {
+        try await post(
+            path: "fights/\(fightID.uuidString.lowercased())/posts",
+            accessToken: accessToken,
+            body: FightPostBody(body: body, mediaIds: mediaIDs),
+            expected: [201]
+        )
+    }
+
+    func deleteFightPost(fightID: UUID, postID: UUID, accessToken: String) async throws {
+        let _: DiscardBody = try await delete(
+            path: "fights/\(fightID.uuidString.lowercased())/posts/\(postID.uuidString.lowercased())",
+            accessToken: accessToken,
+            expected: [200]
+        )
+    }
+
+    func reportFightPost(fightID: UUID, postID: UUID, reason: String, accessToken: String) async throws {
+        let _: DiscardBody = try await post(
+            path: "fights/\(fightID.uuidString.lowercased())/posts/\(postID.uuidString.lowercased())/report",
+            accessToken: accessToken,
+            body: FightPostReportBody(reason: reason),
+            expected: [200]
+        )
+    }
+
+    func blockFeedAuthor(userID: UUID, accessToken: String) async throws {
+        let _: DiscardBody = try await post(
+            path: "feed/blocks",
+            accessToken: accessToken,
+            body: FeedBlockBody(userId: userID),
             expected: [200]
         )
     }
@@ -816,10 +912,59 @@ private struct EmptyJSON: Codable {}
 private struct ProfileUpdate: Encodable {
     let handle: String?
     let displayName: String?
+    let avatarMediaId: UUID?
 
     enum CodingKeys: String, CodingKey {
         case handle
         case displayName = "display_name"
+        case avatarMediaId = "avatar_media_id"
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encodeIfPresent(handle, forKey: .handle)
+        try container.encodeIfPresent(displayName, forKey: .displayName)
+        try container.encodeIfPresent(avatarMediaId, forKey: .avatarMediaId)
+    }
+}
+
+private struct MediaUploadBody: Encodable {
+    let purpose: String
+    let originalFilename: String
+    let contentType: String
+    let byteSize: Int
+    let width: Int
+    let height: Int
+    let sha256: String
+
+    enum CodingKeys: String, CodingKey {
+        case purpose
+        case originalFilename = "original_filename"
+        case contentType = "content_type"
+        case byteSize = "byte_size"
+        case width, height, sha256
+    }
+}
+
+private struct FightPostBody: Encodable {
+    let body: String
+    let mediaIds: [UUID]
+
+    enum CodingKeys: String, CodingKey {
+        case body
+        case mediaIds = "media_ids"
+    }
+}
+
+private struct FightPostReportBody: Encodable {
+    let reason: String
+}
+
+private struct FeedBlockBody: Encodable {
+    let userId: UUID
+
+    enum CodingKeys: String, CodingKey {
+        case userId = "user_id"
     }
 }
 

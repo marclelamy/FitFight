@@ -17,7 +17,7 @@ Do not rename the bundle ID without Apple + CI updates.
 
 ## Current 1.0 scope — 2 Sep 2026
 
-- Three tabs: **Fights**, **New**, **You**.
+- Four tabs: **Fights**, **New**, **Feed**, **You**.
 - Every fight is **Steps × highest total**. There are no other metrics or scoring modes.
 - Add participants directly by exact username. There is no friends list or friend-request flow.
 - Type an optional title and an optional action the loser must do. If there is no title, the action is the fight name. There is no money or bragging-rights option.

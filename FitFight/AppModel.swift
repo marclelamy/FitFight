@@ -21,6 +21,7 @@ struct Person: Codable, Identifiable, Hashable {
     var handle: String
     var initials: String
     var isYou: Bool = false
+    var photoURL: URL? = nil
 
     /// The design's cast photographs, cut out of the mocks into the asset catalogue.
     var photo: String { "Avatar-\(isYou ? "maya" : id)" }
@@ -33,6 +34,7 @@ extension FFAvatar {
             size: size,
             selected: selected,
             photo: person?.photo,
+            photoURL: person?.photoURL,
             dimmed: pending
         )
     }
@@ -790,8 +792,14 @@ final class AppModel: ObservableObject {
             name: profile.atHandle,
             handle: profile.atHandle,
             initials: profile.initials,
-            isYou: isYou
+            isYou: isYou,
+            photoURL: profile.avatar?.url
         )
+    }
+
+    func openFightFromFeed(id: String) {
+        tab = .fights
+        openFightID = id
     }
 
     private static func mapFight(

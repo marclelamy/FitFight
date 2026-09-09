@@ -2,7 +2,7 @@
 
 Production Metric is **Steps**. Phone vs server status: [`status.md`](status.md). Fights, memberships, scores, and data sources are writable only by the backend. Native Accept and Decline use authenticated commands; database grants deny direct client mutations. For Apple Health, it asks HealthKit for Apple's merged cumulative total over each exact Fight window and sends those totals to one authenticated Next.js endpoint. It may also send Apple's merged daily buckets for the active Fight days needed by charts; those buckets never determine the Fight score. The backend validates the User, Fight membership, server-issued windows and cutoffs, then stores the exact-window snapshots and updates standings in a TypeScript-owned Postgres transaction. There are no app-facing database RPCs.
 
-[`system-design.md`](system-design.md) is the golden guide. This folder is the first slice of it, not the whole thing. Do not add Active Minutes, Workout Count, WHOOP, Strava, payments, notifications, social, or a website until the backlog says so.
+[`system-design.md`](system-design.md) is the golden guide. This folder is the first slice of it, not the whole thing. Do not add Active Minutes, Workout Count, WHOOP, Strava, payments, notifications, or a website until the backlog says so. Fight posts and photo uploads go through the API below.
 
 Hosted production (no secrets): https://pvqntpteehdvhqyctwum.supabase.co  
 Hosted staging / git `develop` (no secrets): https://zstzbfocunthczzubggz.supabase.co
@@ -11,8 +11,14 @@ Hosted staging / git `develop` (no secrets): https://zstzbfocunthczzubggz.supaba
 
 The native app uses Supabase directly only for Auth. All application database reads
 and writes use the authenticated FitFight API. `GET /api/v1/me` returns
-`user_id`, `handle`, `display_name`, nullable `handle_set_at`, and `referral_code`.
-`PATCH /api/v1/me` accepts a handle, display name, or both; omitted fields stay unchanged.
+`user_id`, `handle`, `display_name`, nullable `handle_set_at`, `referral_code`,
+and nullable `avatar` (the shared media object).
+`PATCH /api/v1/me` accepts a handle, display name, `avatar_media_id`, or any mix;
+omitted fields stay unchanged. `POST /api/v1/media` mints a private signed upload
+for a photo; `POST /api/v1/media/{id}/commit` verifies size and checksum.
+`GET /api/v1/feed` and `GET/POST /api/v1/fights/{id}/posts` are the fight photo
+feed. Roster members (`accepted` or `deferred`) can read and post. Invited-only
+members cannot. Delete own posts; report or hide another author.
 The verified session owns the operation. TypeScript normalizes and validates handles,
 sets their timestamp, and translates uniqueness conflicts to `409 handle_taken`.
 Missing/deleted profiles return `401 profile_missing`; account deletion remains `DELETE`.

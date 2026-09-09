@@ -1,8 +1,8 @@
 # FitFight status — what works, what’s fake, what’s next
 
-Read this before building. Last updated **6 Sep 2026**. App: **1.0.0**.
+Read this before building. Last updated **9 Sep 2026**. App: **1.0.0**.
 
-Do **not** restore removed surfaces. Do **not** build WHOOP, Strava, Active Minutes, Workout Count, payments, notifications, social, or a broader marketing site unless [`backlog.md`](backlog.md) says so. Only the public privacy and support pages exist on the web.
+Do **not** restore removed surfaces. Do **not** build WHOOP, Strava, Active Minutes, Workout Count, payments, notifications, or a broader marketing site unless [`backlog.md`](backlog.md) says so. Fight posts and the Feed tab are in this build. Only the public privacy and support pages exist on the web.
 
 ---
 
@@ -55,7 +55,7 @@ After the backend is configured, merge the feature PR into **`develop`**, not `m
 Verify the minimal product alongside Apple Health synchronization:
 
 1. TestFlight → **Update**. Look for `1.0.0 · build N · staging · 4 Sep` at the top.
-2. Check Fights, a Fight detail, New, and You in both Night and Day. There are only three tabs: Fights, New, You.
+2. Check Fights, Feed, a Fight detail, New, and You in both Night and Day. There are four tabs: Fights, New, Feed, You.
 3. New starts on Create or Join. Create still guides Steps, duration, invite-only or joinable, optional usernames, repeat on by default, optional title and action, and review. Join is a 4-character code plus a live joinable list with no scores. Earlier create steps use **Next**. Review uses **Slide to start**.
 4. Confirm sign-in, username, Apple Health Steps, Fight invitations, standings with last-sync times, Privacy, Support, Bugs & requests, Versions, sign out, and Delete account.
 5. Confirm the old Requests tab, friend requests/lists, money, other Metrics, and dead settings are absent.
@@ -71,7 +71,7 @@ The native Fight path uses the API to create and join; Apple Health synchronizat
 |---|---|
 | Welcome + Apple sign-in | Works |
 | Languages | English and French follow the iPhone's per-app language. Usernames, Fight names, and loser actions remain exactly as entered. |
-| Username onboarding | Works. Required once after sign-in. |
+| Username onboarding | Works. Required once after sign-in. Optional profile photo on the same screen; then a Connect Apple Health page. Existing accounts keep You → Apple Health. |
 | Version line | Release-candidate TestFlight says `1.0.0 · build N · staging`; the App Store build says `prod` |
 | Create Steps challenge | Follow a guided flow: Create or Join, then Steps × highest total, 3 / 7 / 14 / 30 days, invite-only usernames or a joinable code, repeat on by default, optional title and loser action, and review. Joinable fights may start with the owner alone. |
 | Accept / Join | Invites still accept in the fight. Joinable fights open the same Accept/Join screen from a code, the live list, or a shared link. Joins go through the server. If a repeating fight is past its start day, joiners choose this round (steps count from that start date) or the next round. Same-day joins, even hours later, still count as this round. People waiting for the next round are visible on the fight and do not count in this round. Leave a joinable or repeating fight from the fight itself so the next window does not copy you in. |
@@ -81,12 +81,13 @@ The native Fight path uses the API to create and join; Apple Health synchronizat
 | Fights list | Every row is titled by the fight name. If there is no title, the loser action is used; older fights still stored as `Steps Fight` show the action the same way. The right-hand number is your gap to the person you are racing, moss when ahead and ember when behind; the days left sit under the title. There is no moss hero — live Fights are all the same size. |
 | Standings | Live scoring uses exact Fight-window HealthKit aggregates, not overlapping whole-day totals. Both phones read the same serving rows. Each standing shows relative sync freshness; ended Fights distinguish exact final-window coverage from the last available Steps. |
 | Fight end | Exact `ends_at` is the final cutoff. Opening the app closes due fights; the protected Vercel cron runs daily if nobody opens it. After finalization, later Steps cannot change the result. |
-| Tabs | Fights, New, You. The old Requests tab and Design are removed. |
+| Tabs | Fights, New, Feed, You. The old Requests tab and Design are removed. |
 | Look | Night/Day, Nunito, fixed Moss/Ember/Gold semantics; no accent picker or public design-system showcase. |
 | Versions | Works under You → Settings; the version label stays at the top of every root screen. Pending the next build: both staging and production show a blocking update screen until the installed version/build matches their latest installable release. The version label stays at the top. |
 | Bugs & requests | Works on You in its own section above Settings. Signed-in people can post a bug or a feature request, browse the board, upvote, and comment with their username. |
 | Privacy / Support | Pages are implemented and linked under You → Settings. Staging uses `staging.fitfight.app`; production uses `fitfight.app`. Each route must be deployed before that build is tested or submitted. |
-| Account deletion | Permanently deletes the profile, username, authentication, Health/Steps data, relationships, invitations, memberships, scores, owned Fights, and bugs/requests the User posted; removes participation from other Fights; clears local Health sync state; and revokes a stored Apple credential when available. |
+| Fight posts / Feed | Accepted and waiting-next-round members can post a short note and up to four photos on a fight. Feed aggregates those posts and shows who posted and which fight. Photos use a shared media object and private Supabase Storage. Invited-only people do not see posts until they join. You can delete your post, report someone else’s, or hide that person from your feed. |
+| Account deletion | Permanently deletes the profile, photos, username, authentication, Health/Steps data, relationships, invitations, memberships, scores, owned Fights, fight posts, and bugs/requests the User posted; removes participation from other Fights; clears local Health sync state; and revokes a stored Apple credential when available. |
 | WHOOP / Strava | Not built |
 | Removed scope | No persistent friends, Requests tab, money/payouts, bragging-rights option, other Metrics, goals, custom dates, or dead settings/actions. |
 

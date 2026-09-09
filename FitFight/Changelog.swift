@@ -29,6 +29,13 @@ enum Changelog {
             year: 2026,
             month: 9,
             day: 9,
+            notes: "A Feed tab collects photos and notes from every fight you’re in. Each fight also has its own posts, and you can add a profile photo when you pick a username. New accounts are asked to connect Apple Health during setup."
+        ),
+        ReleaseNote(
+            version: "1.0.0",
+            year: 2026,
+            month: 9,
+            day: 9,
             notes: "New fights now repeat when they end. You can still turn that off while creating."
         ),
         ReleaseNote(

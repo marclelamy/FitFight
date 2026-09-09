@@ -70,6 +70,12 @@ struct FightDetailView: View {
                     }
                 }
 
+                if let fightID = UUID(uuidString: fight.id) {
+                    FFSection(title: String(localized: "Posts")) {
+                        FightPostsSection(fightID: fightID, canPost: !youDeferred)
+                    }
+                }
+
                 FFSection(title: String(localized: "Standings")) {
                     VStack(alignment: .leading, spacing: theme.space.cardGap) {
                         if let meta = fight.standingsMeta {
