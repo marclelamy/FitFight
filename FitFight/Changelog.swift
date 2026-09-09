@@ -36,6 +36,13 @@ enum Changelog {
             year: 2026,
             month: 9,
             day: 9,
+            notes: "Fight standings update as soon as your Steps sync, instead of waiting about 30 seconds."
+        ),
+        ReleaseNote(
+            version: "1.0.0",
+            year: 2026,
+            month: 9,
+            day: 9,
             notes: "A Feed tab collects photos, videos, and notes from every fight you’re in. Tap + to post to a fight. Recurring fights keep their posts when a new round starts. You can add a profile photo when you pick a username. New accounts are asked to connect Apple Health during setup."
         ),
         ReleaseNote(

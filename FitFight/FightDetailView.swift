@@ -1,3 +1,4 @@
+import Combine
 import SwiftUI
 import UIKit
 
@@ -10,6 +11,7 @@ struct FightDetailView: View {
 
     @State private var copiedCode = false
     @State private var copiedLink = false
+    @State private var fightsRevision = 0
 
     init(fight: Fight) {
         initialFight = fight
@@ -36,22 +38,25 @@ struct FightDetailView: View {
 
     var body: some View {
         FFScreen(top: AnyView(nav)) {
-            if pendingJoin {
-                invitedHero
-            } else if youDeferred {
-                deferredHero
-            } else if let pair = headToHead {
-                FFVSBlock(
-                    you: pair.you,
-                    them: pair.them,
-                    delta: fight.kickerEmphasis,
-                    ahead: fight.rank == 1,
-                    footnote: "\(fight.metric.eyebrow) · \(fight.durationLabel) fight",
-                    timeLeft: fight.timeLeftLabel
-                )
-            } else {
-                liveHero
+            Group {
+                if pendingJoin {
+                    invitedHero
+                } else if youDeferred {
+                    deferredHero
+                } else if let pair = headToHead {
+                    FFVSBlock(
+                        you: pair.you,
+                        them: pair.them,
+                        delta: fight.kickerEmphasis,
+                        ahead: fight.rank == 1,
+                        footnote: "\(fight.metric.eyebrow) · \(fight.durationLabel) fight",
+                        timeLeft: fight.timeLeftLabel
+                    )
+                } else {
+                    liveHero
+                }
             }
+            .id(fightsRevision)
 
             if !pendingJoin {
                 if fight.joinCode != nil {
@@ -83,12 +88,11 @@ struct FightDetailView: View {
                                 .ffType(.caption)
                                 .foregroundStyle(theme.textSecondary)
                         }
-                        TimelineView(.periodic(from: .now, by: 30)) { context in
-                            ForEach(Array(fight.standings.enumerated()), id: \.element.id) { index, row in
-                                standingRow(index: index, row: row, now: context.date)
-                            }
+                        ForEach(Array(fight.standings.enumerated()), id: \.element.id) { index, row in
+                            standingRow(index: index, row: row)
                         }
                     }
+                    .id(fightsRevision)
                 }
 
                 if !fight.days.isEmpty {
@@ -119,6 +123,9 @@ struct FightDetailView: View {
         }
         .refreshable {
             await model.refreshFights(session: session, steps: steps)
+        }
+        .onReceive(model.$fights) { _ in
+            fightsRevision += 1
         }
         .navigationBarBackButtonHidden(true)
         .toolbar(.hidden, for: .navigationBar)
@@ -372,7 +379,7 @@ struct FightDetailView: View {
         return leader == 0 ? 0 : min(yours / leader, 1)
     }
 
-    private func standingRow(index: Int, row: Standing, now: Date) -> some View {
+    private func standingRow(index: Int, row: Standing) -> some View {
         Group {
             if row.invited || row.deferred {
                 HStack(spacing: 13) {
@@ -402,8 +409,10 @@ struct FightDetailView: View {
                     value: model.formatScore(row.score, metric: fight.metric),
                     move: .same,
                     isYou: row.person.isYou,
-                    caption: model.formatStandingFreshness(row, fight: fight, now: now),
-                    captionUrgent: false
+                    captionUrgent: false,
+                    captionAt: { now in
+                        model.formatStandingFreshness(row, fight: fight, now: now)
+                    }
                 )
             }
         }
