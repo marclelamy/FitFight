@@ -43,13 +43,35 @@ struct FitFightMediaResponse: Decodable {
 
 struct FitFightFightPost: Codable, Equatable, Hashable, Identifiable {
     let id: UUID
-    let fightId: UUID
+    let audience: String
+    let fightId: UUID?
     let fightName: String
     let body: String
     let createdAt: String
     let author: Author
     let media: [FitFightMedia]
+    let tags: [Tag]
+    let reactions: [Reaction]
+    let commentCount: Int
     let mine: Bool
+
+    struct Tag: Codable, Equatable, Hashable {
+        let userId: UUID
+        let handle: String
+        let displayName: String
+
+        enum CodingKeys: String, CodingKey {
+            case userId = "user_id"
+            case handle
+            case displayName = "display_name"
+        }
+    }
+
+    struct Reaction: Codable, Equatable, Hashable {
+        let emoji: String
+        let count: Int
+        let mine: Bool
+    }
 
     struct Author: Codable, Equatable, Hashable {
         let userId: UUID
@@ -85,12 +107,98 @@ struct FitFightFightPost: Codable, Equatable, Hashable, Identifiable {
         return iso.date(from: createdAt) ?? .distantPast
     }
 
+    var isMain: Bool { audience == "main" }
+
+    func updating(
+        reactions: [Reaction]? = nil,
+        commentCount: Int? = nil
+    ) -> FitFightFightPost {
+        FitFightFightPost(
+            id: id,
+            audience: audience,
+            fightId: fightId,
+            fightName: fightName,
+            body: body,
+            createdAt: createdAt,
+            author: author,
+            media: media,
+            tags: tags,
+            reactions: reactions ?? self.reactions,
+            commentCount: commentCount ?? self.commentCount,
+            mine: mine
+        )
+    }
+
     enum CodingKeys: String, CodingKey {
-        case id, body, author, media, mine
+        case id, audience, body, author, media, tags, reactions, mine
         case fightId = "fight_id"
         case fightName = "fight_name"
         case createdAt = "created_at"
+        case commentCount = "comment_count"
     }
+}
+
+struct FitFightFeedPerson: Codable, Equatable, Hashable, Identifiable {
+    let userId: UUID
+    let handle: String
+    let displayName: String
+    let avatar: FitFightMedia?
+
+    var id: UUID { userId }
+    var atHandle: String { "@\(handle)" }
+
+    enum CodingKeys: String, CodingKey {
+        case handle, avatar
+        case userId = "user_id"
+        case displayName = "display_name"
+    }
+}
+
+struct FitFightFeedPeople: Decodable {
+    let people: [FitFightFeedPerson]
+}
+
+struct FitFightFightPostComment: Codable, Equatable, Hashable, Identifiable {
+    let id: UUID
+    let postId: UUID
+    let parentId: UUID?
+    let body: String
+    let createdAt: String
+    let author: FitFightFightPost.Author
+    let mine: Bool
+
+    var createdDate: Date {
+        let iso = ISO8601DateFormatter()
+        iso.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        if let date = iso.date(from: createdAt) { return date }
+        iso.formatOptions = [.withInternetDateTime]
+        return iso.date(from: createdAt) ?? .distantPast
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case id, body, author, mine
+        case postId = "post_id"
+        case parentId = "parent_id"
+        case createdAt = "created_at"
+    }
+}
+
+struct FitFightFightPostCommentList: Decodable {
+    let comments: [FitFightFightPostComment]
+    let nextCursor: String?
+
+    enum CodingKeys: String, CodingKey {
+        case comments
+        case nextCursor = "next_cursor"
+    }
+}
+
+struct FitFightFightPostCommentResponse: Decodable {
+    let comment: FitFightFightPostComment
+}
+
+struct FitFightFightPostReactionList: Decodable {
+    let reactions: [FitFightFightPost.Reaction]
 }
 
 struct FitFightFightPostList: Decodable {
@@ -105,4 +213,8 @@ struct FitFightFightPostList: Decodable {
 
 struct FitFightFightPostResponse: Decodable {
     let post: FitFightFightPost
+}
+
+struct FitFightFightPostBatch: Decodable {
+    let posts: [FitFightFightPost]
 }

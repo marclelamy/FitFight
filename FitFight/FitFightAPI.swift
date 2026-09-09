@@ -500,12 +500,95 @@ struct FitFightAPI {
         )
     }
 
-    func feed(cursor: String?, accessToken: String) async throws -> FitFightFightPostList {
-        var path = "feed"
+    func feed(scope: String? = nil, cursor: String?, accessToken: String) async throws -> FitFightFightPostList {
+        var parts: [String] = []
+        if let scope, let encoded = scope.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) {
+            parts.append("scope=\(encoded)")
+        }
+        if let cursor, let encoded = cursor.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) {
+            parts.append("cursor=\(encoded)")
+        }
+        let path = parts.isEmpty ? "feed" : "feed?\(parts.joined(separator: "&"))"
+        return try await get(path: path, accessToken: accessToken, expected: [200])
+    }
+
+    func createFeedPosts(
+        body: String,
+        mediaIDs: [UUID],
+        destinations: [FeedPostDestination],
+        taggedUserIDs: [UUID],
+        accessToken: String
+    ) async throws -> FitFightFightPostBatch {
+        try await post(
+            path: "feed/posts",
+            accessToken: accessToken,
+            body: FeedPostsBody(
+                body: body,
+                mediaIds: mediaIDs,
+                destinations: destinations,
+                taggedUserIds: taggedUserIDs
+            ),
+            expected: [201]
+        )
+    }
+
+    func feedPeople(main: Bool, fightIDs: [UUID], accessToken: String) async throws -> FitFightFeedPeople {
+        var parts: [String] = []
+        if main { parts.append("main=true") }
+        if !fightIDs.isEmpty {
+            let value = fightIDs.map { $0.uuidString.lowercased() }.joined(separator: ",")
+            parts.append("fight_ids=\(value)")
+        }
+        let path = parts.isEmpty ? "feed/people" : "feed/people?\(parts.joined(separator: "&"))"
+        return try await get(path: path, accessToken: accessToken, expected: [200])
+    }
+
+    func fightPostComments(postID: UUID, cursor: String?, accessToken: String) async throws -> FitFightFightPostCommentList {
+        var path = "posts/\(postID.uuidString.lowercased())/comments"
         if let cursor, let encoded = cursor.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) {
             path += "?cursor=\(encoded)"
         }
         return try await get(path: path, accessToken: accessToken, expected: [200])
+    }
+
+    func createFightPostComment(
+        postID: UUID,
+        body: String,
+        parentID: UUID?,
+        accessToken: String
+    ) async throws -> FitFightFightPostCommentResponse {
+        try await post(
+            path: "posts/\(postID.uuidString.lowercased())/comments",
+            accessToken: accessToken,
+            body: FightPostCommentBody(body: body, parentId: parentID),
+            expected: [201]
+        )
+    }
+
+    func deleteFightPostComment(postID: UUID, commentID: UUID, accessToken: String) async throws {
+        let _: DiscardBody = try await delete(
+            path: "posts/\(postID.uuidString.lowercased())/comments/\(commentID.uuidString.lowercased())",
+            accessToken: accessToken,
+            expected: [200]
+        )
+    }
+
+    func reportFightPostComment(postID: UUID, commentID: UUID, accessToken: String) async throws {
+        let _: DiscardBody = try await post(
+            path: "posts/\(postID.uuidString.lowercased())/comments/\(commentID.uuidString.lowercased())/report",
+            accessToken: accessToken,
+            body: FightPostReportBody(reason: "other"),
+            expected: [200]
+        )
+    }
+
+    func reactToFightPost(postID: UUID, emoji: String, accessToken: String) async throws -> FitFightFightPostReactionList {
+        try await post(
+            path: "posts/\(postID.uuidString.lowercased())/reactions",
+            accessToken: accessToken,
+            body: FightPostReactionBody(emoji: emoji),
+            expected: [200]
+        )
     }
 
     func fightPosts(fightID: UUID, cursor: String?, accessToken: String) async throws -> FitFightFightPostList {
@@ -530,17 +613,23 @@ struct FitFightAPI {
         )
     }
 
-    func deleteFightPost(fightID: UUID, postID: UUID, accessToken: String) async throws {
+    func deleteFightPost(fightID: UUID? = nil, postID: UUID, accessToken: String) async throws {
+        let path = fightID == nil
+            ? "posts/\(postID.uuidString.lowercased())"
+            : "fights/\(fightID!.uuidString.lowercased())/posts/\(postID.uuidString.lowercased())"
         let _: DiscardBody = try await delete(
-            path: "fights/\(fightID.uuidString.lowercased())/posts/\(postID.uuidString.lowercased())",
+            path: path,
             accessToken: accessToken,
             expected: [200]
         )
     }
 
-    func reportFightPost(fightID: UUID, postID: UUID, reason: String, accessToken: String) async throws {
+    func reportFightPost(fightID: UUID? = nil, postID: UUID, reason: String, accessToken: String) async throws {
+        let path = fightID == nil
+            ? "posts/\(postID.uuidString.lowercased())/report"
+            : "fights/\(fightID!.uuidString.lowercased())/posts/\(postID.uuidString.lowercased())/report"
         let _: DiscardBody = try await post(
-            path: "fights/\(fightID.uuidString.lowercased())/posts/\(postID.uuidString.lowercased())/report",
+            path: path,
             accessToken: accessToken,
             body: FightPostReportBody(reason: reason),
             expected: [200]
@@ -965,6 +1054,28 @@ private struct MediaUploadBody: Encodable {
     }
 }
 
+struct FeedPostDestination: Encodable, Hashable {
+    let type: String
+    let fightId: UUID?
+
+    static var main: FeedPostDestination { FeedPostDestination(type: "main", fightId: nil) }
+
+    static func fight(_ id: UUID) -> FeedPostDestination {
+        FeedPostDestination(type: "fight", fightId: id)
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case type
+        case fightId = "fight_id"
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(type, forKey: .type)
+        try container.encodeIfPresent(fightId, forKey: .fightId)
+    }
+}
+
 private struct FightPostBody: Encodable {
     let body: String
     let mediaIds: [UUID]
@@ -973,6 +1084,34 @@ private struct FightPostBody: Encodable {
         case body
         case mediaIds = "media_ids"
     }
+}
+
+private struct FeedPostsBody: Encodable {
+    let body: String
+    let mediaIds: [UUID]
+    let destinations: [FeedPostDestination]
+    let taggedUserIds: [UUID]
+
+    enum CodingKeys: String, CodingKey {
+        case body
+        case mediaIds = "media_ids"
+        case destinations
+        case taggedUserIds = "tagged_user_ids"
+    }
+}
+
+private struct FightPostCommentBody: Encodable {
+    let body: String
+    let parentId: UUID?
+
+    enum CodingKeys: String, CodingKey {
+        case body
+        case parentId = "parent_id"
+    }
+}
+
+private struct FightPostReactionBody: Encodable {
+    let emoji: String
 }
 
 private struct FightPostReportBody: Encodable {

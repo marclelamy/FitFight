@@ -3,7 +3,8 @@ revoke all on public.profiles, public.friendships, public.fights,
   public.data_sources, public.fight_members, public.fight_invites,
   public.step_days, public.metric_days, public.fight_series, public.fight_series_members,
   public.feedback_posts, public.feedback_votes, public.feedback_comments,
-  public.media_objects, public.fight_posts, public.fight_post_media
+  public.media_objects, public.fight_posts, public.fight_post_media,
+  public.fight_post_tags, public.fight_post_reactions, public.fight_post_comments
   from public, anon, authenticated;
 
 -- Table revocation does not remove privileges granted separately on columns.
@@ -40,3 +41,6 @@ alter policy step_days_select_self_or_fight on public.step_days to fitfight_back
 alter policy media_objects_select_owner_or_shared on public.media_objects to fitfight_backend_reader;
 alter policy fight_posts_select_roster on public.fight_posts to fitfight_backend_reader;
 alter policy fight_post_media_select_roster on public.fight_post_media to fitfight_backend_reader;
+alter policy fight_post_tags_select_visible on public.fight_post_tags to fitfight_backend_reader;
+alter policy fight_post_reactions_select_visible on public.fight_post_reactions to fitfight_backend_reader;
+alter policy fight_post_comments_select_visible on public.fight_post_comments to fitfight_backend_reader;

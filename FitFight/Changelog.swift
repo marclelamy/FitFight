@@ -29,6 +29,13 @@ enum Changelog {
             year: 2026,
             month: 9,
             day: 9,
+            notes: "Feed now has swipeable Main and fight tabs. Plus opens one composer where you add a photo, video, or note, tag people, and pick more than one place to post. Posts can get any emoji and nested comments. Inside a fight, Stats and Feed are tabs."
+        ),
+        ReleaseNote(
+            version: "1.0.0",
+            year: 2026,
+            month: 9,
+            day: 9,
             notes: "An outdated beta only shows an update dialog. You can’t use FitFight until you install the latest version."
         ),
         ReleaseNote(
