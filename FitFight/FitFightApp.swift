@@ -59,6 +59,9 @@ struct FitFightApp: App {
                 .environmentObject(appUpdate)
                 .fitFightTheme(themeStore.theme)
                 .task {
+                    steps.onBackendSync = {
+                        await model.refreshFromServer(session: session)
+                    }
                     if ScreenshotExport.isEnabled {
                         ScreenshotExport.exportAll()
                     }

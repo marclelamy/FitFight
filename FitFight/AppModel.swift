@@ -165,7 +165,13 @@ final class AppModel: ObservableObject {
     private let api = FitFightAPI()
     private var inviteTokens: [String: String] = [:]
     private var cachedUserID: UUID?
-    private var activeRefresh: (id: UUID, userID: UUID?)?
+    private var refreshTask: Task<Void, Never>?
+    private var pendingRefresh: (
+        session: SessionStore,
+        steps: HealthKitStepsStore,
+        trigger: HealthKitStepsStore.SyncTrigger,
+        requestAccess: Bool
+    )?
     private static let pendingJoinCodeKey = "fitfight.pendingJoinCode"
     private static let pendingReferralCodeKey = "fitfight.pendingReferralCode"
     private static let pendingReferralUserKey = "fitfight.pendingReferralUser"
@@ -294,17 +300,43 @@ final class AppModel: ObservableObject {
         trigger: HealthKitStepsStore.SyncTrigger = .foreground,
         requestAccess: Bool = false
     ) async {
-        let userID = session.authSession?.user.id ?? session.client.auth.currentUser?.id
-        if let activeRefresh, activeRefresh.userID == userID { return }
-        let trace = HealthKitSyncTrace(trigger: trigger)
-        activeRefresh = (trace.id, userID)
-        isRefreshingFights = true
-        defer {
-            if activeRefresh?.id == trace.id {
-                activeRefresh = nil
-                isRefreshingFights = false
-            }
+        if refreshTask != nil {
+            pendingRefresh = (session, steps, trigger, requestAccess)
+            return
         }
+        isRefreshingFights = true
+        let work = Task { @MainActor in
+            defer {
+                self.refreshTask = nil
+                self.isRefreshingFights = false
+            }
+            var current = (session: session, steps: steps, trigger: trigger, requestAccess: requestAccess)
+            repeat {
+                self.pendingRefresh = nil
+                await self.performRefreshFights(
+                    session: current.session,
+                    steps: current.steps,
+                    trigger: current.trigger,
+                    requestAccess: current.requestAccess
+                )
+                if let pending = self.pendingRefresh {
+                    current = pending
+                }
+            } while self.pendingRefresh != nil
+        }
+        refreshTask = work
+        guard !Task.isCancelled else { return }
+        await work.value
+    }
+
+    private func performRefreshFights(
+        session: SessionStore,
+        steps: HealthKitStepsStore,
+        trigger: HealthKitStepsStore.SyncTrigger,
+        requestAccess: Bool
+    ) async {
+        let userID = session.authSession?.user.id ?? session.client.auth.currentUser?.id
+        let trace = HealthKitSyncTrace(trigger: trigger)
 
         await steps.refresh(requestAccess: requestAccess, trace: trace)
         guard (session.authSession?.user.id ?? session.client.auth.currentUser?.id) == userID else {
@@ -312,7 +344,7 @@ final class AppModel: ObservableObject {
             steps.completeAttempt(trace, session: session, userID: userID)
             return
         }
-        if session.authSession != nil, !Task.isCancelled {
+        if session.authSession != nil {
             await steps.syncToBackend(session: session, trigger: trigger, trace: trace)
         }
         guard (session.authSession?.user.id ?? session.client.auth.currentUser?.id) == userID else {
@@ -320,7 +352,7 @@ final class AppModel: ObservableObject {
             steps.completeAttempt(trace, session: session, userID: userID)
             return
         }
-        if !Task.isCancelled { await refreshFromServer(session: session, trace: trace) }
+        await refreshFromServer(session: session, trace: trace)
         steps.completeAttempt(trace, session: session, userID: userID)
     }
 

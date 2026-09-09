@@ -57,6 +57,7 @@ final class HealthKitStepsStore: ObservableObject {
     private var isSyncing = false
     private var observerQuery: HKObserverQuery?
     private weak var session: SessionStore?
+    var onBackendSync: (@MainActor () async -> Void)?
     private var activeUserId: UUID?
     private static let pendingLocalDeletionKey = "ff.healthkit.pendingLocalDeletion"
     private static let pendingSyncKey = "ff.healthkit.pendingSync"
@@ -344,6 +345,9 @@ final class HealthKitStepsStore: ObservableObject {
                 else { $0.lastManualSync = Date() }
                 $0.errorCode = nil
                 $0.failureReference = nil
+            }
+            if trigger == .observer {
+                await onBackendSync?()
             }
             return true
         } catch {
