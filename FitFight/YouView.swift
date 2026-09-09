@@ -88,7 +88,7 @@ struct YouView: View {
                                 .fontWeight(.heavy)
                                 .foregroundStyle(theme.mossText)
                         }
-                        .buttonStyle(.plain)
+                        .buttonStyle(FFHapticPlainStyle())
                     }
                 }
                 .layoutPriority(1)
@@ -122,7 +122,7 @@ struct YouView: View {
                     )
                 )
             }
-            .buttonStyle(.plain)
+            .buttonStyle(FFHapticPlainStyle())
             .disabled(steps.status == .reading || model.isRefreshingFights)
             FFDivider()
             FFGroupedRow(
@@ -204,7 +204,7 @@ struct YouView: View {
                 ShareLink(item: APIConfig.publicOrigin.appending(path: "r/\(code.uuidString.lowercased())")) {
                     rowLabel(title: String(localized: "Refer a friend"), destructive: false)
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(FFHapticPlainStyle())
                 FFDivider()
             }
             linkRow(String(localized: "Privacy"), destination: sitePage("privacy"))
@@ -263,7 +263,7 @@ struct YouView: View {
         Link(destination: destination) {
             rowLabel(title: title, destructive: false)
         }
-        .buttonStyle(.plain)
+        .buttonStyle(FFHapticPlainStyle())
     }
 
     private func navRow(
@@ -274,7 +274,7 @@ struct YouView: View {
         Button(action: action) {
             rowLabel(title: title, destructive: destructive)
         }
-        .buttonStyle(.plain)
+        .buttonStyle(FFHapticPlainStyle())
         .disabled(session.isBusy)
     }
 

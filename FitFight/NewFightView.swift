@@ -145,7 +145,7 @@ struct NewFightView: View {
                             .foregroundStyle(theme.text)
                             .frame(minHeight: 44)
                     }
-                    .buttonStyle(.plain)
+                    .buttonStyle(FFHapticPlainStyle())
                 }
 
                 Spacer()
@@ -443,7 +443,7 @@ struct NewFightView: View {
                                     .frame(width: 44, height: 44)
                                     .background(theme.control, in: Circle())
                             }
-                            .buttonStyle(.plain)
+                            .buttonStyle(FFHapticPlainStyle())
                             .accessibilityLabel(
                                 String(
                                     localized: "fight.remove-handle",

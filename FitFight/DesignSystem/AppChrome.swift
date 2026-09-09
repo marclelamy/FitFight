@@ -124,7 +124,7 @@ struct FFTabBar: View {
             }
             .frame(maxWidth: .infinity)
         }
-        .buttonStyle(.plain)
+        .buttonStyle(FFHapticPlainStyle())
     }
 }
 
@@ -171,7 +171,7 @@ struct VersionBanner: View {
                 .padding(.top, 4)
                 .padding(.bottom, 6)
         }
-        .buttonStyle(.plain)
+        .buttonStyle(FFHapticPlainStyle())
         .disabled(onTap == nil)
         .accessibilityIdentifier("app-version")
     }

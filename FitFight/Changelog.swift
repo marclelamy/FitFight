@@ -28,6 +28,13 @@ enum Changelog {
             version: "1.0.0",
             year: 2026,
             month: 9,
+            day: 9,
+            notes: "Buttons now tap with haptic feedback, and Slide to start ticks harder as you drag the thumb toward the end."
+        ),
+        ReleaseNote(
+            version: "1.0.0",
+            year: 2026,
+            month: 9,
             day: 7,
             notes: "Refer a friend from You or share a fight directly. Links help friends install FitFight through TestFlight, and reopening the link after installation keeps the referral and challenge together."
         ),

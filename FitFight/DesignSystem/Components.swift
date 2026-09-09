@@ -32,6 +32,32 @@ extension View {
     }
 }
 
+enum FFHaptics {
+    private static let buttonImpact: UIImpactFeedbackGenerator = {
+        let generator = UIImpactFeedbackGenerator(style: .light)
+        generator.prepare()
+        return generator
+    }()
+
+    static func button() {
+        buttonImpact.impactOccurred(intensity: 0.72)
+    }
+
+    static func success() {
+        UINotificationFeedbackGenerator().notificationOccurred(.success)
+    }
+}
+
+/// Same as `.plain`, with a tap tick. Use on controls that should not scale.
+struct FFHapticPlainStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .onChange(of: configuration.isPressed) { _, pressed in
+                if pressed { FFHaptics.button() }
+            }
+    }
+}
+
 struct FFPressStyle: ButtonStyle {
     var scale: CGFloat = 0.97
 
@@ -39,6 +65,9 @@ struct FFPressStyle: ButtonStyle {
         configuration.label
             .scaleEffect(configuration.isPressed ? scale : 1)
             .animation(.timingCurve(0.16, 1, 0.3, 1, duration: 0.15), value: configuration.isPressed)
+            .onChange(of: configuration.isPressed) { _, pressed in
+                if pressed { FFHaptics.button() }
+            }
     }
 }
 
@@ -257,6 +286,7 @@ struct FFSlideToConfirm: View {
     @Environment(\.ffTheme) private var theme
     @State private var drag: CGFloat = 0
     @State private var completed = false
+    @State private var slideHaptics = FFSlideHapticEngine()
 
     private let knobSize: CGFloat = 44
     private let inset: CGFloat = 8
@@ -324,12 +354,14 @@ struct FFSlideToConfirm: View {
             .onChanged { value in
                 guard enabled, !busy, !completed else { return }
                 drag = min(max(0, value.translation.width), travel)
+                slideHaptics.drag(progress: travel == 0 ? 0 : drag / travel)
             }
             .onEnded { _ in
                 guard enabled, !busy, !completed else { return }
                 if travel > 0, drag >= travel * 0.85 {
                     confirm()
                 } else {
+                    slideHaptics.resetTicks()
                     withAnimation(.timingCurve(0.16, 1, 0.3, 1, duration: 0.22)) {
                         drag = 0
                     }
@@ -341,7 +373,7 @@ struct FFSlideToConfirm: View {
         guard enabled, !busy, !completed else { return }
         completed = true
         if action() {
-            UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+            FFHaptics.success()
         } else {
             reset()
         }
@@ -349,9 +381,49 @@ struct FFSlideToConfirm: View {
 
     private func reset() {
         completed = false
+        slideHaptics.resetTicks()
         withAnimation(.timingCurve(0.16, 1, 0.3, 1, duration: 0.22)) {
             drag = 0
         }
+    }
+}
+
+/// Ticks crowd and intensify toward the end of the track.
+@MainActor
+private final class FFSlideHapticEngine {
+    private let soft = UIImpactFeedbackGenerator(style: .soft)
+    private let light = UIImpactFeedbackGenerator(style: .light)
+    private let rigid = UIImpactFeedbackGenerator(style: .rigid)
+    private var lastTick = 0
+    private var prepared = false
+
+    func drag(progress: CGFloat) {
+        prepareIfNeeded()
+        let clamped = min(max(progress, 0), 1)
+        let tick = Int(pow(Double(clamped), 2.8) * 22)
+        if tick > lastTick {
+            let intensity = CGFloat(0.16 + 0.84 * pow(Double(clamped), 2.1))
+            if clamped < 0.55 {
+                soft.impactOccurred(intensity: intensity)
+            } else if clamped < 0.82 {
+                light.impactOccurred(intensity: intensity)
+            } else {
+                rigid.impactOccurred(intensity: min(1, intensity + 0.05))
+            }
+        }
+        lastTick = tick
+    }
+
+    func resetTicks() {
+        lastTick = 0
+    }
+
+    private func prepareIfNeeded() {
+        guard !prepared else { return }
+        prepared = true
+        soft.prepare()
+        light.prepare()
+        rigid.prepare()
     }
 }
 
