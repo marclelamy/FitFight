@@ -21,6 +21,7 @@ struct Person: Codable, Identifiable, Hashable {
     var handle: String
     var initials: String
     var isYou: Bool = false
+    var photoURL: URL? = nil
 
     /// The design's cast photographs, cut out of the mocks into the asset catalogue.
     var photo: String { "Avatar-\(isYou ? "maya" : id)" }
@@ -33,6 +34,7 @@ extension FFAvatar {
             size: size,
             selected: selected,
             photo: person?.photo,
+            photoURL: person?.photoURL,
             dimmed: pending
         )
     }
@@ -91,6 +93,7 @@ struct Fight: Codable, Identifiable, Hashable {
     var windowEnd: Date = Date().addingTimeInterval(86400)
     var serverState: String? = nil
     var joinCode: String? = nil
+    var seriesId: String? = nil
     var recurring: Bool = false
     var pendingJoin: Bool = false
     var offersJoinNext: Bool = false
@@ -165,7 +168,13 @@ final class AppModel: ObservableObject {
     private let api = FitFightAPI()
     private var inviteTokens: [String: String] = [:]
     private var cachedUserID: UUID?
-    private var activeRefresh: (id: UUID, userID: UUID?)?
+    private var refreshTask: Task<Void, Never>?
+    private var pendingRefresh: (
+        session: SessionStore,
+        steps: HealthKitStepsStore,
+        trigger: HealthKitStepsStore.SyncTrigger,
+        requestAccess: Bool
+    )?
     private static let pendingJoinCodeKey = "fitfight.pendingJoinCode"
     private static let pendingReferralCodeKey = "fitfight.pendingReferralCode"
     private static let pendingReferralUserKey = "fitfight.pendingReferralUser"
@@ -200,7 +209,8 @@ final class AppModel: ObservableObject {
     }
 
     func fight(id: String) -> Fight? {
-        fights.first { $0.id == id } ?? pendingJoinable.flatMap { $0.id == id ? $0 : nil }
+        fights.first { $0.id.caseInsensitiveCompare(id) == .orderedSame }
+            ?? pendingJoinable.flatMap { $0.id.caseInsensitiveCompare(id) == .orderedSame ? $0 : nil }
     }
 
     var live: [Fight] { fights.filter { $0.status == .live } }
@@ -294,17 +304,43 @@ final class AppModel: ObservableObject {
         trigger: HealthKitStepsStore.SyncTrigger = .foreground,
         requestAccess: Bool = false
     ) async {
-        let userID = session.authSession?.user.id ?? session.client.auth.currentUser?.id
-        if let activeRefresh, activeRefresh.userID == userID { return }
-        let trace = HealthKitSyncTrace(trigger: trigger)
-        activeRefresh = (trace.id, userID)
-        isRefreshingFights = true
-        defer {
-            if activeRefresh?.id == trace.id {
-                activeRefresh = nil
-                isRefreshingFights = false
-            }
+        if refreshTask != nil {
+            pendingRefresh = (session, steps, trigger, requestAccess)
+            return
         }
+        isRefreshingFights = true
+        let work = Task { @MainActor in
+            defer {
+                self.refreshTask = nil
+                self.isRefreshingFights = false
+            }
+            var current = (session: session, steps: steps, trigger: trigger, requestAccess: requestAccess)
+            repeat {
+                self.pendingRefresh = nil
+                await self.performRefreshFights(
+                    session: current.session,
+                    steps: current.steps,
+                    trigger: current.trigger,
+                    requestAccess: current.requestAccess
+                )
+                if let pending = self.pendingRefresh {
+                    current = pending
+                }
+            } while self.pendingRefresh != nil
+        }
+        refreshTask = work
+        guard !Task.isCancelled else { return }
+        await work.value
+    }
+
+    private func performRefreshFights(
+        session: SessionStore,
+        steps: HealthKitStepsStore,
+        trigger: HealthKitStepsStore.SyncTrigger,
+        requestAccess: Bool
+    ) async {
+        let userID = session.authSession?.user.id ?? session.client.auth.currentUser?.id
+        let trace = HealthKitSyncTrace(trigger: trigger)
 
         await steps.refresh(requestAccess: requestAccess, trace: trace)
         guard (session.authSession?.user.id ?? session.client.auth.currentUser?.id) == userID else {
@@ -312,7 +348,7 @@ final class AppModel: ObservableObject {
             steps.completeAttempt(trace, session: session, userID: userID)
             return
         }
-        if session.authSession != nil, !Task.isCancelled {
+        if session.authSession != nil {
             await steps.syncToBackend(session: session, trigger: trigger, trace: trace)
         }
         guard (session.authSession?.user.id ?? session.client.auth.currentUser?.id) == userID else {
@@ -320,8 +356,37 @@ final class AppModel: ObservableObject {
             steps.completeAttempt(trace, session: session, userID: userID)
             return
         }
-        if !Task.isCancelled { await refreshFromServer(session: session, trace: trace) }
+        await refreshFromServer(session: session, trace: trace)
         steps.completeAttempt(trace, session: session, userID: userID)
+    }
+
+    func applyLocalHealthKitScores(_ sync: FitFightHealthKitStepSync) {
+        let totals = Dictionary(uniqueKeysWithValues: sync.fightAggregates.map {
+            ($0.fightId.lowercased(), Double($0.steps))
+        })
+        guard !totals.isEmpty else { return }
+        let now = Date()
+        fights = fights.map { fight in
+            guard fight.status == .live,
+                  let score = totals[fight.id.lowercased()],
+                  let index = fight.standings.firstIndex(where: {
+                      $0.person.isYou && !$0.invited && !$0.deferred
+                  })
+            else { return fight }
+            var next = fight
+            next.standings[index].score = score
+            next.standings[index].lastSyncedAt = now
+            next.standings.sort { lhs, rhs in
+                if lhs.invited != rhs.invited { return !lhs.invited && rhs.invited }
+                if lhs.deferred != rhs.deferred { return !lhs.deferred && rhs.deferred }
+                if lhs.score == rhs.score { return lhs.person.name < rhs.person.name }
+                return lhs.score > rhs.score
+            }
+            let joined = next.standings.filter { !$0.invited && !$0.deferred }
+            next.rank = joined.firstIndex { $0.person.isYou }.map { $0 + 1 } ?? next.rank
+            next.of = max(joined.count, 1)
+            return next
+        }
     }
 
     func removeCachedFights(for userID: UUID) {
@@ -393,7 +458,7 @@ final class AppModel: ObservableObject {
         actionText: String,
         inviteHandles: [String],
         visibility: String = "invite_only",
-        recurring: Bool = false
+        recurring: Bool = true
     ) async {
         if !isCreatingFight {
             isCreatingFight = true
@@ -790,8 +855,17 @@ final class AppModel: ObservableObject {
             name: profile.atHandle,
             handle: profile.atHandle,
             initials: profile.initials,
-            isYou: isYou
+            isYou: isYou,
+            photoURL: profile.avatar?.url
         )
+    }
+
+    func openFightFromFeed(id: String) {
+        let fightID = fight(id: id)?.id ?? id
+        tab = .fights
+        Task { @MainActor in
+            self.openFightID = fightID
+        }
     }
 
     private static func mapFight(
@@ -1019,6 +1093,7 @@ final class AppModel: ObservableObject {
             windowEnd: ends,
             serverState: row.state,
             joinCode: series?.joinCode,
+            seriesId: series?.id.uuidString,
             recurring: series?.recurring ?? false,
             offersJoinNext: (series?.recurring ?? false)
                 && Self.isAfterFightStartDay(starts)

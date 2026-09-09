@@ -22,7 +22,7 @@ struct NewFightView: View {
     @State private var fightTitle = ""
     @State private var actionText = ""
     @State private var visibilityJoinable = false
-    @State private var recurring = false
+    @State private var recurring = true
     @State private var joinCode = ""
     @State private var joinable: [FitFightJoinableFight] = []
     @State private var lookingUp = false

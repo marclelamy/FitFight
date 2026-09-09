@@ -16,7 +16,7 @@ struct ContentView: View {
             if appUpdate.status == .current || ScreenshotExport.isEnabled {
                 appContent
             } else {
-                updateScreen
+                updateDialog
             }
         }
         .background(theme.bg.ignoresSafeArea())
@@ -71,42 +71,61 @@ struct ContentView: View {
         }
     }
 
-    private var updateScreen: some View {
-        VStack(alignment: .leading, spacing: theme.space.lg) {
-            Spacer()
-            if appUpdate.status == .checking {
-                ProgressView()
-                    .tint(theme.text)
-                Text("Checking for updates…")
-                    .ffType(.heading)
-                    .foregroundStyle(theme.text)
-            } else {
-                Text(appUpdate.status == .updateRequired
-                     ? String(localized: "Update FitFight to continue")
-                     : String(localized: "Couldn’t check for updates"))
-                    .ffType(.title)
-                    .foregroundStyle(theme.text)
-                Text(appUpdate.status == .updateRequired
-                     ? String(localized: "Install the latest version to use FitFight. This screen stays until your app is up to date.")
-                     : String(localized: "Connect to the internet and try again to use FitFight."))
-                    .ffType(.body)
-                    .foregroundStyle(theme.textSecondary)
-                    .fixedSize(horizontal: false, vertical: true)
-                if appUpdate.status == .updateRequired, let release = appUpdate.policy?.latest {
-                    FFButton(title: String(localized: "Update FitFight"), kind: .primary) {
-                        openURL(release.updateURL)
+    private var updateDialog: some View {
+        ZStack {
+            theme.scrim
+            VStack(alignment: .leading, spacing: 0) {
+                if appUpdate.status == .checking {
+                    ProgressView()
+                        .tint(theme.text)
+                    Text("Checking for updates…")
+                        .font(.ff(18, 800))
+                        .tracking(18 * -0.015)
+                        .foregroundStyle(theme.text)
+                        .padding(.top, 14)
+                } else {
+                    Text(appUpdate.status == .updateRequired
+                         ? String(localized: "Update FitFight to continue")
+                         : String(localized: "Couldn’t check for updates"))
+                        .font(.ff(18, 800))
+                        .tracking(18 * -0.015)
+                        .foregroundStyle(theme.text)
+                    Text(appUpdate.status == .updateRequired
+                         ? String(localized: "You can’t use FitFight until you install the latest version.")
+                         : String(localized: "Connect to the internet and try again to use FitFight."))
+                        .ffType(.body)
+                        .foregroundStyle(theme.textSecondary)
+                        .lineSpacing(3)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .padding(.top, 7)
+                    HStack(spacing: 9) {
+                        FFButton(
+                            title: String(localized: "Check again"),
+                            kind: appUpdate.status == .updateRequired && appUpdate.policy?.latest != nil
+                                ? .secondary : .primary,
+                            fullWidth: true
+                        ) {
+                            Task { await appUpdate.check() }
+                        }
+                        .disabled(appUpdate.isChecking)
+                        if appUpdate.status == .updateRequired, let release = appUpdate.policy?.latest {
+                            FFButton(title: String(localized: "Update FitFight"), kind: .primary, fullWidth: true) {
+                                openURL(release.updateURL)
+                            }
+                            .accessibilityIdentifier("required-update-button")
+                        }
                     }
-                    .accessibilityIdentifier("required-update-button")
+                    .padding(.top, 18)
                 }
-                FFButton(title: String(localized: "Check again"), kind: .secondary) {
-                    Task { await appUpdate.check() }
-                }
-                .disabled(appUpdate.isChecking)
             }
-            Spacer()
+            .padding(.horizontal, 20)
+            .padding(.vertical, 22)
+            .background(theme.overlay, in: RoundedRectangle(cornerRadius: theme.radius.card, style: .continuous))
+            .ffBorder(theme.overlayLine, radius: theme.radius.card)
+            .shadow(color: .black.opacity(0.9), radius: 30, y: 20)
+            .padding(24)
         }
-        .padding(.horizontal, theme.space.screenPadding)
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
         .accessibilityIdentifier("required-update-screen")
     }
 
@@ -146,6 +165,8 @@ struct ContentView: View {
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
         } else if session.needsOnboarding {
             OnboardingView()
+        } else if session.needsHealthOnboarding {
+            HealthOnboardingView()
         } else {
             signedInApp
         }
@@ -170,6 +191,8 @@ struct ContentView: View {
             fightsStack
         case .newFight:
             NewFightView()
+        case .feed:
+            FeedView()
         case .you:
             YouView()
         }
@@ -293,6 +316,7 @@ private struct InteractivePopGestureEnabler: UIViewRepresentable {
         .environmentObject(AppModel())
         .environmentObject(session)
         .environmentObject(HealthKitStepsStore())
+        .environmentObject(FeedStore())
         .environmentObject(AppUpdateChecker.shared)
         .fitFightTheme(themeStore.theme)
 }

@@ -40,7 +40,7 @@ export const createFightSchema = z
     start: z.enum(["now", "scheduled"]).default("now"),
     metric: z.literal("steps").optional(),
     visibility: fightVisibilitySchema.default("invite_only"),
-    recurring: z.boolean().default(false),
+    recurring: z.boolean().default(true),
   })
   .superRefine((value, ctx) => {
     const starts = Date.parse(value.startsAt);

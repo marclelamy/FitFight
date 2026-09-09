@@ -252,6 +252,7 @@ struct FFLeaderboardRow: View {
     var isYou: Bool = false
     var caption: String? = nil
     var captionUrgent: Bool = false
+    var captionAt: ((Date) -> String)? = nil
 
     @Environment(\.ffTheme) private var theme
 
@@ -267,11 +268,14 @@ struct FFLeaderboardRow: View {
                     .ffType(.rowTitle)
                     .foregroundStyle(theme.text)
                     .lineLimit(1)
-                if let caption, !caption.isEmpty {
-                    Text(caption)
-                        .ffType(.micro)
-                        .foregroundStyle(captionUrgent ? theme.emberText : theme.textSecondary)
-                        .lineLimit(1)
+                if let captionAt {
+                    // NOTE: Only the freshness line belongs in TimelineView. Wrapping
+                    // scores in a 30s schedule leaves standings stale after a sync.
+                    TimelineView(.periodic(from: .now, by: 30)) { context in
+                        captionText(captionAt(context.date))
+                    }
+                } else {
+                    captionText(caption)
                 }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -291,6 +295,16 @@ struct FFLeaderboardRow: View {
             in: RoundedRectangle(cornerRadius: theme.radius.card, style: .continuous)
         )
         .ffBorder(isYou ? theme.mossEdge : theme.hairline, radius: theme.radius.card)
+    }
+
+    @ViewBuilder
+    private func captionText(_ caption: String?) -> some View {
+        if let caption, !caption.isEmpty {
+            Text(caption)
+                .ffType(.micro)
+                .foregroundStyle(captionUrgent ? theme.emberText : theme.textSecondary)
+                .lineLimit(1)
+        }
     }
 
     private var moveInk: Color {

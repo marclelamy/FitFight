@@ -2,7 +2,7 @@
 
 Production Metric is **Steps**. Phone vs server status: [`status.md`](status.md). Fights, memberships, scores, and data sources are writable only by the backend. Native Accept and Decline use authenticated commands; database grants deny direct client mutations. For Apple Health, it asks HealthKit for Apple's merged cumulative total over each exact Fight window and sends those totals to one authenticated Next.js endpoint. It may also send Apple's merged daily buckets for the active Fight days needed by charts; those buckets never determine the Fight score. The backend validates the User, Fight membership, server-issued windows and cutoffs, then stores the exact-window snapshots and updates standings in a TypeScript-owned Postgres transaction. There are no app-facing database RPCs.
 
-[`system-design.md`](system-design.md) is the golden guide. This folder is the first slice of it, not the whole thing. Do not add Active Minutes, Workout Count, WHOOP, Strava, payments, notifications, social, or a website until the backlog says so.
+[`system-design.md`](system-design.md) is the golden guide. This folder is the first slice of it, not the whole thing. Do not add Active Minutes, Workout Count, WHOOP, Strava, payments, notifications, or a website until the backlog says so. Fight posts and photo uploads go through the API below.
 
 Hosted production (no secrets): https://pvqntpteehdvhqyctwum.supabase.co  
 Hosted staging / git `develop` (no secrets): https://zstzbfocunthczzubggz.supabase.co
@@ -11,8 +11,15 @@ Hosted staging / git `develop` (no secrets): https://zstzbfocunthczzubggz.supaba
 
 The native app uses Supabase directly only for Auth. All application database reads
 and writes use the authenticated FitFight API. `GET /api/v1/me` returns
-`user_id`, `handle`, `display_name`, nullable `handle_set_at`, and `referral_code`.
-`PATCH /api/v1/me` accepts a handle, display name, or both; omitted fields stay unchanged.
+`user_id`, `handle`, `display_name`, nullable `handle_set_at`, `referral_code`,
+and nullable `avatar` (the shared media object).
+`PATCH /api/v1/me` accepts a handle, display name, `avatar_media_id`, or any mix;
+omitted fields stay unchanged. `POST /api/v1/media` mints a private signed upload
+for a photo or short video; `POST /api/v1/media/{id}/commit` verifies size and checksum.
+`GET /api/v1/feed` and `GET/POST /api/v1/fights/{id}/posts` are the fight feed.
+Listing a fight includes posts from other windows in the same recurring series.
+Roster members (`accepted` or `deferred`) can read and post. Invited-only
+members cannot. Delete own posts; report or hide another author.
 The verified session owns the operation. TypeScript normalizes and validates handles,
 sets their timestamp, and translates uniqueness conflicts to `409 handle_taken`.
 Missing/deleted profiles return `401 profile_missing`; account deletion remains `DELETE`.
@@ -50,7 +57,7 @@ backend before the native build. See the install handoff in [`status.md`](status
 
 ## Loop
 
-A cloud agent writes SQL in `supabase/migrations` and tests in `supabase/tests`, then opens a PR **into `develop` only when Marc explicitly asks for a PR**. Marc merges that. The persistent Supabase branch `develop` picks it up. Production only changes when Marc merges `develop` → `main`. Agents do not get the database password or `sb_secret_...` key, and they do not merge unless Marc asked.
+A cloud agent writes SQL in `supabase/migrations` and tests in `supabase/tests`, then opens a PR **into `develop` only when Marc explicitly asks for a PR**. Marc merges that. The persistent Supabase branch `develop` picks it up. TestFlight is a later merge to `preview`. Production only changes when Marc merges `preview` → `main`. Agents do not get the database password or `sb_secret_...` key, and they do not merge unless Marc asked.
 
 GitHub-hosted **Ubuntu** starts disposable Supabase Postgres, Auth, and the Data API, lints the schema, runs pgTAP and TypeScript transaction tests, and rejects `DROP TABLE` / `TRUNCATE` / `DROP COLUMN` unless the **first line** of the file is exactly `-- allow-destructive`. The same backend tests run again after applying the deferred client-permission cutoff, including real signed-in Data API denials and signup. Agents do not run this stack on Marc's Mac or a hosted project.
 
@@ -77,21 +84,22 @@ GitHub branches:
 | GitHub branch | Meaning | Hosted database |
 | --- | --- | --- |
 | Feature (`cursor/…`) | One piece of work | Preview (only if `supabase/` changed, max 3) |
-| `develop` | Staging / testing | Persistent Supabase branch named **`develop`** |
+| `develop` | Integration / staging site | Persistent Supabase branch named **`develop`** |
+| `preview` | TestFlight cut | Same persistent `develop` project |
 | `main` | Production | The main project |
 
-In **Branching**, create one long-lived branch named **`develop`** (not `staging`). It tracks the GitHub `develop` branch. Feature PRs merge into `develop`. When Marc wants production, he merges `develop` into `main`.
+In **Branching**, create one long-lived branch named **`develop`** (not `staging`). It tracks the GitHub `develop` branch. Feature PRs merge into `develop`. GitHub `preview` only cuts TestFlight binaries; it must not become an extra hosted database. When Marc wants a TestFlight, he merges `develop` → `preview`. When he wants production, he merges `preview` into `main`.
 
 ## So an agent cannot nuke production
 
-- Production changes only by merging `develop` into `main`. Agents open PRs into `develop` only when Marc explicitly asks. They do not merge unless Marc said so in that chat.
+- Production changes only by merging `preview` into `main`. Agents open PRs into `develop` only when Marc explicitly asks. They do not merge unless Marc said so in that chat.
 - CI refuses destructive SQL (`DROP TABLE`, `DROP SCHEMA`, `TRUNCATE`, `DROP COLUMN`) unless Marc approved it and the **first line** of the migration is exactly `-- allow-destructive`.
 - Agents never receive `sb_secret_...`, the old `service_role` JWT, or the database password. Never put those in git, chat, or iOS.
 - Never run `supabase db reset`, `supabase db push`, or `DROP DATABASE` against the hosted project.
 - Prefer additive migrations (expand → migrate → contract).
 - Keep the preview branch limit at 3.
 
-Marc’s extra lock (GitHub ruleset **Protect main**): target **`main` and `develop`** → require a pull request, required approvals **0**, require status check **Migrations and RLS**, block force pushes. That stops a push onto either branch without the database check. You still tap merge. You cannot approve your own PR, which is why approvals stay at 0.
+Marc’s extra lock (GitHub ruleset **Protect main**): target **`main`, `develop`, and `preview`** → require a pull request, required approvals **0**, require status check **Migrations and RLS**, block force pushes. That stops a push onto those branches without the database check. You still tap merge. You cannot approve your own PR, which is why approvals stay at 0. If the ruleset still lists only `main` and `develop`, add `preview`.
 
 ## Commands (disposable cloud CI)
 
@@ -129,7 +137,7 @@ Fight peers can read only `fight_members.final_steps_complete`, which indicates 
 
 The older one-object archive migrations, `private.provider_uploads` / `private.provider_events` tables, `provider-inbox` bucket, archive contract, and provider-upload create/status/process routes remain legacy infrastructure during the additive rollout so older builds and migration history are not rewritten. The aggregate-only sync does not create new archive rows or Storage objects and does not use TUS. Remove that legacy surface separately only after incompatible TestFlight builds no longer need it.
 
-Every TestFlight binary talks to the develop project. The workflow runs on push to `develop` or manual `workflow_dispatch`, and rejects `main`. CI writes `FitFight/Generated/BuildEnv.swift` before archive. GitHub variables `SUPABASE_STAGING_*` override if set; otherwise the known develop URL and publishable key are compiled in. Production configuration belongs only to the future App Store flow. See [`shipping.md`](shipping.md). What is live on the phone: [`status.md`](status.md).
+Every TestFlight binary talks to the develop project. The workflow runs on push to `preview`, or manual `workflow_dispatch` on that branch, and rejects `main` and `develop`. CI writes `FitFight/Generated/BuildEnv.swift` before archive. GitHub variables `SUPABASE_STAGING_*` override if set; otherwise the known develop URL and publishable key are compiled in. Production configuration belongs only to the future App Store flow. See [`shipping.md`](shipping.md). What is live on the phone: [`status.md`](status.md).
 
 ## Security and finalization boundary (5 Sep 2026)
 
