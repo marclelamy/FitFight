@@ -49,12 +49,7 @@ struct FightPostEngagement: View {
                 }
                 if let replyTo {
                     HStack {
-                        Text(
-                            String(
-                                localized: "feed.replying-to \(replyTo.author.handle)",
-                                defaultValue: "Replying to @\(replyTo.author.handle)"
-                            )
-                        )
+                        Text(String(localized: "Replying to @\(replyTo.author.handle)"))
                             .ffType(.micro)
                             .foregroundStyle(theme.textSecondary)
                         Spacer()
@@ -70,7 +65,7 @@ struct FightPostEngagement: View {
                         .foregroundStyle(theme.text)
                         .lineLimit(1...4)
                     FFButton(
-                        title: loading ? String(localized: "…") : String(localized: "Send"),
+                        title: loading ? String(localized: "Posting…") : String(localized: "Send"),
                         kind: .ghost,
                         fullWidth: false
                     ) {
@@ -110,7 +105,7 @@ struct FightPostEngagement: View {
                     }
                     .buttonStyle(FFHapticPlainStyle())
                 }
-                TextField(String(localized: "☺︎"), text: $customEmoji)
+                TextField(String(localized: "Emoji"), text: $customEmoji)
                     .ffType(.caption)
                     .frame(width: 36)
                     .onChange(of: customEmoji) { _, value in
