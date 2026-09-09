@@ -16,6 +16,13 @@ before distributing the app. Direct client permissions remain until the separate
 cutoff described in [backend.md](backend.md#application-database-boundary-prepared-9-sep-2026-not-deployed).
 Cloud database/iOS checks and staging-device verification are still pending.
 
+## Prepared, not deployed: Notion Product Backlog (9 Sep)
+
+New Bugs & requests posts create a **P0 Inbox** row in Blend HQ → Product Backlog
+(Product FitFight, Source App feedback, Type Bug or Feature). Add `NOTION_TOKEN`
+to Vercel Preview and Production and share Product Backlog with that integration.
+A missing token leaves the in-app post working and skips Notion.
+
 ## GitHub vs Supabase (the two pairs)
 
 There are two **git** branches and two **hosted databases**. They line up.
@@ -84,7 +91,7 @@ The native Fight path uses the API to create and join; Apple Health synchronizat
 | Tabs | Fights, New, Feed, You. The old Requests tab and Design are removed. |
 | Look | Night/Day, Nunito, fixed Moss/Ember/Gold semantics; no accent picker or public design-system showcase. |
 | Versions | Works under You → Settings; the version label stays at the top of every root screen. Pending the next build: both staging and production show a blocking update screen until the installed version/build matches their latest installable release. The version label stays at the top. |
-| Bugs & requests | Works on You in its own section above Settings. Signed-in people can post a bug or a feature request, browse the board, upvote, and comment with their username. |
+| Bugs & requests | Works on You in its own section above Settings. Signed-in people can post a bug or a feature request, browse the board, upvote, and comment with their username. After `NOTION_TOKEN` is on Vercel, each new post also lands as a P0 Inbox row in the Product Backlog. |
 | Privacy / Support | Pages are implemented and linked under You → Settings. Staging uses `staging.fitfight.app`; production uses `fitfight.app`. Each route must be deployed before that build is tested or submitted. |
 | Fight posts / Feed | Accepted and waiting-next-round members can post a short note, photos, or a short video on a fight. Feed has a + button to compose (photo, video, or text) and pick which fight to post to. Recurring fights keep posts from earlier rounds on the fight and in Feed. Invited-only people do not see posts until they join. You can delete your post, report someone else’s, or hide that person from your feed. |
 | Account deletion | Permanently deletes the profile, photos, username, authentication, Health/Steps data, relationships, invitations, memberships, scores, owned Fights, fight posts, and bugs/requests the User posted; removes participation from other Fights; clears local Health sync state; and revokes a stored Apple credential when available. |

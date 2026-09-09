@@ -1,4 +1,5 @@
 import { apiRoute, corsPreflight, json, readJson } from "@/lib/http";
+import { createAppFeedbackBacklogItem } from "@/lib/notion/create-app-feedback-item";
 import { verifyUser } from "@/lib/supabase/queries/auth-supabase-query";
 import {
   createFeedbackPost,
@@ -28,7 +29,9 @@ export const POST = apiRoute(async (request) => {
   if (!parsed.success) {
     throw parsed.error;
   }
-  return json(await createFeedbackPost(userId, parsed.data), 201);
+  const created = await createFeedbackPost(userId, parsed.data);
+  await createAppFeedbackBacklogItem(created.post);
+  return json(created, 201);
 });
 
 export function OPTIONS(request: Request) {
