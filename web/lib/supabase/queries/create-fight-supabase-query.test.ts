@@ -32,12 +32,21 @@ test("joinable create can start with the owner alone", () => {
   assert.deepEqual(parsed.inviteHandles, undefined);
 });
 
-test("visibility defaults to invite-only", () => {
+test("visibility defaults to invite-only and recurring is on", () => {
   const parsed = createFightSchema.parse({
     ...base,
     inviteHandles: ["leo_runs"],
   });
   assert.equal(parsed.visibility, "invite_only");
+  assert.equal(parsed.recurring, true);
+});
+
+test("create can turn recurring off", () => {
+  const parsed = createFightSchema.parse({
+    ...base,
+    visibility: "joinable",
+    recurring: false,
+  });
   assert.equal(parsed.recurring, false);
 });
 
