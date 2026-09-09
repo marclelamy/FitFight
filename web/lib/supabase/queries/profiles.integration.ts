@@ -10,6 +10,8 @@ import { deleteAccount } from "./delete-account-supabase-query";
 import { readProfile, updateProfile } from "./profiles-supabase-query";
 
 const env = databaseTestEnvironmentSchema.parse(process.env);
+process.env.NEXT_PUBLIC_SUPABASE_URL = env.SUPABASE_TEST_URL;
+process.env.SUPABASE_SECRET_KEY = env.SUPABASE_TEST_SERVICE_KEY;
 const database = postgres(env.DATABASE_URL, { max: 1 });
 const admin = createClient(env.SUPABASE_TEST_URL, env.SUPABASE_TEST_SERVICE_KEY, {
   auth: { persistSession: false, autoRefreshToken: false },
