@@ -393,7 +393,7 @@ final class AppModel: ObservableObject {
         actionText: String,
         inviteHandles: [String],
         visibility: String = "invite_only",
-        recurring: Bool = false
+        recurring: Bool = true
     ) async {
         if !isCreatingFight {
             isCreatingFight = true

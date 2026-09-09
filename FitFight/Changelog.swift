@@ -29,6 +29,13 @@ enum Changelog {
             year: 2026,
             month: 9,
             day: 9,
+            notes: "New fights now repeat when they end. You can still turn that off while creating."
+        ),
+        ReleaseNote(
+            version: "1.0.0",
+            year: 2026,
+            month: 9,
+            day: 9,
             notes: "Buttons now tap with haptic feedback, and Slide to start ticks harder as you drag the thumb toward the end."
         ),
         ReleaseNote(
