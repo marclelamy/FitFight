@@ -7,6 +7,38 @@ Production Metric is **Steps**. Phone vs server status: [`status.md`](status.md)
 Hosted production (no secrets): https://pvqntpteehdvhqyctwum.supabase.co  
 Hosted staging / git `develop` (no secrets): https://zstzbfocunthczzubggz.supabase.co
 
+## Application database boundary (prepared 9 Sep 2026; not deployed)
+
+The native app uses Supabase directly only for Auth. All application database reads
+and writes use the authenticated FitFight API. `GET /api/v1/me` returns
+`user_id`, `handle`, `display_name`, nullable `handle_set_at`, and `referral_code`.
+`PATCH /api/v1/me` accepts a handle, display name, or both; omitted fields stay unchanged.
+The verified session owns the operation. TypeScript normalizes and validates handles,
+sets their timestamp, and translates uniqueness conflicts to `409 handle_taken`.
+Missing/deleted profiles return `401 profile_missing`; account deletion remains `DELETE`.
+
+The Fight snapshot assumes `fitfight_backend_reader`, a restricted no-login role with
+no RLS bypass or client write privileges. Only the server's `postgres` connection can
+assume it. Verified user claims and the existing SELECT policies preserve row visibility.
+Self-profile operations use explicit fields and owner filters through the server admin
+client. Response schemas and shared Swift/TypeScript fixtures define the API independently
+of table layout; extra database columns never automatically become API fields.
+
+First apply `20260909132922_backend_profile_reads.sql`, then deploy the backend and verify
+`/api/health` reports `profile_api: true`, then distribute the native build. Both
+distribution workflows require this readiness marker. Existing client grants remain
+through this stage. The separate cutoff in [`supabase/deferred-migrations`](../supabase/deferred-migrations/README.md)
+must stay outside automatic migrations until the compatible build is installable and
+required, all admitted review builds are compatible, and old backend instances have drained.
+The cutoff includes column grants and global/per-schema future-object defaults. Keep the
+server Data API and Auth/signup working; do not globally disable the Data API.
+
+Internal database changes can ship independently of Apple when the supported API and
+running backend versions remain compatible. Dropping or renaming a column requires a
+safe backend migration, not automatically an iOS release. Removing information or API
+behavior an admitted app still requires waits for that app to be retired. Destructive
+SQL and hosted deployment still follow Marc's authorization rules.
+
 ## Friend referrals (pending deployment)
 
 Profiles carry a stable, read-only `referral_code`; there is no link-generation endpoint.
@@ -18,9 +50,9 @@ backend before the native build. See the install handoff in [`status.md`](status
 
 ## Loop
 
-A cloud agent writes SQL in `supabase/migrations` and tests in `supabase/tests`, then opens a PR **into `develop`**. Marc merges that. The persistent Supabase branch `develop` picks it up. Production only changes when Marc merges `develop` → `main`. Agents do not get the database password or `sb_secret_...` key, and they do not merge unless Marc asked.
+A cloud agent writes SQL in `supabase/migrations` and tests in `supabase/tests`, then opens a PR **into `develop` only when Marc explicitly asks for a PR**. Marc merges that. The persistent Supabase branch `develop` picks it up. Production only changes when Marc merges `develop` → `main`. Agents do not get the database password or `sb_secret_...` key, and they do not merge unless Marc asked.
 
-GitHub-hosted **Ubuntu** (not a Mac) runs `supabase db start`, lints the schema, runs pgTAP as `authenticated`, exercises the TypeScript database transactions, and rejects `DROP TABLE` / `TRUNCATE` / `DROP COLUMN` unless the **first line** of the file is exactly `-- allow-destructive`. This Linux cloud VM has no Docker, so agents do not run the stack here.
+GitHub-hosted **Ubuntu** starts disposable Supabase Postgres, Auth, and the Data API, lints the schema, runs pgTAP and TypeScript transaction tests, and rejects `DROP TABLE` / `TRUNCATE` / `DROP COLUMN` unless the **first line** of the file is exactly `-- allow-destructive`. The same backend tests run again after applying the deferred client-permission cutoff, including real signed-in Data API denials and signup. Agents do not run this stack on Marc's Mac or a hosted project.
 
 iOS TestFlight is unchanged and still ignores this folder. iOS simulator and screenshot jobs skip when the PR does not touch the app.
 
@@ -52,7 +84,7 @@ In **Branching**, create one long-lived branch named **`develop`** (not `staging
 
 ## So an agent cannot nuke production
 
-- Production changes only by merging `develop` into `main`. Agents open PRs into `develop`. They do not merge unless Marc said so in that chat.
+- Production changes only by merging `develop` into `main`. Agents open PRs into `develop` only when Marc explicitly asks. They do not merge unless Marc said so in that chat.
 - CI refuses destructive SQL (`DROP TABLE`, `DROP SCHEMA`, `TRUNCATE`, `DROP COLUMN`) unless Marc approved it and the **first line** of the migration is exactly `-- allow-destructive`.
 - Agents never receive `sb_secret_...`, the old `service_role` JWT, or the database password. Never put those in git, chat, or iOS.
 - Never run `supabase db reset`, `supabase db push`, or `DROP DATABASE` against the hosted project.
@@ -61,11 +93,11 @@ In **Branching**, create one long-lived branch named **`develop`** (not `staging
 
 Marc’s extra lock (GitHub ruleset **Protect main**): target **`main` and `develop`** → require a pull request, required approvals **0**, require status check **Migrations and RLS**, block force pushes. That stops a push onto either branch without the database check. You still tap merge. You cannot approve your own PR, which is why approvals stay at 0.
 
-## Commands (CI, or any machine with Docker)
+## Commands (disposable cloud CI)
 
 ```bash
 python3 scripts/forbid-destructive-sql.py
-npx supabase@2.115.0 db start
+npx supabase@2.115.0 start -x studio,meta,analytics,vector,imgproxy,realtime,storage,edge-runtime
 npx supabase@2.115.0 db lint --local --schema public,private --fail-on error
 npx supabase@2.115.0 test db --local
 ```
@@ -119,7 +151,7 @@ creates a new snapshot and can become the latest correction at the same Fight en
 
 ## Request performance and timing (5 Sep 2026)
 
-`POST /api/v1/fights/refresh` accepts `{ "time_zone": "Europe/Paris" }`, performs the User's due maintenance, and returns `{ fights, members, profiles, series, step_days }` together. The snapshot uses one data query inside a read-only transaction with `SET LOCAL ROLE authenticated` and transaction-local claims for the verified User. Existing RLS governs every returned row, including invited/declined membership limits and day-specific peer Steps access. Role and claims reset on commit or rollback before the pooled connection is reused. Maintenance checks the User's memberships and due recurring series in one query; ordinary refreshes no longer scan every account's series through REST. Separate due Fights are still finalized sequentially, and recurring creation retains its existing roster-copy logic.
+`POST /api/v1/fights/refresh` accepts `{ "time_zone": "Europe/Paris" }`, performs the User's due maintenance, and returns `{ fights, members, profiles, series, step_days }` together. The snapshot uses one data query inside a read-only transaction with `SET LOCAL ROLE fitfight_backend_reader` and transaction-local claims for the verified User. Existing RLS governs every returned row, including invited/declined membership limits and day-specific peer Steps access. Role and claims reset on commit or rollback before the pooled connection is reused. Maintenance checks the User's memberships and due recurring series in one query; ordinary refreshes no longer scan every account's series through REST. Separate due Fights are still finalized sequentially, and recurring creation retains its existing roster-copy logic.
 
 An aggregate upload uses at most eight SQL statements, excluding BEGIN/COMMIT, independent of Fight/member count. Finalizing one Fight uses at most six. TypeScript still owns scoring; batched writes preserve the existing transaction and lock boundaries. Snapshot inserts remain separate from reads of the latest snapshot, preserving corrections that return to an earlier total.
 

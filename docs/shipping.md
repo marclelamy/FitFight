@@ -42,7 +42,7 @@ The first release-candidate label is `1.0.0 · build N · staging`. Testers tap 
 
 ### External distribution and old builds
 
-The beta lane waits for build processing, then distributes that exact version/build to the existing external groups with beta review submission and automatic tester notification enabled. Internal groups are excluded from manual group assignment. Missing external groups or Apple API failures fail CI; the latest-build pointer is published only after distribution submission succeeds. Logs include Apple's external build state. A successful submission can still be waiting for review; it does not prove friends can install it yet.
+The beta lane waits for build processing, then distributes that exact version/build to the existing external groups with beta review submission and automatic tester notification enabled. Internal groups are excluded from manual group assignment. Missing external groups or Apple API failures fail CI; uploaded builds are registered separately from the latest installable release. The mandatory version advances only after Apple availability is verified. Logs include Apple's external build state. A successful submission can still be waiting for review; it does not prove friends can install it yet.
 
 Apple allows only one build per version in beta review at a time and up to six beta review submissions in 24 hours. Upload limits are separate: the 5 Sep runs failed with `Upload limit reached` after build **153** uploaded successfully. Creating more builds does not release one already waiting for external review.
 
@@ -100,9 +100,10 @@ Every TestFlight ships `https://zstzbfocunthczzubggz.supabase.co` (GitHub `SUPAB
 
 ## App Store production candidate
 
-An app change merged to `main` starts `.github/workflows/ios-app-store.yml`. It waits until all three production routes are live and valid:
+An app change merged to `main` starts `.github/workflows/ios-app-store.yml`. It waits until all four production routes are live and valid:
 
 - `https://fitfight.app/api/health`
+- `https://fitfight.app/api/app-release`
 - `https://fitfight.app/privacy`
 - `https://fitfight.app/support`
 
@@ -123,7 +124,7 @@ He should **not** operate certificates day to day, open Xcode, or use a Mac for 
 
 ## Feature branches
 
-After a feature PR merges, CI deletes that branch. `main`, `develop`, and `testflight-latest` stay — we ship by merging `develop` into `main`, so GitHub’s “Automatically delete head branches” toggle must stay **off** (it would delete `develop`). `testflight-latest` is a one-file pointer of the newest TestFlight build number; it is not app code.
+After a feature PR merges, CI deletes that branch. `main`, `develop`, and `testflight-latest` stay — we ship by merging `develop` into `main`, so GitHub’s “Automatically delete head branches” toggle must stay **off** (it would delete `develop`). `testflight-latest` stores public release metadata (`releases.json`), the builds that contain the update gate (`builds.json`), and `latest.json` for older TestFlight notices; it is not app code.
 
 ## Agent limits on GitHub
 
@@ -135,4 +136,31 @@ After a feature PR merges, CI deletes that branch. `main`, `develop`, and `testf
 
 A push to `develop` that touches the app or Fastlane starts TestFlight. Feature-branch pushes do not. Tell Marc only after that `develop` upload: wait for the TestFlight notification, then **Update**. Processing often takes ~10–20 minutes; external testers may also wait for beta review. Check the workflow result before promising a build: upload or review limits can prevent distribution. Do not ask him to Run workflow.
 
-Staging TestFlight binaries also check a public latest-build pointer on launch and show an opaque notice under the version line when a newer build has been uploaded. Apple still needs the 10–20 minutes to process it. Production App Store builds do not show this notice.
+Both staging and production binaries check `/api/app-release` at launch, on foregrounding, and every minute while active. Access is blocked unless version and build match the available release (or its registered Apple review candidate). The update screen has no dismissal and links to TestFlight or the App Store. Known mismatches survive relaunch and failed checks; a launch that cannot verify its version shows a retry screen.
+
+## Mandatory updates and database rollout
+
+**Always require the latest installable version/build.** There is no independently adjustable minimum. Marketing version remains `1.0.0` for TestFlight; build numbers distinguish releases.
+
+`fastlane refresh_app_releases` reads Apple availability. A staging build must be valid, unexpired, in `IN_BETA_TESTING`, and assigned to every external group. Production uses only `READY_FOR_DISTRIBUTION` App Store versions and their exact build; `PROCESSING_FOR_DISTRIBUTION` is not installable yet. A registered staging build waiting for or in beta review is separately admitted. For production, the registered build selected in App Store Connect is admitted for review; uploading or submitting it never replaces the public release. The public registry contains only channel/version/build numbers, no Apple credentials.
+
+Upload workflows register binaries that contain the update screen. The first release containing it activates backend enforcement automatically; before that, the existing clients keep working without version headers. Once activated, enforcement cannot silently revert to a binary lacking the gate. App versions without the screen cannot acquire it remotely: their backend requests will be rejected after the first gated release becomes mandatory, so they must install that release through the store.
+
+`.github/workflows/app-releases.yml` refreshes availability every 15 minutes on GitHub-hosted Linux, using the existing App Store Connect secrets. Upload jobs also refresh it. All publishers share `ios-distribution` concurrency and preserve the pointer branch history. GitHub schedules only run once the workflow exists on the default branch; include it in the normal production promotion before relying on updates after Apple review. Scheduling and Apple's availability propagation can delay the requirement; the app does not pretend that upload success means installation is possible.
+
+Deployment order:
+
+1. Publish `releases.json` from the cloud workflow before deploying the new version checks. It initially records the existing installable release with enforcement off if that binary predates the gate. The server selects staging or production from the existing `NEXT_PUBLIC_SUPABASE_URL`; client headers cannot choose another release channel. Deploy `/api/app-release` and the compatible backend before distributing the new native build. A missing/invalid manifest or release-channel configuration blocks requests with `503`; it must not silently disable an active requirement.
+2. Database changes must preserve supported API contracts and running backend versions. Internal column renames, constraints, and cleanup do not automatically wait for Apple; stage backend/database changes as needed. During review, preserve the API behavior and information required by both the live app and its candidate. New response fields must be ignored by old decoders; new request fields must not become required for supported clients.
+3. After a production build is selected for submission, verify that `/api/app-release` identifies it as `review` before Apple tests it. The live public app keeps working. This check does not submit or release anything.
+4. When Apple makes the update installable, the publisher makes that exact version/build mandatory automatically. Authenticated commands with missing or mismatched `X-FitFight-Version` / `X-FitFight-Build` receive `426 update_required` before business logic runs. The app also stops its normal API and profile operations while blocked.
+5. Retire API behavior needed by an older app only after verifying its replacement is installable and required, including compatibility of admitted review candidates. Internal database cleanup can happen sooner if supported APIs and running backends remain compatible. The update gate does not secure direct table access or replace RLS. Follow existing migration/merge authorization rules.
+
+For the initial profile migration: apply `20260909132922_backend_profile_reads.sql`, deploy
+`GET/PATCH /api/v1/me` and the backend using `fitfight_backend_reader`, verify readiness,
+then distribute the native build. Preserve old client grants during this stage. Only
+later promote the cutoff from [`supabase/deferred-migrations`](../supabase/deferred-migrations/README.md),
+after installability, enforcement, review-candidate compatibility, staging checks, and
+old-backend drainage are verified. CI tests both permission states on disposable Supabase.
+
+Verification: Ruby release tests cover review, group availability, expiry, the first gated rollout, and production candidates. The GitHub-hosted macOS simulator workflow also runs `tests/AppUpdateCheckerTests.swift` for persistence, failed checks, exact matching, review access and concurrent checks. Check both English and French, launch/resume, a sheet open when an update arrives, and the store link on a real staging build before shipping.

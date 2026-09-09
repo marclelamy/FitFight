@@ -36,7 +36,21 @@ enum Changelog {
             year: 2026,
             month: 9,
             day: 9,
+            notes: "Your profile and username now use the FitFight API, keeping the app compatible as the database evolves."
+        ),
+        ReleaseNote(
+            version: "1.0.0",
+            year: 2026,
+            month: 9,
+            day: 9,
             notes: "Buttons now tap with haptic feedback, and Slide to start ticks harder as you drag the thumb toward the end."
+        ),
+        ReleaseNote(
+            version: "1.0.0",
+            year: 2026,
+            month: 9,
+            day: 7,
+            notes: "FitFight now requires the latest available app version. An update screen stays until you install it, with a direct link to TestFlight or the App Store."
         ),
         ReleaseNote(
             version: "1.0.0",

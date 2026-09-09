@@ -14,7 +14,7 @@ jobs:
   test:
     name: Migrations and RLS
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 25
     permissions:
       contents: read
     steps:
@@ -27,8 +27,8 @@ jobs:
         with:
           version: 2.115.0
 
-      - name: Start local database
-        run: supabase db start
+      - name: Start disposable database, Auth, and Data API
+        run: supabase start -x studio,meta,analytics,vector,imgproxy,realtime,storage,edge-runtime
 
       - name: Lint schema
         run: supabase db lint --local --schema public,private --fail-on error
@@ -47,7 +47,25 @@ jobs:
 
       - name: Database transaction tests
         run: |
-          export DATABASE_URL="$(supabase status --output json | jq -er .DB_URL)"
+          supabase status --output json > "$RUNNER_TEMP/supabase-test.json"
+          export DATABASE_URL="$(jq -er .DB_URL "$RUNNER_TEMP/supabase-test.json")"
+          export SUPABASE_TEST_URL="$(jq -er .API_URL "$RUNNER_TEMP/supabase-test.json")"
+          export SUPABASE_TEST_ANON_KEY="$(jq -er .ANON_KEY "$RUNNER_TEMP/supabase-test.json")"
+          export SUPABASE_TEST_SERVICE_KEY="$(jq -er .SERVICE_ROLE_KEY "$RUNNER_TEMP/supabase-test.json")"
+          export SUPABASE_CLIENT_ACCESS_CLOSED=false
+          cd web
+          npm run test:database
+
+      - name: Verify later client permission cutoff
+        run: |
+          export DATABASE_URL="$(jq -er .DB_URL "$RUNNER_TEMP/supabase-test.json")"
+          export SUPABASE_TEST_URL="$(jq -er .API_URL "$RUNNER_TEMP/supabase-test.json")"
+          export SUPABASE_TEST_ANON_KEY="$(jq -er .ANON_KEY "$RUNNER_TEMP/supabase-test.json")"
+          export SUPABASE_TEST_SERVICE_KEY="$(jq -er .SERVICE_ROLE_KEY "$RUNNER_TEMP/supabase-test.json")"
+          export SUPABASE_CLIENT_ACCESS_CLOSED=true
+          psql "$DATABASE_URL" -v ON_ERROR_STOP=1 --single-transaction \
+            -f supabase/deferred-migrations/20260909133941_close_direct_app_database_access.sql
+          supabase test db --local supabase/migration-tests/client-access-closed.sql supabase/tests/backend_reader.sql
           cd web
           npm run test:database
 

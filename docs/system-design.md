@@ -20,7 +20,7 @@ These are the recommended calls that will still look sensible in a year:
 1. **Use one modular monorepo.** Keep the existing iOS project where it is for now; add `web/`, `supabase/`, and `contracts/` without a disruptive move.
 2. **Use Supabase in US East for data infrastructure.** Use Postgres, Auth, Queues, Cron, and Storage. Production is the main hosted project; staging is a persistent Supabase branch; local development uses the CLI stack. Do not use Supabase Edge Functions.
 3. **Use one Next.js Node.js project for the website and backend.** The visible website is marketing, legal, authentication, invitation fallback, and download pages. Route Handlers provide the iOS API, provider webhooks, and queue workers; there is no web version of the native product.
-4. **Use direct Supabase access without surrendering server authority.** Swift authenticates, reads reviewed `public` tables/views, and performs only explicitly whitelisted self-only profile/preference writes through the Supabase SDK and RLS. It sends sensitive data and domain commands to Next.js; clients never decide scores, ranks, state transitions, or final results.
+4. **Keep application database access behind the backend.** Swift uses Supabase for Auth and the FitFight API for all database reads and writes. The backend owns stable contracts, validation, authorization, and queries; clients never decide scores, ranks, state transitions, or final results.
 5. **Start with Apple Health as the iOS data gateway.** It already aggregates Apple Watch, iPhone, WHOOP, Garmin, Strava, and many other apps when users enable those connections.
 6. **Put provider behavior behind adapters while keeping available provenance visible.** Provider-specific APIs do not enter scoring logic. Every score identifies its selected provider; originating app/device detail is shown only when FitFight deliberately collects and can support that provenance. The aggregate-only Apple Health MVP labels the source as Apple Health and does not infer an underlying device.
 7. **Synchronize the minimum data the shipped product needs after one clear Collection consent.** For the Apple Health Steps MVP, query exact active/ending Fight windows and only the relevant merged daily chart buckets. Do not import unrelated history or collect data for hypothetical future features.
@@ -495,9 +495,9 @@ Future running, swimming, volleyball, and similar records are **Activities**, no
 
 The diagram below is logical. It does not mean FitFight needs a fleet of microservices:
 
-- **SwiftUI is the native client.** It uses Supabase Swift directly for Auth, reviewed RLS-protected reads, and explicitly whitelisted self-only profile/preference writes. It renders screens, asks HealthKit for Apple's merged exact-window and relevant daily Steps statistics, and sends one small authenticated JSON request to Next.js. It does not create raw archives, use TUS, hold provider secrets, consume queues, normalize cloud-provider payloads, or finalize Fights.
-- **Next.js is the only TypeScript backend and the website.** Node.js Route Handlers expose the iOS command/private-data API, receive OAuth callbacks and webhooks, and run bounded worker batches. Marketing/legal/auth pages live in the same project; native product screens do not.
-- **Supabase Postgres is the database**, with exposed `public` read models and unexposed `private` health/integration data.
+- **SwiftUI is the native client.** It uses Supabase Swift directly for Auth and the versioned FitFight backend for every application database read and write. It renders screens, asks HealthKit for Apple's merged exact-window and relevant daily Steps statistics, and sends one small authenticated JSON request to Next.js. It does not create raw archives, use TUS, hold provider secrets, consume queues, normalize cloud-provider payloads, or finalize Fights.
+- **Next.js is the only TypeScript backend and the website.** Node.js Route Handlers expose the iOS application API, receive OAuth callbacks and webhooks, and run bounded worker batches. Marketing/legal/auth pages live in the same project; native product screens do not.
+- **Supabase Postgres is the database**, with backend-accessible `public` product models and unexposed `private` health/integration data.
 - **Normalizer and Scoring engine are ordinary backend TypeScript modules**, imported by Next.js workers. Their names describe responsibilities, not machines.
 - **Supabase Queues is internal backend plumbing.** Swift never needs its JavaScript SDK. A protected Next.js worker Route Handler pulls jobs using server credentials.
 - **Supabase Edge Functions are not part of the architecture.**
@@ -584,7 +584,7 @@ The UI can truthfully say “updated 8 min ago,” “waiting for Maya to sync,�
 
 Start with **two application schemas and seven core product tables**, plus the aggregate serving/snapshot tables used by the first Metric:
 
-- `public`: product rows the iOS Supabase client may reach through explicit grants and RLS. “Public” means Data-API-exposed, not readable by everyone.
+- `public`: product rows reached by the backend through its database connection or server Data API. “Public” names a schema; it does not authorize direct iOS access. Existing client grants remain only until the separate permission-cutoff rollout.
 - `private`: canonical fitness history, provider credentials, raw caches, webhook envelopes, and operational details. It is not exposed through the Data API; only Next.js server code can reach it.
 - Supabase continues to own its managed `auth`, `storage`, and `pgmq`/queue schemas.
 
@@ -604,9 +604,9 @@ The aggregate-only Apple Health path writes `public.data_sources`, relevant char
 
 Earlier additive migrations created `private.provider_uploads`, `private.provider_events`, the private `provider-inbox` Storage bucket, and the NDJSON archive contract. Those objects remain **legacy schema/storage** during rollout so migration history and older TestFlight compatibility are not rewritten. The active aggregate-only path creates no upload row or object, uses no TUS or archive checkpoint, and adds no raw rows. Remove the legacy surface in a separate compatible migration only when it is safe.
 
-This deliberately keeps Fight rules on `fights` and current/final score fields on `fight_members` until measured complexity requires history tables or projections. A direct public view may return only the member-safe subset and use `security_invoker = true`.
+This deliberately keeps Fight rules on `fights` and current/final score fields on `fight_members` until measured complexity requires history tables or projections. Backend responses select only the member-safe subset; a future database view must preserve the same row visibility.
 
-Direct clients never receive `fight_invites.token_hash`; expose invitation summaries through a column-restricted view/grant. The raw token appears only in the incoming Universal Link and Next.js acceptance command.
+API clients never receive `fight_invites.token_hash`; expose only the explicit invitation-summary contract. The raw token appears only in the incoming Universal Link and Next.js acceptance command.
 
 `metric_observations` remains a generic seam for a future Metric or full-fidelity provider path that actually needs canonical records; the aggregate-only Apple Health MVP does not write it. When session-based workout features arrive, add one generic `private.activities` table rather than a table for every sport.
 
@@ -621,17 +621,17 @@ Provider identity stays attached through `data_sources` and Fight score projecti
 
 Use integer minor units for money (`1000` = $10.00), never floating point. FitFight does not maintain a wallet balance. Index membership lookup, active Fight windows, source ownership, Metric time ranges, and provider external identities. Do not add partitioning until measured growth requires it.
 
-## 12. Direct reads and Next.js command handling
+## 12. Backend API and database access
 
-Swift has two explicit network paths. Reviewed reads and a very small set of self-only profile/preference writes use the Supabase Swift SDK against stable `public` tables/views protected by grants and RLS. Sensitive data and authoritative commands use versioned Next.js Route Handlers under `/api/v1`. Do not proxy safe, row-local Supabase access through Next.js merely to repeat the same query.
+Swift uses Supabase directly for Auth and sessions. Every application database read and write goes through versioned Next.js Route Handlers under `/api/v1`. The backend owns validation, authorization, queries, and stable response fields. Database schema changes must preserve the supported API, rather than require Swift to track table columns.
 
 ### Reads and writes
 
-- **Direct reads** cover profiles, friendships, invitations, Fight lists/details, shared scores, source labels, and freshness. The app sends its publishable key and User JWT; it never receives a secret key.
-- **Direct self-service writes** are limited to reviewed fields and operations such as the signed-in User's own display name. Apple Health Steps go through `POST /api/v1/healthkit/steps`. The authenticated TypeScript backend derives ownership from the JWT, validates exact server-issued Fight windows and chart days, and commits the merged aggregates and score projections together. Fight lifecycle and membership remain temporarily client-writable as documented in current status; final results are not.
+- **Reads** use authenticated API endpoints. `GET /api/v1/me` returns the signed-in profile; Fights refresh returns its explicit snapshot contract. The app sends a User JWT and never receives server credentials.
+- **Profile writes** use `PATCH /api/v1/me` for handle and display name. Ownership and handle timestamps come from the server; omitted fields remain unchanged. Apple Health Steps use `POST /api/v1/healthkit/steps`; TypeScript validates server-issued Fight windows and chart days and commits aggregates and score projections together. Direct client grants are removed separately after the compatible native build is installable and required.
 - **Commands** go through authenticated Next.js Route Handlers: create/start/cancel a Fight, create an invite, accept with a source and target, request synchronization, disconnect a provider, and register a device.
 - **Private reads and writes** go through Next.js; Swift never queries or writes `private`. Next.js reaches Postgres through the server-only transaction pooler, while the private schema remains absent from the Data API.
-- **Fights refresh** combines due maintenance and the Fights/members/profiles/series/chart snapshot in one authenticated `POST /api/v1/fights/refresh`. Its read-only snapshot transaction adopts the verified User's `authenticated` role and transaction-local claims so the existing RLS policies still govern those reads. Other reviewed direct reads remain supported.
+- **Fights refresh** combines due maintenance and the Fights/members/profiles/series/chart snapshot in one authenticated `POST /api/v1/fights/refresh`. Its read-only snapshot transaction assumes `fitfight_backend_reader` with transaction-local claims for the verified User. This no-login role has explicit reads, no RLS bypass, and no client-role membership; existing SELECT predicates preserve privacy. Role and claims reset on commit and rollback. The server admin Data API remains available for owner-filtered profile operations and reviewed commands.
 - **Provider callbacks/webhooks** use separate unauthenticated endpoints that verify provider state/signatures before any privileged action.
 - **Workers** authenticate service-to-service and never accept a User ID from the body as proof of authority.
 
@@ -650,6 +650,8 @@ GET    /api/v1/me/activity
 POST   /api/v1/sources/{sourceID}/sync
 GET    /api/v1/provider-uploads/context
 POST   /api/v1/healthkit/steps
+GET    /api/v1/me
+PATCH  /api/v1/me
 DELETE /api/v1/me
 POST   /api/v1/provider-connections/{provider}/authorize
 DELETE /api/v1/provider-connections/{provider}
@@ -672,7 +674,13 @@ Invite acceptance contains the member's selected Steps source and Personal targe
 
 ### Contract versioning
 
-Maintain OpenAPI for Next.js routes and generated Supabase database types for reviewed direct-read views. Swift models may initially be hand-written but must pass fixture-based contract tests against both contracts. Additive fields are safe; breaking command semantics require `/api/v2` or an explicit minimum-client version, while a public-view change uses expand/migrate/contract so older TestFlight builds keep working.
+Maintain OpenAPI and Zod schemas for the Next.js API. Swift models may be hand-written but must pass shared fixture-based contract tests for profile and Fight snapshot responses. Generated Supabase types, when used by server queries, describe a backend implementation detail rather than an iOS contract. Additional response fields are compatible only when existing decoders ignore them; old requests must remain valid. Renaming fields, changing types or meaning, adding required inputs, and returning unknown enum values can break installed apps.
+
+**Release policy (7 Sep 2026): the minimum supported app is always the latest installable release for its channel.** Match both marketing version and build; TestFlight builds continue to use `1.0.0`. There is no dismiss option or separately chosen minimum. The app checks at launch, on foregrounding, and every minute while active. Known update requirements survive relaunch and failed checks. An unverified launch stays blocked with a connection/retry message.
+
+The public `GET /api/app-release` returns the deployment's release policy. Authenticated API commands require `X-FitFight-Version` and `X-FitFight-Build`, and return `426 update_required` for a mismatch once a build containing the gate is installable. Initial deployment preserves older binaries until then. The registered TestFlight beta-review build and the selected, registered production candidate are also admitted on their respective channels so Apple can review them before release; it does not become the public minimum. See [shipping.md](shipping.md#mandatory-updates-and-database-rollout) for availability tracking and deployment order.
+
+**Database compatibility and Apple availability are separate.** Internal columns may be added, renamed, constrained, or removed when supported app API contracts and running backend versions remain compatible. Use staged backend/database changes where needed; do not tie every internal cleanup to an iOS release. Removing required API behavior or information waits until affected apps are retired, including admitted review candidates. The initial move away from direct profile queries keeps old grants until the backend-only app is installable and required, then revokes them in a separate rollout after old backend instances drain. All migrations still follow staging/production and destructive-SQL authorization rules. Version headers are a compatibility signal, not an authorization boundary.
 
 ## 13. Jobs, retries, and scheduling
 
@@ -962,7 +970,7 @@ Every backend change should include:
 - Contract tests against iOS and TypeScript models
 - A local seed that reproduces the current fixture Fights
 
-CI should run independently by path but block merge when a shared contract breaks. Deploy database migrations before compatible Swift/Next.js code; use expand-migrate-contract changes so an older TestFlight build continues working during rollout.
+CI should run independently by path but block merge when a shared API contract breaks. Test supported live and candidate app contracts against backend changes. Internal database cleanup follows running-backend compatibility and existing authorization; API retirement follows app availability and enforcement. For the initial backend-only rollout, test both retained client grants and the separate permission cutoff on disposable cloud Supabase, then deploy the additive role migration and backend before the native build.
 
 Provider integrations require sandbox fixtures and a replay harness. Never make deterministic CI depend on a live User's WHOOP, Strava, or HealthKit connection.
 
@@ -1005,7 +1013,7 @@ Provider integrations require sandbox fixtures and a replay harness. Never make 
 ### Phase 1 — shared foundation
 
 - Add the local Supabase stack, US East production project, persistent staging branch, GitHub integration, and required migration checks.
-- Implement the two schemas and seven initial product tables; Apple, Google, and email OTP Auth; direct-read RLS/views; migrations; and tests.
+- Implement the two schemas and seven initial product tables; Apple, Google, and email OTP Auth; backend read policies; migrations; and API contract tests.
 - Build the Next.js Node.js marketing/legal/auth/invite shell plus `/api/v1` command, HealthKit, webhook, and worker Route Handlers.
 - Configure Universal Links and typed route handling.
 - Replace fixture people with authenticated profiles and invitations.
@@ -1040,7 +1048,7 @@ Provider integrations require sandbox fixtures and a replay harness. Never make 
 
 - Supabase production is in US East; staging is a persistent isolated branch connected to GitHub; local uses the CLI. Temporary preview branches are optional.
 - Authentication includes native Apple, Google, and email magic link/OTP, with one identity system for native and web.
-- Swift uses Supabase directly for Auth, reviewed RLS-protected public reads, and explicitly whitelisted self-only profile/preference writes. Next.js Node.js Route Handlers own private health access, domain commands, webhooks, queues, scoring, and notifications. Supabase Edge Functions are not used.
+- Swift uses Supabase directly only for Auth. Next.js Node.js Route Handlers own every application database read/write and maintain explicit API contracts. The restricted backend read role preserves RLS independently of client grants. Supabase Edge Functions are not used.
 - The same Next.js project hosts only marketing/legal/auth/invite pages visually; native Fights and friendships have no web equivalent.
 - The Apple Health Steps MVP synchronizes exact active/ending Fight windows and relevant merged daily chart buckets; it does not import unrelated history or keep a speculative raw archive.
 - There is no granular per-Fight health grant; acceptance selects the source and agrees to derived Fight sharing.

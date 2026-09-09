@@ -4,9 +4,15 @@ info:
   version: 1.0.0
   description: >
     Next.js Route Handlers under /api/v1. Swift sends the User JWT.
-    Clients never write fights, scores, sources, or private.metric_observations.
+    All application database reads and writes use this API; Supabase Auth stays direct.
+    Database columns are not a client contract. Clients must tolerate additional response fields.
     Apple Health Steps use merged exact-window aggregates. The older signed
     Storage-object routes remain temporarily available to legacy clients.
+    Authenticated commands require X-FitFight-Version and X-FitFight-Build once
+    the first release containing the update screen is installable. A mismatch
+    returns 426 with code update_required before business logic runs. Only the
+    latest installable build and the registered Apple review candidate for that channel
+    are admitted. Missing release metadata returns 503 with code release_unavailable.
 servers:
   - url: /api/v1
 paths:
@@ -15,6 +21,9 @@ paths:
       operationId: claimReferral
       summary: Record the first referrer for the authenticated User.
       security: [{ bearerAuth: [] }]
+      parameters:
+        - { $ref: "#/components/parameters/AppVersion" }
+        - { $ref: "#/components/parameters/AppBuild" }
       requestBody:
         required: true
         content:
@@ -31,11 +40,28 @@ paths:
                 required: [recorded]
                 properties:
                   recorded: { type: boolean }
+  /app-release:
+    servers: [{ url: /api }]
+    get:
+      operationId: getAppReleasePolicy
+      summary: Read the latest installable release and the Apple review candidate for this channel.
+      security: []
+      responses:
+        "200":
+          description: Public release policy for this backend environment. Cache-Control is no-store.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AppReleasePolicy" }
+        "503":
+          description: Release metadata or environment configuration is unavailable.
   /provider-connections/apple-health:
     post:
       operationId: connectAppleHealth
       summary: Create or refresh the Apple Health data_sources row.
       security: [{ bearerAuth: [] }]
+      parameters:
+        - { $ref: "#/components/parameters/AppVersion" }
+        - { $ref: "#/components/parameters/AppBuild" }
       responses:
         "200":
           description: Existing or created source
@@ -47,6 +73,9 @@ paths:
       operationId: createProviderUpload
       summary: Authorize one exact private Storage object for an authenticated provider archive.
       security: [{ bearerAuth: [] }]
+      parameters:
+        - { $ref: "#/components/parameters/AppVersion" }
+        - { $ref: "#/components/parameters/AppBuild" }
       requestBody:
         required: true
         content:
@@ -68,6 +97,9 @@ paths:
       operationId: getProviderUploadContext
       summary: Return server-authoritative Fight windows for Apple Health synchronization.
       security: [{ bearerAuth: [] }]
+      parameters:
+        - { $ref: "#/components/parameters/AppVersion" }
+        - { $ref: "#/components/parameters/AppBuild" }
       responses:
         "200":
           description: Current server time and relevant Fight windows
@@ -79,6 +111,9 @@ paths:
       operationId: syncHealthKitSteps
       summary: Store Apple-merged Steps totals for exact Fight windows and relevant chart days.
       security: [{ bearerAuth: [] }]
+      parameters:
+        - { $ref: "#/components/parameters/AppVersion" }
+        - { $ref: "#/components/parameters/AppBuild" }
       requestBody:
         required: true
         content:
@@ -95,6 +130,9 @@ paths:
       operationId: saveHealthKitDiagnosticSnapshot
       summary: Overwrite the authenticated User's latest private HealthKit diagnostic snapshot.
       security: [{ bearerAuth: [] }]
+      parameters:
+        - { $ref: "#/components/parameters/AppVersion" }
+        - { $ref: "#/components/parameters/AppBuild" }
       requestBody:
         required: true
         content:
@@ -112,6 +150,8 @@ paths:
       summary: Read current processing state or replay a completed receipt.
       security: [{ bearerAuth: [] }]
       parameters:
+        - { $ref: "#/components/parameters/AppVersion" }
+        - { $ref: "#/components/parameters/AppBuild" }
         - $ref: "#/components/parameters/UploadID"
       responses:
         "200":
@@ -125,6 +165,8 @@ paths:
       summary: Verify, process, and delete the authorized Storage object.
       security: [{ bearerAuth: [] }]
       parameters:
+        - { $ref: "#/components/parameters/AppVersion" }
+        - { $ref: "#/components/parameters/AppBuild" }
         - $ref: "#/components/parameters/UploadID"
       responses:
         "200":
@@ -147,6 +189,9 @@ paths:
       operationId: storeAppleAuthorization
       summary: Exchange and securely store the native Apple authorization needed for account deletion.
       security: [{ bearerAuth: [] }]
+      parameters:
+        - { $ref: "#/components/parameters/AppVersion" }
+        - { $ref: "#/components/parameters/AppBuild" }
       requestBody:
         required: true
         content:
@@ -168,10 +213,53 @@ paths:
                 properties:
                   stored: { const: true }
   /me:
+    get:
+      operationId: readProfile
+      summary: Read the authenticated User's profile.
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { $ref: "#/components/parameters/AppVersion" }
+        - { $ref: "#/components/parameters/AppBuild" }
+      responses:
+        "200":
+          description: Current profile
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Profile" }
+        "401":
+          description: unauthorized for an invalid session; profile_missing for a missing or deleted account.
+    patch:
+      operationId: updateProfile
+      summary: Update the authenticated User's handle, display name, or both.
+      description: Omitted fields remain unchanged. The server derives ownership and sets handle_set_at when a handle is supplied.
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { $ref: "#/components/parameters/AppVersion" }
+        - { $ref: "#/components/parameters/AppBuild" }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/UpdateProfile" }
+      responses:
+        "200":
+          description: Updated profile
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Profile" }
+        "400":
+          description: validation for an empty patch, invalid field, or caller-supplied ownership/timestamp.
+        "401":
+          description: unauthorized for an invalid session; profile_missing for a missing or deleted account.
+        "409":
+          description: handle_taken when the username already belongs to an account.
     delete:
       operationId: deleteAccount
       summary: Permanently delete the account, its data, memberships, and Fights it owns.
       security: [{ bearerAuth: [] }]
+      parameters:
+        - { $ref: "#/components/parameters/AppVersion" }
+        - { $ref: "#/components/parameters/AppBuild" }
       responses:
         "200":
           description: Account deleted
@@ -188,6 +276,8 @@ paths:
       operationId: createFight
       security: [{ bearerAuth: [] }]
       parameters:
+        - { $ref: "#/components/parameters/AppVersion" }
+        - { $ref: "#/components/parameters/AppBuild" }
         - in: header
           name: Idempotency-Key
           required: true
@@ -208,6 +298,9 @@ paths:
       operationId: syncDueFights
       summary: Close this user's fights whose clock has run out. Safe to call on every app open.
       security: [{ bearerAuth: [] }]
+      parameters:
+        - { $ref: "#/components/parameters/AppVersion" }
+        - { $ref: "#/components/parameters/AppBuild" }
       responses:
         "200":
           description: How many due fights were recalculated
@@ -219,6 +312,8 @@ paths:
       operationId: inviteByHandle
       security: [{ bearerAuth: [] }]
       parameters:
+        - { $ref: "#/components/parameters/AppVersion" }
+        - { $ref: "#/components/parameters/AppBuild" }
         - in: path
           name: fightID
           required: true
@@ -243,6 +338,8 @@ paths:
       operationId: acceptInvite
       security: [{ bearerAuth: [] }]
       parameters:
+        - { $ref: "#/components/parameters/AppVersion" }
+        - { $ref: "#/components/parameters/AppBuild" }
         - in: path
           name: token
           required: true
@@ -266,6 +363,8 @@ paths:
       summary: Accept an in-app invite (caller is already an invited member).
       security: [{ bearerAuth: [] }]
       parameters:
+        - { $ref: "#/components/parameters/AppVersion" }
+        - { $ref: "#/components/parameters/AppBuild" }
         - in: path
           name: fightID
           required: true
@@ -282,6 +381,8 @@ paths:
       summary: Decline an in-app invitation belonging to the caller.
       security: [{ bearerAuth: [] }]
       parameters:
+        - { $ref: "#/components/parameters/AppVersion" }
+        - { $ref: "#/components/parameters/AppBuild" }
         - in: path
           name: fightID
           required: true
@@ -301,6 +402,8 @@ paths:
       operationId: startFight
       security: [{ bearerAuth: [] }]
       parameters:
+        - { $ref: "#/components/parameters/AppVersion" }
+        - { $ref: "#/components/parameters/AppBuild" }
         - in: path
           name: fightID
           required: true
@@ -325,6 +428,8 @@ paths:
       operationId: cancelFight
       security: [{ bearerAuth: [] }]
       parameters:
+        - { $ref: "#/components/parameters/AppVersion" }
+        - { $ref: "#/components/parameters/AppBuild" }
         - in: path
           name: fightID
           required: true
@@ -334,6 +439,16 @@ paths:
           description: Cancelled
 components:
   parameters:
+    AppVersion:
+      in: header
+      name: X-FitFight-Version
+      required: true
+      schema: { type: string, pattern: '^\d+\.\d+\.\d+$' }
+    AppBuild:
+      in: header
+      name: X-FitFight-Build
+      required: true
+      schema: { type: string, pattern: '^[1-9]\d*$' }
     UploadID:
       in: path
       name: uploadID
@@ -345,12 +460,56 @@ components:
       scheme: bearer
       bearerFormat: JWT
   schemas:
+    Profile:
+      type: object
+      required: [user_id, handle, display_name, handle_set_at, referral_code]
+      properties:
+        user_id: { type: string, format: uuid }
+        handle: { type: string }
+        display_name: { type: string }
+        handle_set_at: { type: [string, 'null'], format: date-time }
+        referral_code: { type: string, format: uuid }
+    UpdateProfile:
+      type: object
+      additionalProperties: false
+      minProperties: 1
+      properties:
+        handle:
+          type: string
+          description: Trimmed, surrounding @ removed, lowercased, then validated as 2–30 letters, numbers, or underscores.
+        display_name:
+          type: string
+          minLength: 1
+          description: Trimmed; must contain at least one non-whitespace character.
     ReferralLink:
       type: object
       additionalProperties: false
       required: [code]
       properties:
         code: { type: string, format: uuid }
+    AppRelease:
+      type: object
+      required: [version, build, update_url]
+      properties:
+        version: { type: string, pattern: '^\d+\.\d+\.\d+$' }
+        build: { type: integer, minimum: 1 }
+        update_url: { type: string, format: uri }
+    AppReleasePolicy:
+      type: object
+      required: [latest, review, enforced]
+      properties:
+        latest:
+          anyOf:
+            - { $ref: "#/components/schemas/AppRelease" }
+            - { type: 'null' }
+        review:
+          description: Registered TestFlight beta review build or the selected registered App Store candidate.
+          anyOf:
+            - { $ref: "#/components/schemas/AppRelease" }
+            - { type: 'null' }
+        enforced:
+          type: boolean
+          description: Becomes permanently true when the first build containing the update gate is installable.
     ApiError:
       type: object
       additionalProperties: false
