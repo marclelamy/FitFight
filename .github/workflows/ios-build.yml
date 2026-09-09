@@ -6,6 +6,9 @@ on:
     paths:
       - "FitFight/**"
       - "FitFight.xcodeproj/**"
+      - "tests/**"
+      - "contracts/fixtures/**"
+      - "scripts/check_native_api_boundary.py"
       - "docs/design/source/tokens.json"
       - "scripts/check_localizations.py"
       - ".github/workflows/ios-build.yml"
@@ -14,6 +17,9 @@ on:
     paths:
       - "FitFight/**"
       - "FitFight.xcodeproj/**"
+      - "tests/**"
+      - "contracts/fixtures/**"
+      - "scripts/check_native_api_boundary.py"
       - "docs/design/source/tokens.json"
       - "scripts/check_localizations.py"
       - ".github/workflows/ios-build.yml"
@@ -31,6 +37,8 @@ jobs:
       contents: read
     steps:
       - uses: actions/checkout@v4
+      - name: Native API boundary
+        run: python3 scripts/check_native_api_boundary.py
       - name: tokens.json is valid and in sync
         run: |
           python3 - <<'PY'
@@ -54,6 +62,16 @@ jobs:
 
       - name: Validate English and French localizations
         run: python3 scripts/check_localizations.py
+
+      - name: Verify required app updates
+        run: |
+          swiftc -swift-version 5 -target "$(uname -m)-apple-macosx13.0" FitFight/AppUpdateChecker.swift tests/AppUpdateCheckerTests.swift -o /tmp/fitfight-update-tests
+          /tmp/fitfight-update-tests
+
+      - name: Verify native API contracts
+        run: |
+          swiftc -swift-version 5 -target "$(uname -m)-apple-macosx13.0" FitFight/Profile.swift FitFight/FightSnapshot.swift tests/APIContractTests.swift -o /tmp/fitfight-contract-tests
+          /tmp/fitfight-contract-tests contracts/fixtures
 
       - name: Build for iOS Simulator
         run: |

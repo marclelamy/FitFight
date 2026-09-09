@@ -8,13 +8,14 @@ export async function verifyBackendReadiness(
 ): Promise<void> {
   await database`
     select 1 / migration.applied::integer as migration_ready,
-      profile.deleted_at, fight.action_text, member.current_value,
+      profile.deleted_at, profile.handle_set_at, profile.referral_code,
+      fight.action_text, member.current_value,
       source.complete_through, day.calculation_version, snapshot.cutoff_at,
       apple_token.encrypted_refresh_token
     from (
       select count(*) as applied
       from supabase_migrations.schema_migrations
-      where version = '20260901103643'
+      where version = '20260909132922'
     ) as migration
     left join public.profiles as profile on false
     left join public.fights as fight on false
@@ -24,6 +25,11 @@ export async function verifyBackendReadiness(
     left join private.fight_score_snapshots as snapshot on false
     left join private.apple_sign_in_tokens as apple_token on false
   `;
+
+  await database.begin("read only", async (sql) => {
+    await sql`set local role fitfight_backend_reader`;
+    await sql`select user_id from public.profiles limit 0`;
+  });
 
   const { error } = await createAdminClient().auth.admin.listUsers({ page: 1, perPage: 1 });
   if (error) {

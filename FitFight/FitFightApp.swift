@@ -1,6 +1,14 @@
 import SwiftUI
 import UIKit
 
+extension AppUpdateChecker {
+    static let shared = AppUpdateChecker(
+        version: AppVersion.marketing,
+        build: AppVersion.build,
+        releaseURL: APIConfig.publicOrigin.appendingPathComponent("api/app-release")
+    )
+}
+
 @MainActor
 final class FitFightAppDelegate: NSObject, UIApplicationDelegate {
     func application(
@@ -29,6 +37,7 @@ struct FitFightApp: App {
     @Environment(\.scenePhase) private var scenePhase
     @StateObject private var themeStore = ThemeStore()
     @StateObject private var model = AppModel()
+    @StateObject private var appUpdate = AppUpdateChecker.shared
     @StateObject private var session: SessionStore
     @StateObject private var steps: HealthKitStepsStore
 
@@ -47,6 +56,7 @@ struct FitFightApp: App {
                 .environmentObject(model)
                 .environmentObject(session)
                 .environmentObject(steps)
+                .environmentObject(appUpdate)
                 .fitFightTheme(themeStore.theme)
                 .task {
                     if ScreenshotExport.isEnabled {
@@ -56,13 +66,15 @@ struct FitFightApp: App {
                     await session.devAdoptSessionIfNeeded()
                     #endif
                 }
-                .task(id: session.authSession?.user.id) {
+                .task(id: appUpdate.status == .current ? session.authSession?.user.id : nil) {
                     model.pendingReferralError = nil
-                    steps.activate(userId: session.authSession?.user.id)
+                    steps.activate(userId: appUpdate.status == .current ? session.authSession?.user.id : nil)
+                    guard appUpdate.status == .current else { return }
                     model.restoreCachedFights(session: session)
                     await model.refreshFights(session: session, steps: steps)
                 }
-                .task(id: session.profile?.userId) {
+                .task(id: appUpdate.status == .current ? session.profile?.userId : nil) {
+                    guard appUpdate.status == .current else { return }
                     await model.consumePendingLinks(session: session)
                 }
                 .onOpenURL { url in
@@ -75,6 +87,7 @@ struct FitFightApp: App {
                 .onChange(of: scenePhase) { _, phase in
                     guard phase == .active, session.authSession != nil else { return }
                     Task {
+                        guard await AppUpdateChecker.shared.permitsRequests() else { return }
                         await model.refreshFights(session: session, steps: steps)
                     }
                 }

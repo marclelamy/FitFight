@@ -6,6 +6,16 @@ Do **not** restore removed surfaces. Do **not** build WHOOP, Strava, Active Minu
 
 ---
 
+## Prepared, not deployed: backend-only database access (9 Sep)
+
+Native profile loading, username selection, and Apple display-name saving now use
+`GET/PATCH /api/v1/me`; all application database traffic goes through the backend.
+Supabase Auth stays direct. The Fight snapshot uses a restricted backend read role
+with the existing row-visibility rules. Deploy its additive migration and backend
+before distributing the app. Direct client permissions remain until the separate
+cutoff described in [backend.md](backend.md#application-database-boundary-prepared-9-sep-2026-not-deployed).
+Cloud database/iOS checks and staging-device verification are still pending.
+
 ## GitHub vs Supabase (the two pairs)
 
 There are two **git** branches and two **hosted databases**. They line up.
@@ -26,6 +36,8 @@ You still do **not** paste `sb_secret_...` anywhere.
 ---
 
 ## Before this branch ships
+
+The 7 Sep mandatory-update change needs the public release manifest and `GET /api/app-release` deployed before the native build. The existing server `NEXT_PUBLIC_SUPABASE_URL` selects the staging/production release channel. Verify the first gated build is installable before enforcement activates. Subsequent available releases automatically become mandatory. No database migration is part of this change. See [mandatory updates and database rollout](shipping.md#mandatory-updates-and-database-rollout).
 
 The 7 Sep referral changes require the referral migration, `POST /api/v1/referrals`,
 and updated Universal Link association before the native build. You → Settings →
@@ -71,7 +83,7 @@ The native Fight path uses the API to create and join; Apple Health synchronizat
 | Fight end | Exact `ends_at` is the final cutoff. Opening the app closes due fights; the protected Vercel cron runs daily if nobody opens it. After finalization, later Steps cannot change the result. |
 | Tabs | Fights, New, You. The old Requests tab and Design are removed. |
 | Look | Night/Day, Nunito, fixed Moss/Ember/Gold semantics; no accent picker or public design-system showcase. |
-| Versions | Works under You → Settings; the version label stays at the top of every root screen. Staging TestFlight also shows an opaque notice under that line when a newer build has been uploaded. |
+| Versions | Works under You → Settings; the version label stays at the top of every root screen. Pending the next build: both staging and production show a blocking update screen until the installed version/build matches their latest installable release. The version label stays at the top. |
 | Bugs & requests | Works on You in its own section above Settings. Signed-in people can post a bug or a feature request, browse the board, upvote, and comment with their username. |
 | Privacy / Support | Pages are implemented and linked under You → Settings. Staging uses `staging.fitfight.app`; production uses `fitfight.app`. Each route must be deployed before that build is tested or submitted. |
 | Account deletion | Permanently deletes the profile, username, authentication, Health/Steps data, relationships, invitations, memberships, scores, owned Fights, and bugs/requests the User posted; removes participation from other Fights; clears local Health sync state; and revokes a stored Apple credential when available. |

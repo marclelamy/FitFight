@@ -2,48 +2,13 @@ import Combine
 import Foundation
 import Supabase
 
-struct FitFightProfile: Codable, Equatable {
-    let userId: UUID
-    let handle: String
-    let displayName: String
-    let handleSetAt: String?
-    var referralCode: UUID?
-
-    var atHandle: String { "@\(handle)" }
-
-    var looksGenerated: Bool {
-        handle.hasPrefix("user_") && handle.count == 17
-    }
-
-    var initials: String {
-        let parts = displayName.split(separator: " ").filter { !$0.isEmpty }
-        if parts.count >= 2 {
-            return String(parts[0].prefix(1) + parts[1].prefix(1)).uppercased()
-        }
-        if let first = parts.first, !first.isEmpty {
-            return String(first.prefix(2)).uppercased()
-        }
-        return String(handle.prefix(2)).uppercased()
-    }
-
-    enum CodingKeys: String, CodingKey {
-        case userId = "user_id"
-        case handle
-        case displayName = "display_name"
-        case handleSetAt = "handle_set_at"
-        case referralCode = "referral_code"
-    }
-}
-
 @MainActor
 final class SessionStore: ObservableObject {
     @Published private(set) var authSession: Session?
     @Published private(set) var profile: FitFightProfile?
     @Published var authError: String?
     @Published private(set) var isBusy = false
-    /// Set when every attempt to read the profile failed. A deleted account is
-    /// invisible to its own owner (`profiles_select_visible` hides `deleted_at`
-    /// rows), which would otherwise leave the app waiting forever.
+    /// A missing account or failed profile load must not leave onboarding waiting forever.
     @Published private(set) var profileUnavailable = false
     private var screenshotSignedIn = false
 
@@ -108,6 +73,7 @@ final class SessionStore: ObservableObject {
         fullName: String?
     ) async {
         authError = nil
+        guard await AppUpdateChecker.shared.permitsRequests() else { return }
         isBusy = true
         defer { isBusy = false }
         do {
@@ -124,11 +90,8 @@ final class SessionStore: ObservableObject {
                         data: ["full_name": .string(fullName)]
                     )
                 )
-                if let userId = client.auth.currentUser?.id {
-                    try? await client.from("profiles")
-                        .update(["display_name": fullName])
-                        .eq("user_id", value: userId)
-                        .execute()
+                if client.auth.currentUser?.id == signedIn.user.id {
+                    _ = try? await api.updateProfile(displayName: fullName, accessToken: signedIn.accessToken)
                 }
             }
             try? await api.storeAppleAuthorizationCode(
@@ -208,6 +171,14 @@ final class SessionStore: ObservableObject {
     }
 
     func setHandle(_ raw: String) async throws {
+        guard await AppUpdateChecker.shared.permitsRequests() else {
+            let requiresUpdate = AppUpdateChecker.shared.status == .updateRequired
+            throw FitFightAPIError.http(
+                status: requiresUpdate ? 426 : 503,
+                code: requiresUpdate ? "update_required" : "release_unavailable",
+                message: nil
+            )
+        }
         guard let userId = authSession?.user.id ?? client.auth.currentUser?.id else {
             throw HandleError.notSignedIn
         }
@@ -216,19 +187,30 @@ final class SessionStore: ObservableObject {
             throw HandleError.invalid
         }
         do {
-            try await client.from("profiles")
-                .update(ProfileHandleUpdate(handle: handle, handleSetAt: ISO8601DateFormatter().string(from: Date())))
-                .eq("user_id", value: userId)
-                .execute()
+            let token = try await freshAccessToken()
+            let updated = try await api.updateProfile(handle: handle, accessToken: token)
+            try Task.checkCancellation()
+            guard authSession?.user.id == userId, client.auth.currentUser?.id == userId else {
+                throw CancellationError()
+            }
+            profile = updated
+            if let data = try? JSONEncoder().encode(updated) {
+                UserDefaults.standard.set(data, forKey: Self.profileCachePrefix + userId.uuidString)
+            }
+        } catch is CancellationError {
+            throw CancellationError()
         } catch {
-            let text = error.localizedDescription.lowercased()
-            if text.contains("23505") || text.contains("duplicate") || text.contains("unique") {
-                throw HandleError.taken
+            if case FitFightAPIError.http(_, let code, _) = error {
+                if code == "handle_taken" { throw HandleError.taken }
+                if code == "validation" { throw HandleError.invalid }
+                if code == "profile_missing" {
+                    markProfileMissing(for: userId)
+                    throw HandleError.notSignedIn
+                }
             }
             throw HandleError.failed
         }
         UserDefaults.standard.set(true, forKey: Self.handleChosenKey)
-        await loadProfile()
     }
 
     @discardableResult
@@ -292,7 +274,8 @@ final class SessionStore: ObservableObject {
         }
     }
 
-    private func loadProfile() async {
+    func loadProfile() async {
+        guard await AppUpdateChecker.shared.permitsRequests() else { return }
         guard let userId = authSession?.user.id ?? client.auth.currentUser?.id else {
             profile = nil
             return
@@ -300,50 +283,26 @@ final class SessionStore: ObservableObject {
         profileUnavailable = false
         for attempt in 0..<3 {
             do {
-                let row: FitFightProfile? = try await client.from("profiles")
-                    .select("user_id, handle, display_name, handle_set_at, referral_code")
-                    .eq("user_id", value: userId)
-                    .maybeSingle()
-                    .execute()
-                    .value
-                guard authSession?.user.id == userId else { return }
-                guard let row else {
-                    markProfileMissing(for: userId)
-                    return
-                }
+                let token = try await freshAccessToken()
+                let row = try await api.profile(accessToken: token)
+                try Task.checkCancellation()
+                guard authSession?.user.id == userId, client.auth.currentUser?.id == userId else { return }
                 profile = row
                 if let data = try? JSONEncoder().encode(row) {
                     UserDefaults.standard.set(data, forKey: Self.profileCachePrefix + userId.uuidString)
                 }
                 return
             } catch {
+                guard !Task.isCancelled, !(error is CancellationError),
+                      authSession?.user.id == userId, client.auth.currentUser?.id == userId else { return }
+                if case FitFightAPIError.http(_, let code, _) = error, code == "profile_missing" {
+                    markProfileMissing(for: userId)
+                    return
+                }
                 if attempt == 2 {
-                    do {
-                        let fallback: FitFightProfile? = try await client.from("profiles")
-                            .select("user_id, handle, display_name")
-                            .eq("user_id", value: userId)
-                            .maybeSingle()
-                            .execute()
-                            .value
-                        guard authSession?.user.id == userId else { return }
-                        guard let fallback else {
-                            markProfileMissing(for: userId)
-                            return
-                        }
-                        profile = fallback
-                        if let data = try? JSONEncoder().encode(fallback) {
-                            UserDefaults.standard.set(
-                                data,
-                                forKey: Self.profileCachePrefix + userId.uuidString
-                            )
-                        }
-                        return
-                    } catch {
-                        guard authSession?.user.id == userId else { return }
-                        if profile?.userId != userId {
-                            profile = nil
-                            profileUnavailable = true
-                        }
+                    if profile?.userId != userId {
+                        profile = nil
+                        profileUnavailable = true
                     }
                 } else {
                     try? await Task.sleep(nanoseconds: 400_000_000)
@@ -357,16 +316,6 @@ final class SessionStore: ObservableObject {
         profile = nil
         profileUnavailable = true
         UserDefaults.standard.removeObject(forKey: Self.profileCachePrefix + userId.uuidString)
-    }
-}
-
-private struct ProfileHandleUpdate: Encodable {
-    let handle: String
-    let handleSetAt: String
-
-    enum CodingKeys: String, CodingKey {
-        case handle
-        case handleSetAt = "handle_set_at"
     }
 }
 

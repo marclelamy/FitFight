@@ -60,7 +60,8 @@ def main() -> int:
         return 1
 
     blocked: list[str] = []
-    for path in sorted(MIGRATIONS.glob("*.sql")):
+    paths = [*MIGRATIONS.glob("*.sql"), *(ROOT / "supabase" / "deferred-migrations").glob("*.sql")]
+    for path in sorted(paths):
         if is_blocked(path.read_text()):
             blocked.append(path.name)
 

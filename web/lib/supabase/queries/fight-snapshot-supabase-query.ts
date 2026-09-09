@@ -9,7 +9,7 @@ export async function readFightSnapshot(
   database: Sql = createDatabaseClient(),
 ): Promise<FightSnapshot> {
   return database.begin("read only", async (sql) => {
-    await sql`set local role authenticated`;
+    await sql`set local role fitfight_backend_reader`;
     await sql`
       select set_config('request.jwt.claim.sub', ${userId}, true),
         set_config('request.jwt.claims', ${JSON.stringify({ sub: userId, role: "authenticated" })}, true)
