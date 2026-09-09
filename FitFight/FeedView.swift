@@ -237,7 +237,7 @@ struct FeedComposeSheet: View {
     }
 
     var body: some View {
-        FFScreen(clearance: false, top: AnyView(VersionBanner())) {
+        FFScreen(top: AnyView(VersionBanner()), clearance: false) {
             HStack {
                 Text(String(localized: "New post"))
                     .ffType(.title)
