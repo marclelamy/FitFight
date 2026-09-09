@@ -33,7 +33,7 @@ test("profile reads filter by the authenticated owner and expose only the API fi
       assert.equal(request.method, "GET");
       assert.equal(url.searchParams.get("user_id"), `eq.${profile.user_id}`);
       assert.equal(url.searchParams.get("deleted_at"), "is.null");
-      assert.equal(url.searchParams.get("select"), "user_id,handle,display_name,handle_set_at,referral_code");
+      assert.equal(url.searchParams.get("select"), "user_id,handle,display_name,handle_set_at,referral_code,avatar_media_id");
       return Response.json([{ ...profile, deleted_at: null, internal_column: "private" }]);
     } },
   });

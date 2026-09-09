@@ -67,7 +67,7 @@ struct FFScreen<Content: View>: View {
 }
 
 enum FFTab: Hashable {
-    case fights, newFight, you
+    case fights, newFight, feed, you
 }
 
 /// 46×32 glyph pill, 22pt icon, 11pt label. The live tab takes the moss wash.
@@ -81,6 +81,7 @@ struct FFTabBar: View {
         HStack(spacing: 0) {
             item(.fights, "trophy", String(localized: "Fights"))
             item(.newFight, "plus.circle", String(localized: "New"))
+            item(.feed, "text.below.photo", String(localized: "Feed"))
             item(.you, "person", String(localized: "You"))
         }
         // The kit uses the classic full-width iPhone geometry: about 49pt of

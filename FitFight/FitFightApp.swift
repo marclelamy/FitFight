@@ -40,6 +40,7 @@ struct FitFightApp: App {
     @StateObject private var appUpdate = AppUpdateChecker.shared
     @StateObject private var session: SessionStore
     @StateObject private var steps: HealthKitStepsStore
+    @StateObject private var feed = FeedStore()
 
     init() {
         let session = SessionStore()
@@ -56,6 +57,7 @@ struct FitFightApp: App {
                 .environmentObject(model)
                 .environmentObject(session)
                 .environmentObject(steps)
+                .environmentObject(feed)
                 .environmentObject(appUpdate)
                 .fitFightTheme(themeStore.theme)
                 .task {
