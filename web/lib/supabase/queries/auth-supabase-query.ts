@@ -1,6 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { ApiError, ERROR_CODES } from "@/lib/http";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { requireLatestAppRelease } from "@/lib/releases/app-release";
 
 export type AuthedUser = {
   userId: string;
@@ -37,12 +38,13 @@ async function requireActiveProfile(admin: SupabaseClient, userId: string): Prom
     throw new ApiError(500, ERROR_CODES.db_error, "Could not verify account");
   }
   if (!data) {
-    throw new ApiError(401, ERROR_CODES.unauthorized, "Invalid or deleted account");
+    throw new ApiError(401, ERROR_CODES.profile_missing, "Invalid or deleted account");
   }
 }
 
 export async function verifyUser(request: Request): Promise<AuthedUser> {
   const jwt = bearerToken(request);
+  await requireLatestAppRelease(request);
   const admin = createAdminClient();
 
   const claimsResult = await admin.auth.getClaims(jwt);

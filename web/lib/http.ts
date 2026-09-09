@@ -22,6 +22,7 @@ export const ERROR_CODES = {
   invite_revoked: "invite_revoked",
   invite_wrong_user: "invite_wrong_user",
   handle_not_found: "handle_not_found",
+  handle_taken: "handle_taken",
   already_member: "already_member",
   fight_not_joinable: "fight_not_joinable",
   fight_full: "fight_full",
@@ -39,6 +40,8 @@ export const ERROR_CODES = {
   storage_error: "storage_error",
   db_error: "db_error",
   config: "config",
+  update_required: "update_required",
+  release_unavailable: "release_unavailable",
   internal: "internal",
 } as const;
 
@@ -73,10 +76,10 @@ export function corsHeaders(request: Request): Headers {
     headers.set("Access-Control-Allow-Origin", "*");
   }
 
-  headers.set("Access-Control-Allow-Methods", "GET, POST, DELETE, OPTIONS");
+  headers.set("Access-Control-Allow-Methods", "GET, POST, PATCH, DELETE, OPTIONS");
   headers.set(
     "Access-Control-Allow-Headers",
-    "Authorization, Content-Type, Idempotency-Key, X-FitFight-Trace-ID",
+    "Authorization, Content-Type, Idempotency-Key, X-FitFight-Trace-ID, X-FitFight-Version, X-FitFight-Build",
   );
   headers.set("Access-Control-Expose-Headers", "Server-Timing, X-FitFight-Trace-ID");
   headers.set("Access-Control-Max-Age", "86400");

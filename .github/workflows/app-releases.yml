@@ -1,0 +1,35 @@
+name: App release availability
+
+on:
+  schedule:
+    - cron: "*/15 * * * *"
+  push:
+    branches: [develop]
+    paths:
+      - ".github/workflows/app-releases.yml"
+      - "scripts/publish-app-releases.sh"
+
+concurrency:
+  group: ios-distribution
+  cancel-in-progress: false
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: develop
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: "3.3"
+          bundler-cache: true
+      - name: Publish installable builds
+        env:
+          APP_STORE_CONNECT_KEY_ID: ${{ secrets.APP_STORE_CONNECT_KEY_ID }}
+          APP_STORE_CONNECT_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
+          APP_STORE_CONNECT_API_KEY: ${{ secrets.APP_STORE_CONNECT_API_KEY }}
+        run: bash scripts/publish-app-releases.sh

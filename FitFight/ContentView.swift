@@ -7,45 +7,45 @@ struct ContentView: View {
     @EnvironmentObject private var session: SessionStore
     @Environment(\.ffTheme) private var theme
     @Environment(\.scenePhase) private var scenePhase
-    @StateObject private var testFlightUpdate = TestFlightUpdateChecker()
+    @Environment(\.openURL) private var openURL
+    @EnvironmentObject private var appUpdate: AppUpdateChecker
 
     var body: some View {
         VStack(spacing: 0) {
-            VersionBanner {
-                model.showingVersions = true
+            VersionBanner(onTap: appUpdate.status == .current ? { model.showingVersions = true } : nil)
+            if appUpdate.status == .current || ScreenshotExport.isEnabled {
+                appContent
+            } else {
+                updateScreen
             }
-            if let build = testFlightUpdate.newerBuild {
-                FFToast(
-                    glyph: "↑",
-                    title: String(localized: "New version on TestFlight"),
-                    message: String(
-                        localized: "testflight.update-ready",
-                        defaultValue: "Build \(build) is ready. Open TestFlight and tap Update."
-                    ),
-                    tone: .moss,
-                    onClose: { testFlightUpdate.dismiss() },
-                    raised: false
-                )
-                .padding(.horizontal, theme.space.screenPadding)
-                .padding(.bottom, theme.space.base)
-                .onTapGesture { testFlightUpdate.openTestFlight() }
-                .transition(.move(edge: .top).combined(with: .opacity))
+        }
+        .background(theme.bg.ignoresSafeArea())
+        .task(id: scenePhase) {
+            guard scenePhase == .active, !ScreenshotExport.isEnabled else { return }
+            await appUpdate.check()
+            while !Task.isCancelled {
+                do { try await Task.sleep(for: .seconds(60)) } catch { return }
+                await appUpdate.check()
             }
+        }
+        .onChange(of: appUpdate.status) { previous, status in
+            if status != .current {
+                model.showingVersions = false
+                model.showingRequests = false
+            } else if previous != .checking, session.isSignedIn, session.profile == nil {
+                Task { await session.loadProfile() }
+            }
+        }
+    }
+
+    private var appContent: some View {
+        Group {
             if session.isSignedIn {
                 signedInRoot
             } else {
                 WelcomeView()
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
-        }
-        .background(theme.bg.ignoresSafeArea())
-        .animation(theme.motion.sheet.animation, value: testFlightUpdate.newerBuild)
-        .task {
-            await testFlightUpdate.check()
-        }
-        .onChange(of: scenePhase) { _, phase in
-            guard phase == .active else { return }
-            Task { await testFlightUpdate.check() }
         }
         .sheet(isPresented: $model.showingVersions) {
             VersionsView()
@@ -69,6 +69,45 @@ struct ContentView: View {
         } message: {
             Text(model.pendingReferralError ?? "")
         }
+    }
+
+    private var updateScreen: some View {
+        VStack(alignment: .leading, spacing: theme.space.lg) {
+            Spacer()
+            if appUpdate.status == .checking {
+                ProgressView()
+                    .tint(theme.text)
+                Text("Checking for updates…")
+                    .ffType(.heading)
+                    .foregroundStyle(theme.text)
+            } else {
+                Text(appUpdate.status == .updateRequired
+                     ? String(localized: "Update FitFight to continue")
+                     : String(localized: "Couldn’t check for updates"))
+                    .ffType(.title)
+                    .foregroundStyle(theme.text)
+                Text(appUpdate.status == .updateRequired
+                     ? String(localized: "Install the latest version to use FitFight. This screen stays until your app is up to date.")
+                     : String(localized: "Connect to the internet and try again to use FitFight."))
+                    .ffType(.body)
+                    .foregroundStyle(theme.textSecondary)
+                    .fixedSize(horizontal: false, vertical: true)
+                if appUpdate.status == .updateRequired, let release = appUpdate.policy?.latest {
+                    FFButton(title: String(localized: "Update FitFight"), kind: .primary) {
+                        openURL(release.updateURL)
+                    }
+                    .accessibilityIdentifier("required-update-button")
+                }
+                FFButton(title: String(localized: "Check again"), kind: .secondary) {
+                    Task { await appUpdate.check() }
+                }
+                .disabled(appUpdate.isChecking)
+            }
+            Spacer()
+        }
+        .padding(.horizontal, theme.space.screenPadding)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
+        .accessibilityIdentifier("required-update-screen")
     }
 
     @ViewBuilder
@@ -254,5 +293,6 @@ private struct InteractivePopGestureEnabler: UIViewRepresentable {
         .environmentObject(AppModel())
         .environmentObject(session)
         .environmentObject(HealthKitStepsStore())
+        .environmentObject(AppUpdateChecker.shared)
         .fitFightTheme(themeStore.theme)
 }

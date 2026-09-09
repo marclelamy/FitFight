@@ -14,8 +14,8 @@ const database = postgres(databaseURL, { max: 1 });
 after(() => database.end());
 
 async function fixture(t: TestContext) {
-  const users = Array.from({ length: 5 }, () => randomUUID());
-  const [owner, peer, invited, declined, outsider] = users;
+  const users = Array.from({ length: 6 }, () => randomUUID());
+  const [owner, peer, invited, declined, outsider, deferred] = users;
   const shared = randomUUID();
   const ownerOnly = randomUUID();
   const unrelated = randomUUID();
@@ -42,6 +42,7 @@ async function fixture(t: TestContext) {
     { fight: shared, user: peer, state: "accepted" },
     { fight: shared, user: invited, state: "invited" },
     { fight: shared, user: declined, state: "declined" },
+    { fight: shared, user: deferred, state: "deferred" },
     { fight: ownerOnly, user: peer, state: "accepted" },
     { fight: unrelated, user: peer, state: "accepted" },
     { fight: unrelated, user: outsider, state: "accepted" },
@@ -56,7 +57,7 @@ async function fixture(t: TestContext) {
       await database`insert into public.step_days (user_id, day, steps) values (${userId}, ${day}, 123)`;
     }
   }
-  return { owner, peer, invited, declined, outsider, shared, ownerOnly, unrelated };
+  return { owner, peer, invited, declined, outsider, deferred, shared, ownerOnly, unrelated };
 }
 
 test("snapshot preserves invited, declined, owner-only and day-specific RLS access", async (t) => {
@@ -68,11 +69,20 @@ test("snapshot preserves invited, declined, owner-only and day-specific RLS acce
   assert.equal(owner.step_days.filter((day) => day.user_id === f.owner).length, 3);
   assert.ok(!owner.step_days.some((day) => day.user_id === f.outsider));
 
+  const outsider = await readFightSnapshot(f.outsider, "Europe/Paris", database);
+  assert.deepEqual(outsider.fights.map((fight) => fight.id), [f.unrelated]);
+
   const invited = await readFightSnapshot(f.invited, "Europe/Paris", database);
   assert.deepEqual(invited.fights.map((fight) => fight.id), [f.shared]);
   assert.deepEqual(invited.members.map((member) => member.user_id), [f.invited]);
   assert.deepEqual(new Set(invited.profiles.map((profile) => profile.user_id)), new Set([f.owner, f.invited]));
   assert.deepEqual(invited.step_days, []);
+
+  const deferred = await readFightSnapshot(f.deferred, "Europe/Paris", database);
+  assert.deepEqual(deferred.fights.map((fight) => fight.id), [f.shared]);
+  assert.equal(deferred.members.length, 5);
+  assert.deepEqual(new Set(deferred.step_days.map((day) => day.user_id)), new Set([f.owner, f.peer]));
+  assert.ok(deferred.step_days.every((day) => day.day === "2026-03-29"));
 
   const declined = await readFightSnapshot(f.declined, "Europe/Paris", database);
   assert.deepEqual(declined, { fights: [], members: [], profiles: [], series: [], step_days: [] });
@@ -80,10 +90,25 @@ test("snapshot preserves invited, declined, owner-only and day-specific RLS acce
   // max: 1 forces this assertion to inspect the same pooled connection used above.
   const [connection] = await database`
     select current_user = session_user as restored_role,
-      nullif(current_setting('request.jwt.claim.sub', true), '') is null as cleared_subject
+      nullif(current_setting('request.jwt.claim.sub', true), '') is null as cleared_subject,
+      nullif(current_setting('request.jwt.claims', true), '') is null as cleared_claims
   `;
   assert.equal(connection.restored_role, true);
   assert.equal(connection.cleared_subject, true);
+  assert.equal(connection.cleared_claims, true);
+});
+
+test("failed snapshot transactions also clear the pooled role and user claims", async (t) => {
+  const f = await fixture(t);
+  await assert.rejects(readFightSnapshot(f.owner, "Mars/Olympus", database), /time zone/);
+  const [connection] = await database`
+    select current_user = session_user as restored_role,
+      nullif(current_setting('request.jwt.claim.sub', true), '') is null as cleared_subject,
+      nullif(current_setting('request.jwt.claims', true), '') is null as cleared_claims
+  `;
+  assert.equal(connection.restored_role, true);
+  assert.equal(connection.cleared_subject, true);
+  assert.equal(connection.cleared_claims, true);
 });
 
 test("snapshot handles a DST day without exposing a midnight cutoff day or deleted profiles", async (t) => {

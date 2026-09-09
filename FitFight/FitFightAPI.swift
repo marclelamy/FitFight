@@ -11,6 +11,10 @@ enum FitFightAPIError: LocalizedError {
             return String(localized: "FitFight API is not configured. Set FFAPIBaseURL.")
         case .http(let status, let code, let message):
             switch code {
+            case "update_required":
+                return String(localized: "Update FitFight to continue")
+            case "release_unavailable":
+                return String(localized: "Couldn’t check for updates")
             case "handle_not_found":
                 return String(localized: "That username does not have a FitFight account yet.")
             case "already_member":
@@ -231,19 +235,6 @@ struct FitFightInviteCreated: Codable, Equatable {
     var invitedUserId: UUID
 }
 
-struct FitFightSnapshot: Decodable {
-    let fights: [FightRow]
-    let members: [MemberRow]
-    let profiles: [FitFightProfile]
-    let series: [SeriesRow]
-    let stepDays: [StepDayRow]
-
-    enum CodingKeys: String, CodingKey {
-        case fights, members, profiles, series
-        case stepDays = "step_days"
-    }
-}
-
 struct FitFightAccountDeletion: Decodable, Equatable {
     var appleAuthorizationRevoked: Bool
     var deleted: Bool
@@ -442,6 +433,25 @@ struct FitFightAPI {
             path: "auth/apple",
             accessToken: accessToken,
             body: AppleAuthorizationBody(authorizationCode: authorizationCode),
+            expected: [200]
+        )
+    }
+
+    func profile(accessToken: String) async throws -> FitFightProfile {
+        try await get(path: "me", accessToken: accessToken, expected: [200])
+    }
+
+    func updateProfile(
+        handle: String? = nil,
+        displayName: String? = nil,
+        accessToken: String
+    ) async throws -> FitFightProfile {
+        try await request(
+            path: "me",
+            method: "PATCH",
+            accessToken: accessToken,
+            body: Self.encoder.encode(ProfileUpdate(handle: handle, displayName: displayName)),
+            idempotencyKey: nil,
             expected: [200]
         )
     }
@@ -703,6 +713,14 @@ struct FitFightAPI {
         }
         do {
             try Task.checkCancellation()
+            guard await AppUpdateChecker.shared.permitsRequests() else {
+                let requiresUpdate = await AppUpdateChecker.shared.status == .updateRequired
+                throw FitFightAPIError.http(
+                    status: requiresUpdate ? 426 : 503,
+                    code: requiresUpdate ? "update_required" : "release_unavailable",
+                    message: nil
+                )
+            }
             guard let requestURL = endpoint(path) else {
                 throw FitFightAPIError.notConfigured
             }
@@ -711,6 +729,8 @@ struct FitFightAPI {
             request.httpMethod = method
             request.setValue("Bearer \(accessToken)", forHTTPHeaderField: "Authorization")
             request.setValue("application/json", forHTTPHeaderField: "Accept")
+            request.setValue(AppVersion.marketing, forHTTPHeaderField: "X-FitFight-Version")
+            request.setValue(AppVersion.build, forHTTPHeaderField: "X-FitFight-Build")
             if let trace {
                 request.setValue(trace.id.uuidString.lowercased(), forHTTPHeaderField: "X-FitFight-Trace-ID")
             }
@@ -739,6 +759,9 @@ struct FitFightAPI {
             let status = http?.statusCode ?? -1
             guard expected.contains(status) else {
                 let payload = try? Self.decoder.decode(APIErrorResponse.self, from: data)
+                if payload?.code == "update_required" || payload?.code == "release_unavailable" {
+                    await AppUpdateChecker.shared.rejectRequest(updateRequired: payload?.code == "update_required")
+                }
                 throw FitFightAPIError.http(
                     status: status,
                     code: payload?.code,
@@ -789,6 +812,16 @@ struct FitFightAPI {
 }
 
 private struct EmptyJSON: Codable {}
+
+private struct ProfileUpdate: Encodable {
+    let handle: String?
+    let displayName: String?
+
+    enum CodingKeys: String, CodingKey {
+        case handle
+        case displayName = "display_name"
+    }
+}
 
 private struct APIErrorResponse: Decodable {
     var code: String
