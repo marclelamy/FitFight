@@ -71,7 +71,7 @@ The phone’s job is: show the UI, read Apple Health Steps when it is open (or b
 - **Validate aggregate-only Apple Health sync on staging.** Use two phones to confirm the authenticated request sends the server-issued Fight windows, the exact-window totals drive both standings, relevant merged daily buckets drive charts only, and no raw archive or Storage object is created.
 - **Watch a real 3-day fight close.** Opening the app marks a due fight finished; the daily Vercel cron is the safety net. Proof is two phones: standings match, the Fight ends, and Steps after `ends_at` do not count. Do that before App Store.
 - **Smoke-test every allowed duration.** Confirm New sends 3, 7, 14, or 30 days and the detail screen shows the title or action and the correct end date.
-- App Store when Marc says ship (`develop` → `main`).
+- App Store when Marc says ship (`preview` → `main`).
 
 ## Later — outside the current product
 

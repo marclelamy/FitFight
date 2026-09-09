@@ -18,16 +18,16 @@ Cloud database/iOS checks and staging-device verification are still pending.
 
 ## GitHub vs Supabase (the two pairs)
 
-There are two **git** branches and two **hosted databases**. They line up.
+There are two **hosted databases**. Git uses a promotion train.
 
-| | Testing | Real users / App Store |
-|---|---|---|
-| GitHub | `develop` | `main` |
-| TestFlight | push/merge to `develop` only (optional manual `workflow_dispatch`; no daily cron) | never; `main` does not upload to TestFlight |
-| Supabase | develop project (`zstzbf…`, version line says `staging`) | production (`pvqn…`, version line says `prod`) |
-| What you do | Merge PRs **into `develop`**. Try the app. | Merge `develop` → `main` only when Marc says ship |
+| | Integration | TestFlight | Real users / App Store |
+|---|---|---|---|
+| GitHub | `develop` | `preview` | `main` |
+| TestFlight | no upload | push/merge to `preview` (optional manual `workflow_dispatch` on that branch; no daily cron) | never; `main` does not upload to TestFlight |
+| Supabase | develop project (`zstzbf…`, version line says `staging`) | same staging backend | production (`pvqn…`, version line says `prod`) |
+| What you do | Merge PRs **into `develop`**. | Merge `develop` → `preview` for a TestFlight. | Merge `preview` → `main` only when Marc says ship |
 
-A feature PR is a third git branch. Merge it **into `develop`**. That updates the **staging** database (new SQL) and is the home for later chats.
+A feature PR is another git branch. Merge it **into `develop`**. That updates the **staging** database (new SQL) and is the home for later chats. It does **not** upload TestFlight.
 
 Once configured, Vercel accepts small authenticated Apple Health aggregate requests and receives account-deletion commands. The phone sends Apple's merged Steps total for each exact Fight window, plus merged daily buckets only for the relevant Fight chart days. Create, join, and leave go through the API. Opening the app closes a fight whose days are up. Standings are a comparison of rows already in the database.
 
@@ -50,7 +50,7 @@ The 5 Sep performance changes require the timing-history migration and the backe
 
 Apple Health synchronization requires `FITFIGHT_API_URL=https://staging.fitfight.app` plus Vercel's server-only Supabase URL/secret and pooled `DATABASE_URL`. Fresh Apple sign-in and automatic revocation also require the Vercel Sign in with Apple Team/key/private-key/client-ID values and stable token-encryption key. Configure those first; otherwise sign-in fails visibly. Do not expose schema `private`.
 
-After the backend is configured, merge the feature PR into **`develop`**, not `main`. The staging migration must land before testing the new TestFlight build.
+After the backend is configured, merge the feature PR into **`develop`**, not `main`. The staging migration must land before merging `develop` → `preview` for the TestFlight build.
 
 Verify the minimal product alongside Apple Health synchronization:
 
