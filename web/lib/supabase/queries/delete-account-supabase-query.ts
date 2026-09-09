@@ -3,6 +3,7 @@ import { revokeAppleRefreshToken } from "@/lib/apple/apple-sign-in";
 import { ApiError, ERROR_CODES } from "@/lib/http";
 import { createDatabaseClient } from "@/lib/supabase/postgres";
 import { readStoredAppleRefreshToken } from "./apple-sign-in-supabase-query";
+import { removeStoragePaths } from "./media-supabase-query";
 import { removeProviderInboxObjects } from "./provider-uploads-supabase-query";
 
 /** Remove the account and its owned fights, including fights with other participants. */
@@ -22,7 +23,7 @@ export async function deleteAccount(
     }
 
     await removeProviderInboxObjects(userId, database);
-    await database.begin("read write", async (sql) => {
+    const mediaPaths = await database.begin("read write", async (sql) => {
       const [profile] = await sql<{ user_id: string }[]>`
         select user_id from public.profiles
         where user_id = ${userId} and deleted_at is null
@@ -31,10 +32,17 @@ export async function deleteAccount(
       if (!profile) {
         throw new ApiError(404, ERROR_CODES.not_found, "Account not found");
       }
+      const media = await sql<{ object_path: string }[]>`
+        select object_path from public.media_objects where owner_id = ${userId} for update
+      `;
 
       await sql`delete from public.feedback_votes where user_id = ${userId}`;
       await sql`delete from public.feedback_comments where author_id = ${userId}`;
       await sql`delete from public.feedback_posts where author_id = ${userId}`;
+      await sql`delete from private.fight_post_reports where reporter_id = ${userId}`;
+      await sql`delete from private.feed_blocks where blocker_id = ${userId} or blocked_id = ${userId}`;
+      await sql`delete from public.fight_posts where author_id = ${userId}`;
+      await sql`delete from public.media_objects where owner_id = ${userId}`;
 
       await sql`
         update public.fight_series
@@ -68,7 +76,16 @@ export async function deleteAccount(
       await sql`delete from auth.identities where user_id = ${userId}`;
 
       await sql`delete from auth.users where id = ${userId}`;
+      return media.map((row) => row.object_path);
     });
+    try {
+      await removeStoragePaths(mediaPaths);
+    } catch (error) {
+      console.error(
+        "user_media_remove_failed",
+        error instanceof Error ? error.name : "unknown",
+      );
+    }
 
     if (!appleRefreshToken) {
       return false;
