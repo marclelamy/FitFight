@@ -357,11 +357,11 @@ struct FFSlideToConfirm: View {
                 slideHaptics.drag(progress: travel == 0 ? 0 : drag / travel)
             }
             .onEnded { _ in
+                slideHaptics.stop()
                 guard enabled, !busy, !completed else { return }
                 if travel > 0, drag >= travel * 0.85 {
                     confirm()
                 } else {
-                    slideHaptics.resetTicks()
                     withAnimation(.timingCurve(0.16, 1, 0.3, 1, duration: 0.22)) {
                         drag = 0
                     }
@@ -372,6 +372,7 @@ struct FFSlideToConfirm: View {
     private func confirm() {
         guard enabled, !busy, !completed else { return }
         completed = true
+        slideHaptics.stop()
         if action() {
             FFHaptics.success()
         } else {
@@ -381,49 +382,58 @@ struct FFSlideToConfirm: View {
 
     private func reset() {
         completed = false
-        slideHaptics.resetTicks()
+        slideHaptics.stop()
         withAnimation(.timingCurve(0.16, 1, 0.3, 1, duration: 0.22)) {
             drag = 0
         }
     }
 }
 
-/// Ticks crowd and intensify toward the end of the track.
+/// Pulses without pausing while the thumb is down. Rate rises with progress.
 @MainActor
 private final class FFSlideHapticEngine {
-    private let soft = UIImpactFeedbackGenerator(style: .soft)
-    private let light = UIImpactFeedbackGenerator(style: .light)
-    private let rigid = UIImpactFeedbackGenerator(style: .rigid)
-    private var lastTick = 0
-    private var prepared = false
+    private let pulse = UIImpactFeedbackGenerator(style: .medium)
+    private var progress: CGFloat = 0
+    private var loop: Task<Void, Never>?
 
     func drag(progress: CGFloat) {
-        prepareIfNeeded()
-        let clamped = min(max(progress, 0), 1)
-        let tick = Int(pow(Double(clamped), 2.8) * 22)
-        if tick > lastTick {
-            let intensity = CGFloat(0.16 + 0.84 * pow(Double(clamped), 2.1))
-            if clamped < 0.55 {
-                soft.impactOccurred(intensity: intensity)
-            } else if clamped < 0.82 {
-                light.impactOccurred(intensity: intensity)
-            } else {
-                rigid.impactOccurred(intensity: min(1, intensity + 0.05))
+        self.progress = min(max(progress, 0), 1)
+        guard loop == nil else { return }
+        pulse.prepare()
+        loop = Task { @MainActor [weak self] in
+            var last = ContinuousClock.now
+            self?.fire()
+            while let engine = self, !Task.isCancelled {
+                do {
+                    try await Task.sleep(for: .milliseconds(8))
+                } catch {
+                    return
+                }
+                guard !Task.isCancelled else { return }
+                let now = ContinuousClock.now
+                if now - last >= Duration.seconds(engine.interval) {
+                    engine.fire()
+                    last = now
+                }
             }
         }
-        lastTick = tick
     }
 
-    func resetTicks() {
-        lastTick = 0
+    func stop() {
+        loop?.cancel()
+        loop = nil
+        progress = 0
     }
 
-    private func prepareIfNeeded() {
-        guard !prepared else { return }
-        prepared = true
-        soft.prepare()
-        light.prepare()
-        rigid.prepare()
+    private var interval: TimeInterval {
+        let minRate = 8.0
+        let maxRate = 42.0
+        1 / (minRate * pow(maxRate / minRate, Double(progress)))
+    }
+
+    private func fire() {
+        pulse.impactOccurred(intensity: 0.64)
+        pulse.prepare()
     }
 }
 
