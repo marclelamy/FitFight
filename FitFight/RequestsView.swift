@@ -456,7 +456,7 @@ private struct RequestRow: View {
                 .background(theme.card, in: RoundedRectangle(cornerRadius: theme.radius.card, style: .continuous))
                 .ffBorder(theme.hairline, radius: theme.radius.card)
             }
-            .buttonStyle(.plain)
+            .buttonStyle(FFHapticPlainStyle())
 
             Button(action: onVote) {
                 VStack(spacing: 2) {
@@ -589,7 +589,7 @@ private struct RequestDetailView: View {
                         .ffType(.label)
                         .foregroundStyle(post.voted ? theme.mossText : theme.textSecondary)
                     }
-                    .buttonStyle(.plain)
+                    .buttonStyle(FFHapticPlainStyle())
                     Spacer()
                 }
 

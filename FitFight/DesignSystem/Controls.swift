@@ -108,7 +108,7 @@ struct FFSwitch: View {
             .padding(3)
             .frame(width: 50, height: 30)
         }
-        .buttonStyle(.plain)
+        .buttonStyle(FFHapticPlainStyle())
         .animation(.timingCurve(0.16, 1, 0.3, 1, duration: 0.15), value: isOn)
     }
 }
@@ -135,7 +135,7 @@ struct FFSegmented<Item: Hashable>: View {
                         .padding(.vertical, 6)
                         .background(on ? theme.mossFill : .clear, in: Capsule())
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(FFHapticPlainStyle())
             }
         }
         .padding(3)
@@ -173,7 +173,7 @@ struct FFChip: View {
                 )
             }
         }
-        .buttonStyle(.plain)
+        .buttonStyle(FFHapticPlainStyle())
     }
 }
 
@@ -299,7 +299,7 @@ struct FFCombo: View {
             .background(theme.card, in: RoundedRectangle(cornerRadius: theme.radius.field, style: .continuous))
             .ffBorder(open ? theme.mossEdge : theme.line, radius: theme.radius.field)
         }
-        .buttonStyle(.plain)
+        .buttonStyle(FFHapticPlainStyle())
         .overlay(alignment: .topLeading) {
             if open { menu.offset(y: 60) }
         }
@@ -334,7 +334,7 @@ struct FFCombo: View {
                         in: RoundedRectangle(cornerRadius: theme.radius.glyph, style: .continuous)
                     )
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(FFHapticPlainStyle())
             }
         }
         .padding(6)
@@ -370,7 +370,7 @@ struct FFTabs<Item: Hashable>: View {
                             in: RoundedRectangle(cornerRadius: theme.radius.glyph, style: .continuous)
                         )
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(FFHapticPlainStyle())
             }
         }
         .padding(4)
@@ -535,7 +535,7 @@ struct FFToast: View {
                         .frame(width: 28, height: 28)
                         .background(theme.hairline, in: Circle())
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(FFHapticPlainStyle())
             }
         }
         .padding(.horizontal, 16)
@@ -760,7 +760,7 @@ struct FFNavFlow: View {
                         .ffType(.label)
                         .foregroundStyle(theme.mossText)
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(FFHapticPlainStyle())
             }
         }
         .padding(.horizontal, 14)
@@ -861,7 +861,7 @@ struct FFDurationPicker: View {
                         )
                         .ffBorder(on ? theme.mossEdge : theme.hairline, radius: theme.radius.field)
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(FFHapticPlainStyle())
             }
         }
     }

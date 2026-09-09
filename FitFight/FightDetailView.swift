@@ -302,7 +302,7 @@ struct FightDetailView: View {
                                 .ffType(.caption)
                                 .foregroundStyle(theme.mossText)
                         }
-                        .buttonStyle(.plain)
+                        .buttonStyle(FFHapticPlainStyle())
                     }
                 }
                 if let code = fight.joinCode, let referralCode = session.profile?.referralCode {
@@ -326,7 +326,7 @@ struct FightDetailView: View {
                                 .ffType(.caption)
                                 .foregroundStyle(theme.mossText)
                         }
-                        .buttonStyle(.plain)
+                        .buttonStyle(FFHapticPlainStyle())
                     }
                     ShareLink(item: url) {
                         Label(String(localized: "Share fight"), systemImage: "square.and.arrow.up")
