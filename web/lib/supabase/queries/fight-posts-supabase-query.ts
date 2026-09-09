@@ -50,6 +50,10 @@ function isoUtc(value: Date | string): string {
   return new Date(value).toISOString().replace(/\.\d{3}Z$/, "Z");
 }
 
+function cursorStamp(value: Date | string): string {
+  return new Date(value).toISOString();
+}
+
 function parseCursor(cursor: string | undefined): { createdAt: string; id: string } | null {
   if (!cursor) return null;
   const separator = cursor.lastIndexOf("|");
@@ -224,7 +228,7 @@ export async function listFightPosts(
   return {
     posts: await mapPosts(userId, page, database),
     next_cursor: rows.length > query.limit && last
-      ? `${isoUtc(last.created_at)}|${last.id}`
+      ? `${cursorStamp(last.created_at)}|${last.id}`
       : null,
   };
 }

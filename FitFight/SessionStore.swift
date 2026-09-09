@@ -206,6 +206,8 @@ final class SessionStore: ObservableObject {
                 avatarMediaId: avatarMediaId,
                 accessToken: token
             )
+            UserDefaults.standard.set(true, forKey: Self.handleChosenKey)
+            UserDefaults.standard.set(true, forKey: Self.needsHealthKey)
             try Task.checkCancellation()
             guard authSession?.user.id == userId, client.auth.currentUser?.id == userId else {
                 throw CancellationError()
@@ -227,8 +229,6 @@ final class SessionStore: ObservableObject {
             }
             throw HandleError.failed
         }
-        UserDefaults.standard.set(true, forKey: Self.handleChosenKey)
-        UserDefaults.standard.set(true, forKey: Self.needsHealthKey)
     }
 
     func setAvatar(_ media: FitFightMedia) async throws {

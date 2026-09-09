@@ -97,9 +97,14 @@ struct OnboardingView: View {
     }
 
     private func loadPhoto(_ item: PhotosPickerItem?) async {
-        guard let item,
-              let data = try? await item.loadTransferable(type: Data.self),
-              let image = UIImage(data: data) else { return }
+        defer { pickerItem = nil }
+        guard let item else { return }
+        guard let data = try? await item.loadTransferable(type: Data.self),
+              let image = UIImage(data: data) else {
+            error = String(localized: "That photo could not be read.")
+            return
+        }
+        error = ""
         photo = image
     }
 
@@ -113,6 +118,8 @@ struct OnboardingView: View {
                 avatarMediaId = try await MediaUploader.upload(photo, purpose: "profile", session: session).id
             }
             try await session.setHandle(handle, avatarMediaId: avatarMediaId)
+        } catch is CancellationError {
+            return
         } catch {
             self.error = error.localizedDescription
         }

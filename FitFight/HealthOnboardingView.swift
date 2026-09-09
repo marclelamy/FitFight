@@ -3,7 +3,6 @@ import SwiftUI
 /// First-run Apple Health ask, right after the username. Permission stays on this phone.
 struct HealthOnboardingView: View {
     @EnvironmentObject private var session: SessionStore
-    @EnvironmentObject private var model: AppModel
     @EnvironmentObject private var steps: HealthKitStepsStore
     @Environment(\.ffTheme) private var theme
 
@@ -48,7 +47,8 @@ struct HealthOnboardingView: View {
     private func connect() async {
         isConnecting = true
         defer { isConnecting = false }
-        await model.refreshFights(session: session, steps: steps, trigger: .manual, requestAccess: true)
+        let trace = HealthKitSyncTrace(trigger: .manual)
+        await steps.refresh(requestAccess: true, trace: trace)
         session.finishHealthOnboarding()
     }
 }

@@ -111,7 +111,7 @@ are not missing screens; they are out of scope.
 
 The phone writes fights and Steps to staging after this PR is merged. See [`status.md`](status.md).
 
-- Current launch shape: Fights, New, and You; direct exact-username Steps challenges; optional fight title and optional loser action; 3/7/14/30-day durations; Privacy and Support links; essential settings only.
+- Current launch shape: Fights, New, Feed, and You; direct exact-username Steps challenges; optional fight title and optional loser action; 3/7/14/30-day durations; fight posts with photos; Privacy and Support links; essential settings only.
 - Account deletion hard-deletes the account and owned Fights, removes participation elsewhere, clears local Health sync data, and supports encrypted Sign in with Apple token revocation.
 - Historical v0.3 design port: four tabs, dark/light, 10 accents, fixture fights. Requests and extra accents were later removed.
 - Historical Talk to the boss on Requests: private chat with Marc, emailed to him. Removed with Requests on 30 Aug 2026.

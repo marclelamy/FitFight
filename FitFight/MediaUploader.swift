@@ -32,7 +32,9 @@ enum MediaUploader {
             width: max(1, floor(image.size.width * scale)),
             height: max(1, floor(image.size.height * scale))
         )
-        let rendered = UIGraphicsImageRenderer(size: size).image { _ in
+        let format = UIGraphicsImageRendererFormat.default()
+        format.scale = 1
+        let rendered = UIGraphicsImageRenderer(size: size, format: format).image { _ in
             image.draw(in: CGRect(origin: .zero, size: size))
         }
         guard let data = rendered.jpegData(compressionQuality: 0.82) else {
@@ -47,8 +49,8 @@ enum MediaUploader {
             filename: filename,
             contentType: "image/jpeg",
             byteSize: data.count,
-            width: Int(size.width),
-            height: Int(size.height),
+            width: Int(rendered.size.width * rendered.scale),
+            height: Int(rendered.size.height * rendered.scale),
             sha256: digest
         )
     }

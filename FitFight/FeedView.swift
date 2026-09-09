@@ -36,6 +36,7 @@ final class FeedStore: ObservableObject {
     }
 
     func create(session: SessionStore, fightID: UUID, body: String, images: [UIImage]) async -> Bool {
+        listLoad += 1
         isSaving = true
         defer { isSaving = false }
         do {
@@ -188,6 +189,11 @@ struct FightPostComposer: View {
                     .ffType(.body)
                     .foregroundStyle(theme.text)
                     .lineLimit(3...6)
+                    .onChange(of: bodyText) { _, value in
+                        if value.count > 500 {
+                            bodyText = String(value.prefix(500))
+                        }
+                    }
                 if !images.isEmpty {
                     ScrollView(.horizontal, showsIndicators: false) {
                         HStack(spacing: 8) {
@@ -276,25 +282,27 @@ struct FightPostCard: View {
                         size: 38,
                         photoURL: post.author.avatar?.url
                     )
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text(verbatim: post.author.atHandle)
-                            .ffType(.rowTitle)
-                            .foregroundStyle(theme.text)
-                        if showFight {
-                            Text(verbatim: post.fightName)
-                                .ffType(.micro)
-                                .foregroundStyle(theme.mossText)
-                        } else {
-                            Text(post.createdDate, style: .relative)
-                                .ffType(.micro)
-                                .foregroundStyle(theme.textFaint)
-                        }
-                    }
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .contentShape(Rectangle())
-                    .onTapGesture {
+                    Button {
                         onOpen?()
+                    } label: {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(verbatim: post.author.atHandle)
+                                .ffType(.rowTitle)
+                                .foregroundStyle(theme.text)
+                            if showFight {
+                                Text(verbatim: post.fightName)
+                                    .ffType(.micro)
+                                    .foregroundStyle(theme.mossText)
+                            } else {
+                                Text(post.createdDate, style: .relative)
+                                    .ffType(.micro)
+                                    .foregroundStyle(theme.textFaint)
+                            }
+                        }
+                        .frame(maxWidth: .infinity, alignment: .leading)
                     }
+                    .buttonStyle(FFHapticPlainStyle())
+                    .disabled(onOpen == nil)
                     Spacer(minLength: 0)
                     Menu {
                         if post.mine {

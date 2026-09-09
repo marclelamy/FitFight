@@ -13,12 +13,16 @@ struct YouView: View {
     @State private var copied = false
     @State private var pickerItem: PhotosPickerItem?
     @State private var isUploadingPhoto = false
+    @State private var photoError = ""
 
     var body: some View {
         FFScreen {
             profile
             if session.isSignedIn, let authError = session.authError {
                 FFNotice(text: authError, tone: .ember, systemImage: "exclamationmark.triangle")
+            }
+            if !photoError.isEmpty {
+                FFNotice(text: photoError, tone: .ember, systemImage: "exclamationmark.triangle")
             }
 
             FFSection(title: String(localized: "Apple Health")) {
@@ -200,16 +204,21 @@ struct YouView: View {
     }
 
     private func uploadPhoto(_ item: PhotosPickerItem?) async {
-        guard let item,
-              let data = try? await item.loadTransferable(type: Data.self),
-              let image = UIImage(data: data) else { return }
+        defer { pickerItem = nil }
+        guard let item else { return }
+        guard let data = try? await item.loadTransferable(type: Data.self),
+              let image = UIImage(data: data) else {
+            photoError = String(localized: "That photo could not be read.")
+            return
+        }
         isUploadingPhoto = true
         defer { isUploadingPhoto = false }
         do {
             let media = try await MediaUploader.upload(image, purpose: "profile", session: session)
             try await session.setAvatar(media)
+            photoError = ""
         } catch {
-            session.authError = error.localizedDescription
+            photoError = error.localizedDescription
         }
     }
 

@@ -202,7 +202,8 @@ final class AppModel: ObservableObject {
     }
 
     func fight(id: String) -> Fight? {
-        fights.first { $0.id == id } ?? pendingJoinable.flatMap { $0.id == id ? $0 : nil }
+        fights.first { $0.id.caseInsensitiveCompare(id) == .orderedSame }
+            ?? pendingJoinable.flatMap { $0.id.caseInsensitiveCompare(id) == .orderedSame ? $0 : nil }
     }
 
     var live: [Fight] { fights.filter { $0.status == .live } }
@@ -798,8 +799,11 @@ final class AppModel: ObservableObject {
     }
 
     func openFightFromFeed(id: String) {
+        let fightID = fight(id: id)?.id ?? id
         tab = .fights
-        openFightID = id
+        Task { @MainActor in
+            self.openFightID = fightID
+        }
     }
 
     private static func mapFight(

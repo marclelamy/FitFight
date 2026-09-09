@@ -54,7 +54,7 @@ After the backend is configured, merge the feature PR into **`develop`**, not `m
 
 Verify the minimal product alongside Apple Health synchronization:
 
-1. TestFlight → **Update**. Look for `1.0.0 · build N · staging · 4 Sep` at the top.
+1. TestFlight → **Update**. Look for `1.0.0 · build N · staging · 9 Sep` at the top.
 2. Check Fights, Feed, a Fight detail, New, and You in both Night and Day. There are four tabs: Fights, New, Feed, You.
 3. New starts on Create or Join. Create still guides Steps, duration, invite-only or joinable, optional usernames, repeat on by default, optional title and action, and review. Join is a 4-character code plus a live joinable list with no scores. Earlier create steps use **Next**. Review uses **Slide to start**.
 4. Confirm sign-in, username, Apple Health Steps, Fight invitations, standings with last-sync times, Privacy, Support, Bugs & requests, Versions, sign out, and Delete account.

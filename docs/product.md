@@ -15,7 +15,7 @@ One line: challenge friends to a private Steps fight; most steps wins, and the l
 
 Do not rename the bundle ID without Apple + CI updates.
 
-## Current 1.0 scope — 2 Sep 2026
+## Current 1.0 scope — 9 Sep 2026
 
 - Four tabs: **Fights**, **New**, **Feed**, **You**.
 - Each fight has posts (photos and a short note). Feed shows posts from every fight you are in.
