@@ -356,6 +356,35 @@ final class AppModel: ObservableObject {
         steps.completeAttempt(trace, session: session, userID: userID)
     }
 
+    func applyLocalHealthKitScores(_ sync: FitFightHealthKitStepSync) {
+        let totals = Dictionary(uniqueKeysWithValues: sync.fightAggregates.map {
+            ($0.fightId.lowercased(), Double($0.steps))
+        })
+        guard !totals.isEmpty else { return }
+        let now = Date()
+        fights = fights.map { fight in
+            guard fight.status == .live,
+                  let score = totals[fight.id.lowercased()],
+                  let index = fight.standings.firstIndex(where: {
+                      $0.person.isYou && !$0.invited && !$0.deferred
+                  })
+            else { return fight }
+            var next = fight
+            next.standings[index].score = score
+            next.standings[index].lastSyncedAt = now
+            next.standings.sort { lhs, rhs in
+                if lhs.invited != rhs.invited { return !lhs.invited && rhs.invited }
+                if lhs.deferred != rhs.deferred { return !lhs.deferred && rhs.deferred }
+                if lhs.score == rhs.score { return lhs.person.name < rhs.person.name }
+                return lhs.score > rhs.score
+            }
+            let joined = next.standings.filter { !$0.invited && !$0.deferred }
+            next.rank = joined.firstIndex { $0.person.isYou }.map { $0 + 1 } ?? next.rank
+            next.of = max(joined.count, 1)
+            return next
+        }
+    }
+
     func removeCachedFights(for userID: UUID) {
         UserDefaults.standard.removeObject(forKey: Self.fightsCachePrefix + userID.uuidString)
         if cachedUserID == userID {
