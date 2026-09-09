@@ -1,4 +1,5 @@
 {
   "version": "1.0.0",
-  "build": 169
+  "build": 169,
+  "update_url": "itms-beta://"
 }

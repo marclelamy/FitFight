@@ -1,0 +1,16 @@
+{
+  "staging": {
+    "latest": {
+      "version": "1.0.0",
+      "build": 169,
+      "update_url": "itms-beta://"
+    },
+    "review": null,
+    "enforced": false
+  },
+  "prod": {
+    "latest": null,
+    "review": null,
+    "enforced": false
+  }
+}
