@@ -7,7 +7,7 @@ on:
       - "contracts/**"
       - ".github/workflows/web.yml"
   push:
-    branches: [main, develop]
+    branches: [main, develop, staging, preview]
     paths:
       - "web/**"
       - "contracts/**"
