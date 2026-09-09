@@ -165,6 +165,8 @@ struct ContentView: View {
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
         } else if session.needsOnboarding {
             OnboardingView()
+        } else if session.needsHealthOnboarding {
+            HealthOnboardingView()
         } else {
             signedInApp
         }
@@ -189,6 +191,8 @@ struct ContentView: View {
             fightsStack
         case .newFight:
             NewFightView()
+        case .feed:
+            FeedView()
         case .you:
             YouView()
         }
@@ -312,6 +316,7 @@ private struct InteractivePopGestureEnabler: UIViewRepresentable {
         .environmentObject(AppModel())
         .environmentObject(session)
         .environmentObject(HealthKitStepsStore())
+        .environmentObject(FeedStore())
         .environmentObject(AppUpdateChecker.shared)
         .fitFightTheme(themeStore.theme)
 }

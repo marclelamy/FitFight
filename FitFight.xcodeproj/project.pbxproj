@@ -52,6 +52,10 @@
 		A10000000000000000000332 /* HealthKitSyncTrace.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000331 /* HealthKitSyncTrace.swift */; };
 		A10000000000000000000351 /* Profile.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000350 /* Profile.swift */; };
 		A10000000000000000000353 /* FightSnapshot.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000352 /* FightSnapshot.swift */; };
+		A10000000000000000000361 /* Media.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000360 /* Media.swift */; };
+		A10000000000000000000363 /* MediaUploader.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000362 /* MediaUploader.swift */; };
+		A10000000000000000000365 /* FeedView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000364 /* FeedView.swift */; };
+		A10000000000000000000367 /* HealthOnboardingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000366 /* HealthOnboardingView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -104,6 +108,10 @@
 		A10000000000000000000331 /* HealthKitSyncTrace.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HealthKitSyncTrace.swift; sourceTree = "<group>"; };
 		A10000000000000000000350 /* Profile.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Profile.swift; sourceTree = "<group>"; };
 		A10000000000000000000352 /* FightSnapshot.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FightSnapshot.swift; sourceTree = "<group>"; };
+		A10000000000000000000360 /* Media.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Media.swift; sourceTree = "<group>"; };
+		A10000000000000000000362 /* MediaUploader.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MediaUploader.swift; sourceTree = "<group>"; };
+		A10000000000000000000364 /* FeedView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FeedView.swift; sourceTree = "<group>"; };
+		A10000000000000000000366 /* HealthOnboardingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HealthOnboardingView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -135,6 +143,10 @@
 				A10000000000000000000307 /* FitFightAPI.swift */,
 				A10000000000000000000350 /* Profile.swift */,
 				A10000000000000000000352 /* FightSnapshot.swift */,
+				A10000000000000000000360 /* Media.swift */,
+				A10000000000000000000362 /* MediaUploader.swift */,
+				A10000000000000000000364 /* FeedView.swift */,
+				A10000000000000000000366 /* HealthOnboardingView.swift */,
 				A10000000000000000000302 /* SessionStore.swift */,
 				A10000000000000000000303 /* AppleSignInControl.swift */,
 				A10000000000000000000309 /* WelcomeView.swift */,
@@ -311,6 +323,10 @@
 				A10000000000000000000317 /* FitFightAPI.swift in Sources */,
 				A10000000000000000000351 /* Profile.swift in Sources */,
 				A10000000000000000000353 /* FightSnapshot.swift in Sources */,
+				A10000000000000000000361 /* Media.swift in Sources */,
+				A10000000000000000000363 /* MediaUploader.swift in Sources */,
+				A10000000000000000000365 /* FeedView.swift in Sources */,
+				A10000000000000000000367 /* HealthOnboardingView.swift in Sources */,
 				A10000000000000000000312 /* SessionStore.swift in Sources */,
 				A10000000000000000000313 /* AppleSignInControl.swift in Sources */,
 				A10000000000000000000319 /* WelcomeView.swift in Sources */,

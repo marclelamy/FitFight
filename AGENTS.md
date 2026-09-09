@@ -30,7 +30,7 @@ Current map: [`docs/status.md`](docs/status.md). Sign-in, username, direct-usern
 - Staging TestFlight only on push/merge to `develop` (optional manual `workflow_dispatch`). No daily cron. Feature branches do not upload. `main` never uploads to TestFlight.
 - Simulator compile on every PR.
 - Approved design source remains in `docs/design/source/`. The app uses Night/Day and one fixed semantic palette.
-- Three tabs: **Fights, New, You**. Requests, persistent friends, money, unsupported Metrics, and dead settings are gone.
+- Four tabs: **Fights, New, Feed, You**. Requests, persistent friends, money, unsupported Metrics, and dead settings are gone.
 - A Fight is always Steps × highest total. Add exact usernames, choose 3 days / 1 week / 2 weeks / 1 month, and optionally name the fight and type the action the loser will do.
 - Public privacy and support pages are implemented at `fitfight.app/privacy` and `fitfight.app/support` and linked under You → Settings. Deploy them before App Store submission.
 

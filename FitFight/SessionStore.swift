@@ -15,6 +15,7 @@ final class SessionStore: ObservableObject {
     let client: SupabaseClient
     private let api = FitFightAPI()
     private static let handleChosenKey = "ff.handle.chosen"
+    private static let needsHealthKey = "ff.onboarding.needsHealth"
     private static let profileCachePrefix = "fitfight.profile."
 
     var isSignedIn: Bool { authSession != nil || screenshotSignedIn }
@@ -24,6 +25,15 @@ final class SessionStore: ObservableObject {
         if UserDefaults.standard.bool(forKey: Self.handleChosenKey) { return false }
         if let setAt = profile.handleSetAt, !setAt.isEmpty { return false }
         return profile.looksGenerated
+    }
+
+    var needsHealthOnboarding: Bool {
+        !needsOnboarding && UserDefaults.standard.bool(forKey: Self.needsHealthKey)
+    }
+
+    func finishHealthOnboarding() {
+        UserDefaults.standard.set(false, forKey: Self.needsHealthKey)
+        objectWillChange.send()
     }
 
     func freshAccessToken() async throws -> String {
@@ -62,7 +72,9 @@ final class SessionStore: ObservableObject {
             userId: UUID(uuidString: "00CBEF0E-6851-4AAB-B47A-88B0D7946738")!,
             handle: "maya_moves",
             displayName: "Maya",
-            handleSetAt: "2026-09-02T00:00:00Z"
+            handleSetAt: "2026-09-02T00:00:00Z",
+            referralCode: nil,
+            avatar: nil
         )
     }
 
@@ -137,6 +149,7 @@ final class SessionStore: ObservableObject {
         profile = nil
         profileUnavailable = false
         UserDefaults.standard.removeObject(forKey: Self.handleChosenKey)
+        UserDefaults.standard.removeObject(forKey: Self.needsHealthKey)
     }
 
     static func signInFailureMessage(_ error: Error) -> String {
@@ -170,7 +183,7 @@ final class SessionStore: ObservableObject {
             .lowercased()
     }
 
-    func setHandle(_ raw: String) async throws {
+    func setHandle(_ raw: String, avatarMediaId: UUID? = nil) async throws {
         guard await AppUpdateChecker.shared.permitsRequests() else {
             let requiresUpdate = AppUpdateChecker.shared.status == .updateRequired
             throw FitFightAPIError.http(
@@ -188,7 +201,13 @@ final class SessionStore: ObservableObject {
         }
         do {
             let token = try await freshAccessToken()
-            let updated = try await api.updateProfile(handle: handle, accessToken: token)
+            let updated = try await api.updateProfile(
+                handle: handle,
+                avatarMediaId: avatarMediaId,
+                accessToken: token
+            )
+            UserDefaults.standard.set(true, forKey: Self.handleChosenKey)
+            UserDefaults.standard.set(true, forKey: Self.needsHealthKey)
             try Task.checkCancellation()
             guard authSession?.user.id == userId, client.auth.currentUser?.id == userId else {
                 throw CancellationError()
@@ -210,7 +229,20 @@ final class SessionStore: ObservableObject {
             }
             throw HandleError.failed
         }
-        UserDefaults.standard.set(true, forKey: Self.handleChosenKey)
+    }
+
+    func setAvatar(_ media: FitFightMedia) async throws {
+        guard let userId = authSession?.user.id ?? client.auth.currentUser?.id else {
+            throw HandleError.notSignedIn
+        }
+        let token = try await freshAccessToken()
+        let updated = try await api.updateProfile(avatarMediaId: media.id, accessToken: token)
+        try Task.checkCancellation()
+        guard authSession?.user.id == userId else { throw CancellationError() }
+        profile = updated
+        if let data = try? JSONEncoder().encode(updated) {
+            UserDefaults.standard.set(data, forKey: Self.profileCachePrefix + userId.uuidString)
+        }
     }
 
     @discardableResult
@@ -233,6 +265,7 @@ final class SessionStore: ObservableObject {
             profile = nil
             profileUnavailable = false
             UserDefaults.standard.removeObject(forKey: Self.handleChosenKey)
+            UserDefaults.standard.removeObject(forKey: Self.needsHealthKey)
             if let userID {
                 UserDefaults.standard.removeObject(forKey: Self.profileCachePrefix + userID.uuidString)
             }

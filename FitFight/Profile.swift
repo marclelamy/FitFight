@@ -6,6 +6,7 @@ struct FitFightProfile: Codable, Equatable {
     let displayName: String
     let handleSetAt: String?
     var referralCode: UUID?
+    var avatar: FitFightMedia?
 
     var atHandle: String { "@\(handle)" }
 
@@ -30,5 +31,6 @@ struct FitFightProfile: Codable, Equatable {
         case displayName = "display_name"
         case handleSetAt = "handle_set_at"
         case referralCode = "referral_code"
+        case avatar
     }
 }

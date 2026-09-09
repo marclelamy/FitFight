@@ -612,6 +612,7 @@ struct FFAvatar: View {
     var selected: Bool = false
     /// Asset name, cut from the design mocks. Falls back to the monogram.
     var photo: String?
+    var photoURL: URL?
     var dimmed: Bool = false
 
     @Environment(\.ffTheme) private var theme
@@ -632,16 +633,32 @@ struct FFAvatar: View {
 
     @ViewBuilder
     private var face: some View {
-        if let photo, UIImage(named: photo) != nil {
+        if let photoURL {
+            AsyncImage(url: photoURL) { phase in
+                switch phase {
+                case .success(let image):
+                    image
+                        .resizable()
+                        .interpolation(.high)
+                        .scaledToFill()
+                default:
+                    monogramLabel
+                }
+            }
+        } else if let photo, UIImage(named: photo) != nil {
             Image(photo)
                 .resizable()
                 .interpolation(.high)
                 .scaledToFill()
         } else {
-            Text(monogram)
-                .font(.ff(fontSize, 800))
-                .foregroundStyle(size >= 54 ? theme.monogram : theme.textDim)
+            monogramLabel
         }
+    }
+
+    private var monogramLabel: some View {
+        Text(monogram)
+            .font(.ff(fontSize, 800))
+            .foregroundStyle(size >= 54 ? theme.monogram : theme.textDim)
     }
 
     /// The kit's five fixed steps: 32/11, 38/13, 44/14, 54/16, 68/20.
