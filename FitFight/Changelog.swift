@@ -29,6 +29,13 @@ enum Changelog {
             year: 2026,
             month: 9,
             day: 10,
+            notes: "Each fight now shows the exact date and time it stops, not only how many days are left."
+        ),
+        ReleaseNote(
+            version: "1.0.0",
+            year: 2026,
+            month: 9,
+            day: 10,
             notes: "Pull to refresh stays open with a spinner and tells you when FitFight is syncing your steps, updating the database, and counting the gap to your friend. Opening the app shows the same."
         ),
         ReleaseNote(
