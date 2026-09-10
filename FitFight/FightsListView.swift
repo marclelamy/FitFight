@@ -33,7 +33,7 @@ struct FightsListView: View {
                 FFListRow(
                     monogram: initials(fight),
                     title: fight.listTitle,
-                    subtitle: fight.timeAndDeadlineLabel,
+                    subtitle: fight.timeLeftLabel,
                     metric: standing.text,
                     ahead: standing.ahead,
                     metricIsGap: standing.isGap,

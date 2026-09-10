@@ -36,6 +36,13 @@ enum Changelog {
             year: 2026,
             month: 9,
             day: 10,
+            notes: "The Fights list shows how much time is left as months, weeks, days, hours, and minutes, without the end date. Under two days you see the days and the hours. Inside a fight, the exact end time is still there."
+        ),
+        ReleaseNote(
+            version: "1.0.0",
+            year: 2026,
+            month: 9,
+            day: 10,
             notes: "Fights are public or private. Anyone can join with the code or link. Only public fights show on Join."
         ),
         ReleaseNote(
