@@ -111,16 +111,60 @@ struct FitFightHealthKitStepSync: Encodable, Equatable {
         }
     }
 
+    struct ActivityDay: Encodable, Equatable {
+        var day: String
+        var startsAt: String
+        var endsAt: String
+        var metric: String
+        var value: Double
+        var unit: String
+
+        enum CodingKeys: String, CodingKey {
+            case day
+            case startsAt = "starts_at"
+            case endsAt = "ends_at"
+            case metric
+            case value
+            case unit
+        }
+    }
+
+    struct Workout: Encodable, Equatable {
+        var healthkitUuid: String
+        var startedAt: String
+        var endedAt: String
+        var activityType: String
+        var durationSeconds: Double
+        var distanceM: Double?
+        var energyKcal: Double?
+        var effort: Double?
+
+        enum CodingKeys: String, CodingKey {
+            case healthkitUuid = "healthkit_uuid"
+            case startedAt = "started_at"
+            case endedAt = "ended_at"
+            case activityType = "activity_type"
+            case durationSeconds = "duration_seconds"
+            case distanceM = "distance_m"
+            case energyKcal = "energy_kcal"
+            case effort
+        }
+    }
+
     var completeThrough: String
     var timeZone: String
     var mergedDays: [MergedDay]
     var fightAggregates: [FightAggregate]
+    var activityDays: [ActivityDay]? = nil
+    var workouts: [Workout]? = nil
 
     enum CodingKeys: String, CodingKey {
         case completeThrough = "complete_through"
         case timeZone = "time_zone"
         case mergedDays = "merged_days"
         case fightAggregates = "fight_aggregates"
+        case activityDays = "activity_days"
+        case workouts
     }
 }
 

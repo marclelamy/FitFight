@@ -1,5 +1,5 @@
 begin;
-select plan(57);
+select plan(65);
 
 select has_schema('private', 'private schema exists');
 select has_table('public', 'profiles', 'profiles exists');
@@ -17,6 +17,16 @@ select has_table(
   'private',
   'healthkit_sync_diagnostics',
   'latest HealthKit diagnostics stay private'
+);
+select has_table(
+  'private',
+  'healthkit_activity_days',
+  'collected Apple Health activity days stay private'
+);
+select has_table(
+  'private',
+  'healthkit_workouts',
+  'collected Apple Health workouts stay private'
 );
 select has_table('public', 'feedback_posts', 'feedback posts exist');
 select has_table('public', 'feedback_votes', 'feedback votes exist');
@@ -83,6 +93,38 @@ select is(
   has_table_privilege('authenticated', 'private.healthkit_sync_diagnostics', 'SELECT'),
   false,
   'authenticated clients cannot read HealthKit diagnostics'
+);
+select ok(
+  (select relrowsecurity from pg_class c
+     join pg_namespace n on n.oid = c.relnamespace
+    where n.nspname = 'private' and c.relname = 'healthkit_activity_days'),
+  'healthkit_activity_days has RLS'
+);
+select ok(
+  (select relrowsecurity from pg_class c
+     join pg_namespace n on n.oid = c.relnamespace
+    where n.nspname = 'private' and c.relname = 'healthkit_workouts'),
+  'healthkit_workouts has RLS'
+);
+select is(
+  has_table_privilege('anon', 'private.healthkit_activity_days', 'SELECT'),
+  false,
+  'anon cannot read collected Apple Health activity'
+);
+select is(
+  has_table_privilege('authenticated', 'private.healthkit_activity_days', 'SELECT'),
+  false,
+  'authenticated clients cannot read collected Apple Health activity'
+);
+select is(
+  has_table_privilege('anon', 'private.healthkit_workouts', 'SELECT'),
+  false,
+  'anon cannot read collected Apple Health workouts'
+);
+select is(
+  has_table_privilege('authenticated', 'private.healthkit_workouts', 'SELECT'),
+  false,
+  'authenticated clients cannot read collected Apple Health workouts'
 );
 select ok(
   (select relrowsecurity from pg_class c

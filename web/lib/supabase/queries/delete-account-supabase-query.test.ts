@@ -52,6 +52,8 @@ test("account deletion removes owned Fights and every user-owned row before the 
     "private.healthkit_step_sample_deletions",
     "private.healthkit_step_samples",
     "private.healthkit_step_syncs",
+    "private.healthkit_activity_days",
+    "private.healthkit_workouts",
     "public.metric_days",
     "public.step_days",
     "public.fight_members",

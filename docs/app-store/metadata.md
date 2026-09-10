@@ -42,7 +42,7 @@ Copy for the first public English (U.S.) listing. Do not change the app's market
 >
 > BUILT AROUND PRIVACY
 >
-> Fights are private to their participants. Apple Health access is read-only and limited to Step Count. FitFight does not sell your data, show advertising, or track you across apps and websites. You can permanently delete your account and associated FitFight data from Settings.
+> Fights are private to their participants. Apple Health access is read-only. Steps fights share only step totals with accepted participants. FitFight does not sell your data, show advertising, or track you across apps and websites. You can permanently delete your account and associated FitFight data from Settings.
 >
 > FitFight is free. There are no purchases, entry fees, money wagers, payouts, or prizes. FitFight is for friendly fitness competition and is not a medical service.
 

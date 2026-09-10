@@ -41,10 +41,11 @@ export default function SupportPage() {
         <section>
           <h2>Apple Health Steps</h2>
           <p>
-            In FitFight, open <strong>You → Apple Health</strong> to grant read-only Step
-            Count access or retry a sync. FitFight reads aggregate Steps for your active
-            Fight windows and the relevant daily totals shown in Fight charts; background
-            updates depend on iOS and may not be immediate.
+            In FitFight, open <strong>You → Apple Health</strong> to grant read-only
+            Apple Health access or retry a sync. The permission sheet may list steps plus
+            other movement types. Fights still use Steps. FitFight reads aggregate Steps
+            for your active Fight windows and the relevant daily totals shown in Fight
+            charts; background updates depend on iOS and may not be immediate.
           </p>
           <p>
             To revoke access, remove FitFight in Apple Health or iOS Settings. Your score

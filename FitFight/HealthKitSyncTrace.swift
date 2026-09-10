@@ -10,6 +10,8 @@ final class HealthKitSyncTrace: @unchecked Sendable {
         case todayTotal = "today_total"
         case healthKitDaily = "healthkit_daily"
         case healthKitFight = "healthkit_fight"
+        /// Extra movement; a failure here must not fail Steps sync.
+        case healthKitActivity = "healthkit_activity"
         case fightsRefresh = "fights_refresh"
     }
 

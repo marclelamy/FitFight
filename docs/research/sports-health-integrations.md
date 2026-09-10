@@ -194,7 +194,7 @@ The likely transcription was **ClassPass**. Its [developer API](https://develope
 
 ## FitFight-specific gap today
 
-The current Steps implementation keeps only Apple's merged cumulative total for each exact Fight window and the relevant merged daily chart buckets. It does not collect raw samples, deletion tombstones, per-source statistics, or provenance. Before adding any new metric, the product and backend still need to define its unit, aggregation window, source-merging rule, late-update/deletion behavior, user-facing permission state, and anti-cheat expectations. This report deliberately does not add WHOOP, Strava, Workout Count, or Active Minutes to the backlog or implement them.
+The current Steps implementation keeps only Apple's merged cumulative total for each exact Fight window and the relevant merged daily chart buckets. It does not collect raw samples, deletion tombstones, per-source statistics, or provenance. Before adding any new metric, the product and backend still need to define its unit, aggregation window, source-merging rule, late-update/deletion behavior, user-facing permission state, and anti-cheat expectations. The 10 Sep 2026 plan for the next Health type — Active Energy, not a Health warehouse — is in [`apple-health-next-metrics.md`](apple-health-next-metrics.md). This report still does not implement WHOOP, Strava, Workout Count, or Exercise Minutes.
 
 ## Primary-source index
 
