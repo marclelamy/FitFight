@@ -11,15 +11,15 @@
     "NSHealthShareUsageDescription" : {
       "extractionState" : "manual",
       "localizations" : {
-        "en" : {"stringUnit":{"state":"translated","value":"FitFight reads and uploads your Apple Health step count to score Steps fights. Accepted participants see your Fight total, relevant daily totals, and rank."}},
-        "fr" : {"stringUnit":{"state":"translated","value":"FitFight lit et envoie votre nombre de pas depuis Santé d’Apple pour comptabiliser les défis de pas. Les participants acceptés voient votre total du défi, les totaux quotidiens utiles et votre classement."}}
+        "en" : {"stringUnit":{"state":"translated","value":"FitFight reads your Apple Health steps and other movement—energy, distance, exercise, stand, flights, and workouts. Steps fights share only your step totals with accepted participants. Other activity stays on your account until a future challenge type uses it."}},
+        "fr" : {"stringUnit":{"state":"translated","value":"FitFight lit tes pas Santé d’Apple et d’autres mouvements : énergie, distance, exercice, debout, étages et entraînements. Les défis de pas partagent seulement tes totaux de pas avec les participants acceptés. Le reste reste sur ton compte jusqu’à un futur type de défi."}}
       }
     },
     "NSHealthUpdateUsageDescription" : {
       "extractionState" : "manual",
       "localizations" : {
-        "en" : {"stringUnit":{"state":"translated","value":"FitFight does not add to or change Apple Health. It only requests read-only access to your step count for Steps fights."}},
-        "fr" : {"stringUnit":{"state":"translated","value":"FitFight n’ajoute ni ne modifie aucune donnée dans Santé d’Apple. L’app demande uniquement un accès en lecture à votre nombre de pas pour les défis de pas."}}
+        "en" : {"stringUnit":{"state":"translated","value":"FitFight does not add to or change Apple Health. It only requests read-only access to the activity types in the read description."}},
+        "fr" : {"stringUnit":{"state":"translated","value":"FitFight n’ajoute ni ne modifie aucune donnée dans Santé d’Apple. L’app demande uniquement un accès en lecture aux types d’activité indiqués dans la description de lecture."}}
       }
     }
   },

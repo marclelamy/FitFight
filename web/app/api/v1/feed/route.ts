@@ -12,6 +12,7 @@ export const GET = apiRoute(async (request) => {
   const parsed = listFightPostsQuerySchema.safeParse({
     ...(search.get("cursor") ? { cursor: search.get("cursor") } : {}),
     ...(search.get("limit") ? { limit: search.get("limit") } : {}),
+    ...(search.get("scope") ? { scope: search.get("scope") } : {}),
   });
   if (!parsed.success) {
     throw parsed.error;

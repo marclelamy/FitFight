@@ -1,5 +1,20 @@
+import Combine
 import SwiftUI
 import UIKit
+
+private enum FightDetailPane: Hashable, CaseIterable {
+    case stats
+    case feed
+
+    var title: String {
+        switch self {
+        case .stats:
+            return String(localized: "Stats")
+        case .feed:
+            return String(localized: "Feed")
+        }
+    }
+}
 
 struct FightDetailView: View {
     private let initialFight: Fight
@@ -10,6 +25,8 @@ struct FightDetailView: View {
 
     @State private var copiedCode = false
     @State private var copiedLink = false
+    @State private var fightsRevision = 0
+    @State private var pane: FightDetailPane = .stats
 
     init(fight: Fight) {
         initialFight = fight
@@ -35,10 +52,46 @@ struct FightDetailView: View {
     }
 
     var body: some View {
-        FFScreen(top: AnyView(nav)) {
+        FFScreen(top: AnyView(nav), refresh: fightsRefresh) {
             if pendingJoin {
                 invitedHero
-            } else if youDeferred {
+                    .id(fightsRevision)
+            } else {
+                FFSegmented(items: FightDetailPane.allCases, selection: $pane) { item in
+                    item.title
+                }
+                .padding(.bottom, 4)
+
+                if pane == .stats {
+                    statsPane
+                } else if let fightID = UUID(uuidString: fight.id) {
+                    FightPostsSection(fightID: fightID)
+                }
+            }
+        }
+        .onReceive(model.$fights) { _ in
+            fightsRevision += 1
+        }
+        .navigationBarBackButtonHidden(true)
+        .toolbar(.hidden, for: .navigationBar)
+    }
+
+    private var fightsRefresh: FFRefreshConfig {
+        FFRefreshConfig(
+            isRefreshing: model.isRefreshingFights,
+            message: model.refreshStatusText,
+            action: {
+                await model.refreshFights(session: session, steps: steps, trigger: .manual)
+            }
+        )
+    }
+
+    private var you: Standing? { model.youStanding(in: fight) }
+
+    @ViewBuilder
+    private var statsPane: some View {
+        Group {
+            if youDeferred {
                 deferredHero
             } else if let pair = headToHead {
                 FFVSBlock(
@@ -47,89 +100,74 @@ struct FightDetailView: View {
                     delta: fight.kickerEmphasis,
                     ahead: fight.rank == 1,
                     footnote: "\(fight.metric.eyebrow) · \(fight.durationLabel) fight",
-                    timeLeft: fight.timeLeftLabel
+                    timeLeft: fight.deadlineLabel
                 )
             } else {
                 liveHero
             }
+        }
+        .id(fightsRevision)
 
-            if !pendingJoin {
-                if fight.joinCode != nil {
-                    FFSection(title: String(localized: "Share")) {
-                        shareCard
-                    }
-                }
-                if fight.hasAction {
-                    FFSection(title: String(localized: "Action")) {
-                        FFCard {
-                            Text(fight.actionText)
-                                .ffType(.rowTitle)
-                                .foregroundStyle(theme.text)
-                                .fixedSize(horizontal: false, vertical: true)
-                        }
-                    }
-                }
-
-                if let fightID = UUID(uuidString: fight.id) {
-                    FFSection(title: String(localized: "Posts")) {
-                        FightPostsSection(fightID: fightID)
-                    }
-                }
-
-                FFSection(title: String(localized: "Standings")) {
-                    VStack(alignment: .leading, spacing: theme.space.cardGap) {
-                        if let meta = fight.standingsMeta {
-                            Text(meta)
-                                .ffType(.caption)
-                                .foregroundStyle(theme.textSecondary)
-                        }
-                        TimelineView(.periodic(from: .now, by: 30)) { context in
-                            ForEach(Array(fight.standings.enumerated()), id: \.element.id) { index, row in
-                                standingRow(index: index, row: row, now: context.date)
-                            }
-                        }
-                    }
-                }
-
-                if !fight.days.isEmpty {
-                    FFSection(title: String(localized: "Every day so far")) {
-                        daysCard
-                    }
-                }
-
-                if canLeave {
-                    FFButton(
-                        title: String(localized: "Leave fight"),
-                        kind: .ghost,
-                        fullWidth: true
-                    ) {
-                        Task {
-                            await model.leaveFight(id: fight.id)
-                        }
-                    }
-                    .padding(.top, theme.space.lg)
-                    if let error = model.createError, !error.isEmpty {
-                        Text(error)
-                            .ffType(.caption)
-                            .foregroundStyle(theme.emberText)
-                            .padding(.top, 10)
-                    }
+        if fight.joinCode != nil {
+            FFSection(title: String(localized: "Share")) {
+                shareCard
+            }
+        }
+        if fight.hasAction {
+            FFSection(title: String(localized: "Action")) {
+                FFCard {
+                    Text(fight.actionText)
+                        .ffType(.rowTitle)
+                        .foregroundStyle(theme.text)
+                        .fixedSize(horizontal: false, vertical: true)
                 }
             }
         }
-        .refreshable {
-            await model.refreshFights(session: session, steps: steps)
-        }
-        .navigationBarBackButtonHidden(true)
-        .toolbar(.hidden, for: .navigationBar)
-    }
 
-    private var you: Standing? { model.youStanding(in: fight) }
+        FFSection(title: String(localized: "Standings")) {
+            VStack(alignment: .leading, spacing: theme.space.cardGap) {
+                if let meta = fight.standingsMeta {
+                    Text(meta)
+                        .ffType(.caption)
+                        .foregroundStyle(theme.textSecondary)
+                }
+                ForEach(Array(fight.standings.enumerated()), id: \.element.id) { index, row in
+                    standingRow(index: index, row: row)
+                }
+            }
+            .id(fightsRevision)
+        }
+
+        if !fight.days.isEmpty {
+            FFSection(title: String(localized: "Every day so far")) {
+                daysCard
+            }
+        }
+
+        if canLeave {
+            FFButton(
+                title: String(localized: "Leave fight"),
+                kind: .ghost,
+                fullWidth: true
+            ) {
+                Task {
+                    await model.leaveFight(id: fight.id)
+                }
+            }
+            .padding(.top, theme.space.lg)
+            if let error = model.createError, !error.isEmpty {
+                Text(error)
+                    .ffType(.caption)
+                    .foregroundStyle(theme.emberText)
+                    .padding(.top, 10)
+            }
+        }
+    }
 
     private var nav: some View {
         FFNavDetail(
             title: fight.listTitle,
-            subtitle: fight.timeLeftLabel,
+            subtitle: fight.timeAndDeadlineLabel,
             onBack: { model.openFightID = nil }
         )
         .padding(.horizontal, theme.space.screenPadding)
@@ -179,6 +217,12 @@ struct FightDetailView: View {
                 )
                     .ffType(.caption)
                     .foregroundStyle(theme.textSecondary)
+                    .multilineTextAlignment(.center)
+                    .padding(.bottom, 8)
+                Text(fight.deadlineLabel)
+                    .ffType(.caption)
+                    .fontWeight(.heavy)
+                    .foregroundStyle(theme.gold)
                     .multilineTextAlignment(.center)
                     .padding(.bottom, fight.hasAction && fight.actionText != fight.listTitle ? 8 : 22)
                 if fight.hasAction, fight.actionText != fight.listTitle {
@@ -251,11 +295,11 @@ struct FightDetailView: View {
     }
 
     private var joinRoundStarted: String {
-        fight.windowStart.formatted(date: .abbreviated, time: .omitted)
+        Fight.deadlineStamp(fight.windowStart)
     }
 
     private var joinRoundNext: String {
-        fight.windowEnd.formatted(date: .abbreviated, time: .omitted)
+        Fight.deadlineStamp(fight.windowEnd)
     }
 
     private func join(start: String) async {
@@ -358,7 +402,7 @@ struct FightDetailView: View {
                 ),
             subtitle: String(
                 localized: "fight.metric-time-left",
-                defaultValue: "\(fight.metric.eyebrow) · \(fight.timeLeftLabel)"
+                defaultValue: "\(fight.metric.eyebrow) · \(fight.timeAndDeadlineLabel)"
             ),
             metric: model.formatScore(you?.score ?? 0, metric: fight.metric),
             delta: fight.kickerEmphasis,
@@ -372,7 +416,7 @@ struct FightDetailView: View {
         return leader == 0 ? 0 : min(yours / leader, 1)
     }
 
-    private func standingRow(index: Int, row: Standing, now: Date) -> some View {
+    private func standingRow(index: Int, row: Standing) -> some View {
         Group {
             if row.invited || row.deferred {
                 HStack(spacing: 13) {
@@ -402,8 +446,10 @@ struct FightDetailView: View {
                     value: model.formatScore(row.score, metric: fight.metric),
                     move: .same,
                     isYou: row.person.isYou,
-                    caption: model.formatStandingFreshness(row, fight: fight, now: now),
-                    captionUrgent: false
+                    captionUrgent: false,
+                    captionAt: { now in
+                        model.formatStandingFreshness(row, fight: fight, now: now)
+                    }
                 )
             }
         }
@@ -412,31 +458,8 @@ struct FightDetailView: View {
     private var daysCard: some View {
         FFCard {
             VStack(alignment: .leading, spacing: 0) {
-                ForEach(Array(fight.days.enumerated()), id: \.element.id) { index, day in
-                    if index > 0 { Color.clear.frame(height: 20) }
-                    FFEyebrow(day.label)
-                        .padding(.bottom, 12)
-                    let peak = day.scores.map(\.value).max() ?? 1
-                    let leaderID = fight.standings.first?.person.id
-                    VStack(spacing: 10) {
-                        ForEach(day.scores) { row in
-                            HStack(spacing: 10) {
-                                Text(row.person.name)
-                                    .ffType(.micro)
-                                    .foregroundStyle(theme.textSecondary)
-                                    .lineLimit(1)
-                                    .frame(width: 56, alignment: .leading)
-                                FFProgressBar(
-                                    value: peak == 0 ? 0 : row.value / peak,
-                                    fill: row.person.id == leaderID ? theme.mossFill : theme.textFaint
-                                )
-                                Text(model.formatScore(row.value, metric: fight.metric))
-                                    .ffType(.micro)
-                                    .foregroundStyle(theme.textSecondary)
-                                    .frame(width: 56, alignment: .trailing)
-                            }
-                        }
-                    }
+                FightDayChartsView(days: fight.days) { value in
+                    model.formatScore(value, metric: fight.metric)
                 }
                 if let note = fight.paceNote {
                     FFDivider(inset: 0)

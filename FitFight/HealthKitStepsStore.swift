@@ -54,9 +54,11 @@ final class HealthKitStepsStore: ObservableObject {
     private let store = HKHealthStore()
     private let api = FitFightAPI()
     private let uploader = HealthKitTUSUploader()
-    private var isSyncing = false
+    private var inFlightSync: Task<Bool, Never>?
     private var observerQuery: HKObserverQuery?
     private weak var session: SessionStore?
+    var onLocalAggregates: (@MainActor (FitFightHealthKitStepSync) -> Void)?
+    var onBackendSync: (@MainActor () async -> Void)?
     private var activeUserId: UUID?
     private static let pendingLocalDeletionKey = "ff.healthkit.pendingLocalDeletion"
     private static let pendingSyncKey = "ff.healthkit.pendingSync"
@@ -264,7 +266,10 @@ final class HealthKitStepsStore: ObservableObject {
         if requestAccess {
             do {
                 try await trace.measure(.authorization) {
-                    try await store.requestAuthorization(toShare: [], read: [stepsType])
+                    try await store.requestAuthorization(
+                    toShare: [],
+                    read: HealthKitActivityAggregates.readTypes
+                )
                 }
             } catch {
                 trace.fail(Self.errorCode(for: error))
@@ -298,11 +303,26 @@ final class HealthKitStepsStore: ObservableObject {
 
     @discardableResult
     func syncToBackend(session: SessionStore, trigger: SyncTrigger, trace: HealthKitSyncTrace) async -> Bool {
+        if let inFlightSync {
+            return await inFlightSync.value
+        }
+        let work = Task { @MainActor in
+            defer { self.inFlightSync = nil }
+            return await self.performSyncToBackend(session: session, trigger: trigger, trace: trace)
+        }
+        inFlightSync = work
+        return await work.value
+    }
+
+    private func performSyncToBackend(
+        session: SessionStore,
+        trigger: SyncTrigger,
+        trace: HealthKitSyncTrace
+    ) async -> Bool {
         guard hasAsked, api.isConfigured else {
             if trigger == .observer { updateDiagnostics { $0.errorCode = .authenticationUnavailable } }
             return false
         }
-        guard !isSyncing else { return false }
         guard UIApplication.shared.isProtectedDataAvailable else {
             updateDiagnostics { $0.errorCode = .protectedDataUnavailable }
             trace.fail(.protectedDataUnavailable)
@@ -317,10 +337,8 @@ final class HealthKitStepsStore: ObservableObject {
             return false
         }
 
-        isSyncing = true
         connection = .syncing
         updateDiagnostics { $0.lastSyncAttempt = Date(); $0.lastTrigger = trigger }
-        defer { isSyncing = false }
         do {
             try await trace.measure(.localState) {
                 await uploader.discardLegacy(userId: userId)
@@ -330,7 +348,18 @@ final class HealthKitStepsStore: ObservableObject {
             let contextToken = try await trace.measure(.session) { try await session.freshAccessToken() }
             guard activeUserId == userId, session.authSession?.user.id == userId else { throw CancellationError() }
             let context = try await api.healthKitUploadContext(accessToken: contextToken, trace: trace)
-            let sync = try await HealthKitStepAggregates.read(store: store, type: stepsType, context: context, trace: trace)
+            var sync = try await HealthKitStepAggregates.read(
+                store: store,
+                type: stepsType,
+                context: context,
+                trace: trace
+            )
+            let activity = await trace.measure(.healthKitActivity) {
+                await HealthKitActivityAggregates.read(store: store, context: context)
+            }
+            sync.activityDays = activity.days
+            sync.workouts = activity.workouts
+            onLocalAggregates?(sync)
             try Task.checkCancellation()
             let syncToken = try await trace.measure(.session) { try await session.freshAccessToken() }
             guard activeUserId == userId, session.authSession?.user.id == userId else { throw CancellationError() }
@@ -344,6 +373,9 @@ final class HealthKitStepsStore: ObservableObject {
                 else { $0.lastManualSync = Date() }
                 $0.errorCode = nil
                 $0.failureReference = nil
+            }
+            if trigger == .observer {
+                await onBackendSync?()
             }
             return true
         } catch {

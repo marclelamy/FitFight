@@ -7,7 +7,7 @@ struct FightsListView: View {
     @Environment(\.ffTheme) private var theme
 
     var body: some View {
-        FFScreen {
+        FFScreen(refresh: fightsRefresh) {
             FFScreenTitle(title: String(localized: "Fights"), subtitle: subtitle)
                 .padding(.bottom, 6)
 
@@ -33,7 +33,7 @@ struct FightsListView: View {
                 FFListRow(
                     monogram: initials(fight),
                     title: fight.listTitle,
-                    subtitle: fight.timeLeftLabel,
+                    subtitle: fight.timeAndDeadlineLabel,
                     metric: standing.text,
                     ahead: standing.ahead,
                     metricIsGap: standing.isGap,
@@ -49,9 +49,16 @@ struct FightsListView: View {
                 }
             }
         }
-        .refreshable {
-            await model.refreshFights(session: session, steps: steps)
-        }
+    }
+
+    private var fightsRefresh: FFRefreshConfig {
+        FFRefreshConfig(
+            isRefreshing: model.isRefreshingFights,
+            message: model.refreshStatusText,
+            action: {
+                await model.refreshFights(session: session, steps: steps, trigger: .manual)
+            }
+        )
     }
 
     private var isEmpty: Bool {

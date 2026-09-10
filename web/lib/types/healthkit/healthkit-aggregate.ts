@@ -1,5 +1,12 @@
 import { z } from "zod";
 import { civilDayBounds, isCivilDay } from "@/lib/scoring/civil-day";
+import {
+  MAX_ACTIVITY_DAYS,
+  MAX_ACTIVITY_LOOKBACK_MS,
+  MAX_WORKOUTS,
+  healthKitActivityDaySchema,
+  healthKitWorkoutSchema,
+} from "@/lib/types/healthkit/healthkit-activity";
 
 const MAX_MERGED_DAYS = 400;
 const MAX_FIGHT_AGGREGATES = 100;
@@ -67,6 +74,8 @@ export const healthKitAggregateSyncSchema = z.object({
   time_zone: timeZoneSchema,
   merged_days: z.array(healthKitMergedDaySchema).max(MAX_MERGED_DAYS),
   fight_aggregates: z.array(healthKitFightAggregateSchema).max(MAX_FIGHT_AGGREGATES),
+  activity_days: z.array(healthKitActivityDaySchema).max(MAX_ACTIVITY_DAYS).optional(),
+  workouts: z.array(healthKitWorkoutSchema).max(MAX_WORKOUTS).optional(),
 }).strict().superRefine((value, context) => {
   const completeThrough = Date.parse(value.complete_through);
   const mergedDays = new Set<string>();
@@ -121,6 +130,73 @@ export const healthKitAggregateSyncSchema = z.object({
         code: z.ZodIssueCode.custom,
         message: "cutoff_at does not match complete_through",
         path: ["fight_aggregates", index, "cutoff_at"],
+      });
+    }
+  });
+  const earliestAllowed = completeThrough - MAX_ACTIVITY_LOOKBACK_MS;
+  const activityKeys = new Set<string>();
+  value.activity_days?.forEach((day, index) => {
+    const bounds = civilDayBounds(day.day, value.time_zone);
+    const key = `${day.day}:${day.metric}`;
+    if (activityKeys.has(key)) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "duplicate activity day",
+        path: ["activity_days", index, "metric"],
+      });
+    }
+    activityKeys.add(key);
+    if (Date.parse(day.starts_at) < earliestAllowed) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "activity day is older than the collection window",
+        path: ["activity_days", index, "starts_at"],
+      });
+    }
+    if (Date.parse(day.ends_at) > completeThrough) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "ends_at exceeds complete_through",
+        path: ["activity_days", index, "ends_at"],
+      });
+    }
+    if (Date.parse(day.starts_at) !== bounds.startsAt.getTime()) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "starts_at must equal the civil-day start",
+        path: ["activity_days", index, "starts_at"],
+      });
+    }
+    if (Date.parse(day.ends_at) !== Math.min(bounds.endsAt.getTime(), completeThrough)) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "ends_at must equal the effective civil-day end",
+        path: ["activity_days", index, "ends_at"],
+      });
+    }
+  });
+  const workoutIds = new Set<string>();
+  value.workouts?.forEach((workout, index) => {
+    if (workoutIds.has(workout.healthkit_uuid)) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "duplicate workout",
+        path: ["workouts", index, "healthkit_uuid"],
+      });
+    }
+    workoutIds.add(workout.healthkit_uuid);
+    if (Date.parse(workout.started_at) < earliestAllowed) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "workout is older than the collection window",
+        path: ["workouts", index, "started_at"],
+      });
+    }
+    if (Date.parse(workout.ended_at) > completeThrough) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "ended_at exceeds complete_through",
+        path: ["workouts", index, "ended_at"],
       });
     }
   });

@@ -1,6 +1,6 @@
-# Delete the merged PR's head. Never main, develop, or testflight-latest.
-# Do not turn on GitHub's "Automatically delete head branches" — that would
-# also delete `develop` when we merge develop → main to ship production.
+# Delete the merged PR's head. Never main, develop, preview, or
+# testflight-latest. Do not turn on GitHub's "Automatically delete head
+# branches" — that would also delete `develop` when we merge toward main.
 name: Delete merged feature branch
 
 on:
@@ -34,7 +34,7 @@ jobs:
 
           keep() {
             case "$1" in
-              main|develop|testflight-latest) return 0 ;;
+              main|develop|preview|testflight-latest) return 0 ;;
               *) return 1 ;;
             esac
           }

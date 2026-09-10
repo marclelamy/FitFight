@@ -40,7 +40,11 @@ export async function deleteAccount(
       await sql`delete from public.feedback_comments where author_id = ${userId}`;
       await sql`delete from public.feedback_posts where author_id = ${userId}`;
       await sql`delete from private.fight_post_reports where reporter_id = ${userId}`;
+      await sql`delete from private.fight_post_comment_reports where reporter_id = ${userId}`;
       await sql`delete from private.feed_blocks where blocker_id = ${userId} or blocked_id = ${userId}`;
+      await sql`delete from public.fight_post_comments where author_id = ${userId}`;
+      await sql`delete from public.fight_post_reactions where user_id = ${userId}`;
+      await sql`delete from public.fight_post_tags where user_id = ${userId}`;
       await sql`delete from public.fight_posts where author_id = ${userId}`;
       await sql`delete from public.media_objects where owner_id = ${userId}`;
 
@@ -61,6 +65,8 @@ export async function deleteAccount(
       await sql`delete from private.healthkit_step_sample_deletions where user_id = ${userId}`;
       await sql`delete from private.healthkit_step_samples where user_id = ${userId}`;
       await sql`delete from private.healthkit_step_syncs where user_id = ${userId}`;
+      await sql`delete from private.healthkit_activity_days where user_id = ${userId}`;
+      await sql`delete from private.healthkit_workouts where user_id = ${userId}`;
       await sql`delete from public.metric_days where user_id = ${userId}`;
       await sql`delete from public.step_days where user_id = ${userId}`;
       await sql`delete from public.fight_members where user_id = ${userId}`;

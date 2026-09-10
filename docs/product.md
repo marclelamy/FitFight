@@ -18,13 +18,13 @@ Do not rename the bundle ID without Apple + CI updates.
 ## Current 1.0 scope — 9 Sep 2026
 
 - Four tabs: **Fights**, **New**, **Feed**, **You**.
-- Each fight has posts (photos, a short video, or a note). Feed shows posts from every fight you are in, including earlier rounds of a repeating fight. Tap + on Feed to post to a specific fight.
+- Each fight has posts (photos, a short video, or a note) on a Feed tab next to Stats. The Feed tab swipes between Main and each fight. Tap + to compose one post, add whatever you want, tag people, and multi-select Main and/or fights. A tag does not add someone to a fight they are not in. Posts can take any emoji and nested comments.
 - New accounts pick an optional photo with their username, then connect Apple Health.
 - Every fight is **Steps × highest total**. There are no other metrics or scoring modes.
 - Add participants directly by exact username. There is no friends list or friend-request flow.
 - Type an optional title and an optional action the loser must do. If there is no title, the action is the fight name. There is no money or bragging-rights option.
 - Choose **1 hour**, **6 hours**, or **1 day** for testing, or **3 days**, **1 week**, **2 weeks**, or **1 month**.
-- Apple Health sends only merged Steps aggregates needed for active fights.
+- Apple Health sends merged Steps aggregates needed for active fights. It may also store private energy, distance, exercise, stand, flights, and workout summaries. Those extras are not fight options yet.
 - Settings keeps Privacy, Support, Bugs & requests, Versions, Sign out, and Delete account. Look is Night or Day.
 - Delete account removes the full account, uploaded Steps, memberships, owned fights, and bugs or requests the User posted; a stored Sign in with Apple authorization is revoked when available.
 - The old Requests tab, money, unsupported metrics, and dead settings are removed.
