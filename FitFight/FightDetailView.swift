@@ -50,7 +50,7 @@ struct FightDetailView: View {
                         delta: fight.kickerEmphasis,
                         ahead: fight.rank == 1,
                         footnote: "\(fight.metric.eyebrow) · \(fight.durationLabel) fight",
-                        timeLeft: fight.timeLeftLabel
+                        timeLeft: fight.deadlineLabel
                     )
                 } else {
                     liveHero
@@ -143,7 +143,7 @@ struct FightDetailView: View {
     private var nav: some View {
         FFNavDetail(
             title: fight.listTitle,
-            subtitle: fight.timeLeftLabel,
+            subtitle: fight.timeAndDeadlineLabel,
             onBack: { model.openFightID = nil }
         )
         .padding(.horizontal, theme.space.screenPadding)
@@ -193,6 +193,12 @@ struct FightDetailView: View {
                 )
                     .ffType(.caption)
                     .foregroundStyle(theme.textSecondary)
+                    .multilineTextAlignment(.center)
+                    .padding(.bottom, 8)
+                Text(fight.deadlineLabel)
+                    .ffType(.caption)
+                    .fontWeight(.heavy)
+                    .foregroundStyle(theme.gold)
                     .multilineTextAlignment(.center)
                     .padding(.bottom, fight.hasAction && fight.actionText != fight.listTitle ? 8 : 22)
                 if fight.hasAction, fight.actionText != fight.listTitle {
@@ -265,11 +271,11 @@ struct FightDetailView: View {
     }
 
     private var joinRoundStarted: String {
-        fight.windowStart.formatted(date: .abbreviated, time: .omitted)
+        Fight.deadlineStamp(fight.windowStart)
     }
 
     private var joinRoundNext: String {
-        fight.windowEnd.formatted(date: .abbreviated, time: .omitted)
+        Fight.deadlineStamp(fight.windowEnd)
     }
 
     private func join(start: String) async {
@@ -372,7 +378,7 @@ struct FightDetailView: View {
                 ),
             subtitle: String(
                 localized: "fight.metric-time-left",
-                defaultValue: "\(fight.metric.eyebrow) · \(fight.timeLeftLabel)"
+                defaultValue: "\(fight.metric.eyebrow) · \(fight.timeAndDeadlineLabel)"
             ),
             metric: model.formatScore(you?.score ?? 0, metric: fight.metric),
             delta: fight.kickerEmphasis,
