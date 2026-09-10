@@ -124,14 +124,17 @@ struct FightPostEngagement: View {
 
     private var displayedComments: [DisplayedFightComment] {
         var rows: [DisplayedFightComment] = []
-        var walk: ((UUID?, Int) -> Void)!
-        walk = { parentID, depth in
-            for comment in comments where comment.parentId == parentID {
-                rows.append(DisplayedFightComment(comment: comment, depth: depth))
-                walk(comment.id, depth + 1)
+        var stack: [(FitFightFightPostComment, Int)] = comments
+            .filter { $0.parentId == nil }
+            .reversed()
+            .map { ($0, 0) }
+        while let (comment, depth) = stack.popLast() {
+            rows.append(DisplayedFightComment(comment: comment, depth: depth))
+            let children = comments.filter { $0.parentId == comment.id }
+            for child in children.reversed() {
+                stack.append((child, depth + 1))
             }
         }
-        walk(nil, 0)
         return rows
     }
 
