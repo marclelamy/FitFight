@@ -58,6 +58,7 @@
 		A10000000000000000000367 /* HealthOnboardingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000366 /* HealthOnboardingView.swift */; };
 		A10000000000000000000369 /* FightDayCharts.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000368 /* FightDayCharts.swift */; };
 		A10000000000000000000371 /* HealthKitActivityAggregates.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000370 /* HealthKitActivityAggregates.swift */; };
+		A10000000000000000000373 /* FightPostThread.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000372 /* FightPostThread.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -116,6 +117,7 @@
 		A10000000000000000000366 /* HealthOnboardingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HealthOnboardingView.swift; sourceTree = "<group>"; };
 		A10000000000000000000368 /* FightDayCharts.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FightDayCharts.swift; sourceTree = "<group>"; };
 		A10000000000000000000370 /* HealthKitActivityAggregates.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HealthKitActivityAggregates.swift; sourceTree = "<group>"; };
+		A10000000000000000000372 /* FightPostThread.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FightPostThread.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -151,6 +153,7 @@
 				A10000000000000000000360 /* Media.swift */,
 				A10000000000000000000362 /* MediaUploader.swift */,
 				A10000000000000000000364 /* FeedView.swift */,
+				A10000000000000000000372 /* FightPostThread.swift */,
 				A10000000000000000000366 /* HealthOnboardingView.swift */,
 				A10000000000000000000302 /* SessionStore.swift */,
 				A10000000000000000000303 /* AppleSignInControl.swift */,
@@ -333,6 +336,7 @@
 				A10000000000000000000361 /* Media.swift in Sources */,
 				A10000000000000000000363 /* MediaUploader.swift in Sources */,
 				A10000000000000000000365 /* FeedView.swift in Sources */,
+				A10000000000000000000373 /* FightPostThread.swift in Sources */,
 				A10000000000000000000367 /* HealthOnboardingView.swift in Sources */,
 				A10000000000000000000312 /* SessionStore.swift in Sources */,
 				A10000000000000000000313 /* AppleSignInControl.swift in Sources */,

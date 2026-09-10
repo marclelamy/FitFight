@@ -52,10 +52,12 @@ Apple Health synchronization requires `FITFIGHT_API_URL=https://staging.fitfight
 
 After the backend is configured, merge the feature PR into **`develop`**, not `main`. The staging migration must land before merging `develop` → `preview` for the TestFlight build.
 
+The 9 Sep Feed destinations change needs `20260909233000_feed_destinations_and_engagement.sql` plus the feed/posts, people, comments, and reactions APIs deployed before the native build. Old `GET /api/v1/feed` still returns only fight-audience posts so installed builds keep decoding.
+
 Verify the minimal product alongside Apple Health synchronization:
 
 1. TestFlight → **Update**. Look for `1.0.0 · build N · staging · 9 Sep` at the top.
-2. Check Fights, Feed, a Fight detail, New, and You in both Night and Day. There are four tabs: Fights, New, Feed, You.
+2. Check Fights, Feed, a Fight detail, New, and You in both Night and Day. There are four tabs: Fights, New, Feed, You. Feed swipes Main and fight tabs. A fight opens on Stats, with Feed beside it.
 3. New starts on Create or Join. Create still guides Steps, duration, invite-only or joinable, optional usernames, repeat on by default, optional title and action, and review. Join is a 4-character code plus a live joinable list with no scores. Earlier create steps use **Next**. Review uses **Slide to start**.
 4. Confirm sign-in, username, Apple Health Steps, Fight invitations, standings with last-sync times, Privacy, Support, Bugs & requests, Versions, sign out, and Delete account.
 5. Confirm the old Requests tab, friend requests/lists, money, other Metrics, and dead settings are absent.
@@ -86,7 +88,7 @@ The native Fight path uses the API to create and join; Apple Health synchronizat
 | Versions | Works under You → Settings; the version label stays at the top of every root screen. Pending the next build: both staging and production hide the app and show a blocking update dialog until the installed version/build matches their latest installable release. The version label stays at the top. |
 | Bugs & requests | Works on You in its own section above Settings. Signed-in people can post a bug or a feature request, browse the board, upvote, and comment with their username. |
 | Privacy / Support | Pages are implemented and linked under You → Settings. Staging uses `staging.fitfight.app`; production uses `fitfight.app`. Each route must be deployed before that build is tested or submitted. |
-| Fight posts / Feed | Accepted and waiting-next-round members can post a short note, photos, or a short video on a fight. Feed has a + button to compose (photo, video, or text) and pick which fight to post to. Recurring fights keep posts from earlier rounds on the fight and in Feed. Invited-only people do not see posts until they join. You can delete your post, report someone else’s, or hide that person from your feed. |
+| Fight posts / Feed | Accepted and waiting-next-round members can post a short note, photos, or a short video. Feed tabs swipe between **Main** (people you already fight with) and each fight. + opens one composer: add whatever you want, tag people, and multi-select Main and/or fights. A tag never grants access; it only appears on copies that person can already see. Posts support any emoji reaction and nested comments. A fight has **Stats** (default) and **Feed** tabs. Recurring fights keep earlier posts. Invited-only people do not see posts until they join. You can delete your post, report someone else’s, or hide that person from your feed. |
 | Account deletion | Permanently deletes the profile, photos, username, authentication, Health/Steps data, relationships, invitations, memberships, scores, owned Fights, fight posts, and bugs/requests the User posted; removes participation from other Fights; clears local Health sync state; and revokes a stored Apple credential when available. |
 | WHOOP / Strava | Not built |
 | Removed scope | No persistent friends, Requests tab, money/payouts, bragging-rights option, other Metrics, goals, custom dates, or dead settings/actions. |

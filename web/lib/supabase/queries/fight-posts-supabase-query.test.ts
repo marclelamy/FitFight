@@ -2,13 +2,20 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { GET as listFeed } from "@/app/api/v1/feed/route";
 import { POST as blockAuthor } from "@/app/api/v1/feed/blocks/route";
+import { GET as listPeople } from "@/app/api/v1/feed/people/route";
+import { POST as createFeedPosts } from "@/app/api/v1/feed/posts/route";
 import { GET as listPosts, POST as createPost } from "@/app/api/v1/fights/[fightID]/posts/route";
 import { DELETE as deletePost } from "@/app/api/v1/fights/[fightID]/posts/[postID]/route";
 import { POST as reportPost } from "@/app/api/v1/fights/[fightID]/posts/[postID]/report/route";
+import { GET as listComments, POST as createComment } from "@/app/api/v1/posts/[postID]/comments/route";
+import { POST as reactToPost } from "@/app/api/v1/posts/[postID]/reactions/route";
 import {
+  createFeedPostsRequestSchema,
+  createFightPostCommentRequestSchema,
   createFightPostRequestSchema,
   listFightPostsQuerySchema,
   reportFightPostRequestSchema,
+  setFightPostReactionRequestSchema,
 } from "@/lib/types/feed/fight-post";
 import { listFightPosts } from "./fight-posts-supabase-query";
 import type { Sql } from "postgres";
@@ -34,6 +41,22 @@ test("fight posts need a note or a photo and reject extra fields", () => {
   }).success, false);
   assert.equal(reportFightPostRequestSchema.safeParse({ reason: "nope" }).success, false);
   assert.deepEqual(listFightPostsQuerySchema.parse({}), { limit: 30 });
+  assert.deepEqual(createFeedPostsRequestSchema.parse({
+    body: "Hill.",
+    destinations: [{ type: "main" }, { type: "fight", fight_id: fightId }],
+  }), {
+    body: "Hill.",
+    media_ids: [],
+    destinations: [{ type: "main" }, { type: "fight", fight_id: fightId }],
+    tagged_user_ids: [],
+  });
+  assert.equal(createFeedPostsRequestSchema.safeParse({
+    body: "Hill.",
+    destinations: [],
+  }).success, false);
+  assert.equal(createFightPostCommentRequestSchema.safeParse({ body: "" }).success, false);
+  assert.equal(setFightPostReactionRequestSchema.safeParse({ emoji: "abc" }).success, false);
+  assert.equal(setFightPostReactionRequestSchema.safeParse({ emoji: "🔥" }).success, true);
 });
 
 test("listing fight posts requires roster membership before reading rows", async () => {
@@ -50,6 +73,19 @@ test("listing fight posts requires roster membership before reading rows", async
     error instanceof Error && error.message === "Join this fight to see its posts"
   ));
   assert.match(queries[0] ?? "", /from public.fight_members/);
+});
+
+test("main feed listing skips the fight roster gate", async () => {
+  const queries: string[] = [];
+  const query = ((first: TemplateStringsArray) => {
+    const sql = first.join("?").replace(/\s+/g, " ").trim();
+    queries.push(sql);
+    return Promise.resolve([]);
+  }) as unknown as Sql;
+  const result = await listFightPosts(userId, undefined, { limit: 30, scope: "main" }, query);
+  assert.deepEqual(result, { posts: [], next_cursor: null });
+  assert.equal(queries.some((sql) => sql.includes("from public.fight_members") && !sql.includes("fight_posts")), false);
+  assert.match(queries[0] ?? "", /audience = 'main'/);
 });
 
 test("fight post listing keeps posts from other windows in the same series", async () => {
@@ -86,7 +122,22 @@ test("feed and fight post routes authenticate before reading or writing", async 
   const blocked = await blockAuthor(new Request("https://staging.fitfight.app/api/v1/feed/blocks", {
     method: "POST",
   }), { params: Promise.resolve({}) });
-  for (const response of [feed, posts, created, removed, reported, blocked]) {
+  const composed = await createFeedPosts(new Request("https://staging.fitfight.app/api/v1/feed/posts", {
+    method: "POST",
+  }), { params: Promise.resolve({}) });
+  const people = await listPeople(new Request("https://staging.fitfight.app/api/v1/feed/people"), {
+    params: Promise.resolve({}),
+  });
+  const comments = await listComments(new Request(`https://staging.fitfight.app/api/v1/posts/${postId}/comments`), {
+    params: Promise.resolve({ postID: postId }),
+  });
+  const commented = await createComment(new Request(`https://staging.fitfight.app/api/v1/posts/${postId}/comments`, {
+    method: "POST",
+  }), { params: Promise.resolve({ postID: postId }) });
+  const reacted = await reactToPost(new Request(`https://staging.fitfight.app/api/v1/posts/${postId}/reactions`, {
+    method: "POST",
+  }), { params: Promise.resolve({ postID: postId }) });
+  for (const response of [feed, posts, created, removed, reported, blocked, composed, people, comments, commented, reacted]) {
     assert.equal(response.status, 401);
   }
 });

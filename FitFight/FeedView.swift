@@ -2,12 +2,18 @@ import AVKit
 import PhotosUI
 import SwiftUI
 
-enum FeedComposeKind: String, Identifiable {
-    case photo
-    case video
-    case text
+enum FeedTimeline: Hashable, Identifiable {
+    case main
+    case fight(UUID)
 
-    var id: String { rawValue }
+    var id: String {
+        switch self {
+        case .main:
+            return "main"
+        case .fight(let id):
+            return id.uuidString.lowercased()
+        }
+    }
 }
 
 @MainActor
@@ -20,8 +26,12 @@ final class FeedStore: ObservableObject {
 
     private let api = FitFightAPI()
     private var listLoad = 0
+    private var lastTimeline: FeedTimeline = .main
+    private var lastFightID: UUID?
 
-    func load(session: SessionStore, fightID: UUID? = nil, more: Bool = false) async {
+    func load(session: SessionStore, timeline: FeedTimeline = .main, fightID: UUID? = nil, more: Bool = false) async {
+        lastTimeline = timeline
+        lastFightID = fightID
         listLoad += 1
         let load = listLoad
         isLoading = true
@@ -30,9 +40,17 @@ final class FeedStore: ObservableObject {
         }
         do {
             let token = try await session.freshAccessToken()
-            let result = fightID == nil
-                ? try await api.feed(cursor: more ? nextCursor : nil, accessToken: token)
-                : try await api.fightPosts(fightID: fightID!, cursor: more ? nextCursor : nil, accessToken: token)
+            let result: FitFightFightPostList
+            if let fightID {
+                result = try await api.fightPosts(fightID: fightID, cursor: more ? nextCursor : nil, accessToken: token)
+            } else {
+                switch timeline {
+                case .main:
+                    result = try await api.feed(scope: "main", cursor: more ? nextCursor : nil, accessToken: token)
+                case .fight(let id):
+                    result = try await api.fightPosts(fightID: id, cursor: more ? nextCursor : nil, accessToken: token)
+                }
+            }
             guard load == listLoad else { return }
             posts = more ? posts + result.posts.filter { post in !posts.contains(where: { $0.id == post.id }) } : result.posts
             nextCursor = result.nextCursor
@@ -46,12 +64,12 @@ final class FeedStore: ObservableObject {
 
     func create(
         session: SessionStore,
-        fightID: UUID,
+        destinations: [FeedPostDestination],
+        taggedUserIDs: [UUID],
         body: String,
         images: [UIImage],
         videoURL: URL? = nil
     ) async -> Bool {
-        listLoad += 1
         isSaving = true
         defer { isSaving = false }
         do {
@@ -63,14 +81,15 @@ final class FeedStore: ObservableObject {
                 mediaIDs.append(try await MediaUploader.upload(image, purpose: "fight_post", session: session, api: api).id)
             }
             let token = try await session.freshAccessToken()
-            let created = try await api.createFightPost(
-                fightID: fightID,
+            _ = try await api.createFeedPosts(
                 body: body,
                 mediaIDs: mediaIDs,
+                destinations: destinations,
+                taggedUserIDs: taggedUserIDs,
                 accessToken: token
             )
-            posts.insert(created.post, at: 0)
             error = nil
+            await load(session: session, timeline: lastTimeline, fightID: lastFightID)
             return true
         } catch {
             if Task.isCancelled || error is CancellationError { return false }
@@ -79,10 +98,16 @@ final class FeedStore: ObservableObject {
         }
     }
 
+    func replace(_ post: FitFightFightPost) {
+        if let index = posts.firstIndex(where: { $0.id == post.id }) {
+            posts[index] = post
+        }
+    }
+
     func delete(session: SessionStore, post: FitFightFightPost) async {
         do {
             let token = try await session.freshAccessToken()
-            try await api.deleteFightPost(fightID: post.fightId, postID: post.id, accessToken: token)
+            try await api.deleteFightPost(postID: post.id, accessToken: token)
             posts.removeAll { $0.id == post.id }
         } catch {
             if Task.isCancelled || error is CancellationError { return }
@@ -93,7 +118,7 @@ final class FeedStore: ObservableObject {
     func report(session: SessionStore, post: FitFightFightPost) async {
         do {
             let token = try await session.freshAccessToken()
-            try await api.reportFightPost(fightID: post.fightId, postID: post.id, reason: "other", accessToken: token)
+            try await api.reportFightPost(postID: post.id, reason: "other", accessToken: token)
         } catch {
             if Task.isCancelled || error is CancellationError { return }
             self.error = error.localizedDescription
@@ -105,6 +130,17 @@ final class FeedStore: ObservableObject {
             let token = try await session.freshAccessToken()
             try await api.blockFeedAuthor(userID: authorID, accessToken: token)
             posts.removeAll { $0.author.userId == authorID }
+        } catch {
+            if Task.isCancelled || error is CancellationError { return }
+            self.error = error.localizedDescription
+        }
+    }
+
+    func react(session: SessionStore, post: FitFightFightPost, emoji: String) async {
+        do {
+            let token = try await session.freshAccessToken()
+            let result = try await api.reactToFightPost(postID: post.id, emoji: emoji, accessToken: token)
+            replace(post.updating(reactions: result.reactions))
         } catch {
             if Task.isCancelled || error is CancellationError { return }
             self.error = error.localizedDescription
@@ -138,21 +174,30 @@ struct FeedView: View {
     @EnvironmentObject private var feed: FeedStore
     @Environment(\.ffTheme) private var theme
     @Environment(\.ffStaticRender) private var staticRender
-    @State private var composeKind: FeedComposeKind?
+    @State private var composing = false
+    @State private var timeline: FeedTimeline = .main
+
+    private var items: [(timeline: FeedTimeline, title: String)] {
+        [(FeedTimeline.main, String(localized: "Main"))] + postableFights(model.fights).compactMap { fight in
+            guard let id = UUID(uuidString: fight.id) else { return nil }
+            return (FeedTimeline.fight(id), fight.listTitle)
+        }
+    }
 
     var body: some View {
         FFScreen(refresh: feedRefresh) {
             FFScreenTitle(
                 title: String(localized: "Feed"),
-                subtitle: String(localized: "Photos, videos, and notes from the fights you’re in."),
+                subtitle: String(localized: "Share with everyone in your fights, or pick specific fights."),
                 trailing: AnyView(composeButton)
             )
+            tabBar
             if let error = feed.error, !error.isEmpty {
                 FFNotice(text: error, tone: .ember, systemImage: "exclamationmark.triangle")
             }
             if feed.posts.isEmpty && !feed.isLoading {
                 FFCard {
-                    Text(String(localized: "Nothing here yet. Tap + to post a photo, video, or note."))
+                    Text(String(localized: "Nothing here yet. Tap + to post."))
                         .ffType(.body)
                         .foregroundStyle(theme.textSecondary)
                         .fixedSize(horizontal: false, vertical: true)
@@ -160,22 +205,25 @@ struct FeedView: View {
             }
             ForEach(feed.posts) { post in
                 FightPostCard(post: post, showFight: true) {
-                    model.openFightFromFeed(id: post.fightId.uuidString)
+                    if let fightID = post.fightId {
+                        model.openFightFromFeed(id: fightID.uuidString)
+                    }
                 }
             }
             if feed.nextCursor != nil {
                 FFButton(title: String(localized: "More"), kind: .ghost, fullWidth: true) {
-                    Task { await feed.load(session: session, more: true) }
+                    Task { await feed.load(session: session, timeline: timeline, more: true) }
                 }
                 .disabled(feed.isLoading)
             }
         }
-        .task {
+        .simultaneousGesture(swipeTabs)
+        .task(id: timeline) {
             guard !staticRender else { return }
-            await feed.load(session: session)
+            await feed.load(session: session, timeline: timeline)
         }
-        .sheet(item: $composeKind) { kind in
-            FeedComposeSheet(kind: kind)
+        .sheet(isPresented: $composing) {
+            FeedComposeSheet(initial: [.main])
                 .environmentObject(model)
                 .environmentObject(session)
                 .environmentObject(feed)
@@ -190,28 +238,14 @@ struct FeedView: View {
             message: model.refreshStatusText,
             action: {
                 await model.refreshFights(session: session, steps: steps, trigger: .manual)
-                await feed.load(session: session)
+                await feed.load(session: session, timeline: timeline)
             }
         )
     }
 
     private var composeButton: some View {
-        Menu {
-            Button {
-                composeKind = .photo
-            } label: {
-                Label(String(localized: "Photo"), systemImage: "photo")
-            }
-            Button {
-                composeKind = .video
-            } label: {
-                Label(String(localized: "Video"), systemImage: "video")
-            }
-            Button {
-                composeKind = .text
-            } label: {
-                Label(String(localized: "Text"), systemImage: "text.alignleft")
-            }
+        Button {
+            composing = true
         } label: {
             Image(systemName: "plus")
                 .font(.system(size: 16, weight: .bold))
@@ -222,27 +256,72 @@ struct FeedView: View {
         .buttonStyle(FFHapticPlainStyle())
         .accessibilityLabel(String(localized: "New post"))
     }
+
+    private var tabBar: some View {
+        ScrollViewReader { proxy in
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 18) {
+                    ForEach(items, id: \.timeline) { item in
+                        let on = item.timeline == timeline
+                        Button {
+                            timeline = item.timeline
+                        } label: {
+                            VStack(spacing: 7) {
+                                Text(item.title)
+                                    .ffType(.label)
+                                    .fontWeight(.heavy)
+                                    .foregroundStyle(on ? theme.text : theme.textSecondary)
+                                Rectangle()
+                                    .fill(on ? theme.mossFill : Color.clear)
+                                    .frame(height: 2)
+                            }
+                        }
+                        .buttonStyle(FFHapticPlainStyle())
+                        .id(item.timeline.id)
+                    }
+                }
+            }
+            .onChange(of: timeline) { _, value in
+                withAnimation(.easeInOut(duration: 0.2)) {
+                    proxy.scrollTo(value.id, anchor: .center)
+                }
+            }
+        }
+    }
+
+    private var swipeTabs: some Gesture {
+        DragGesture(minimumDistance: 70)
+            .onEnded { value in
+                guard abs(value.translation.width) > abs(value.translation.height) + 20 else { return }
+                guard let index = items.firstIndex(where: { $0.timeline == timeline }) else { return }
+                if value.translation.width < 0, index + 1 < items.count {
+                    timeline = items[index + 1].timeline
+                } else if value.translation.width > 0, index > 0 {
+                    timeline = items[index - 1].timeline
+                }
+            }
+    }
 }
 
 struct FeedComposeSheet: View {
-    let kind: FeedComposeKind
+    let initial: Set<FeedPostDestination>
 
     @EnvironmentObject private var model: AppModel
     @EnvironmentObject private var session: SessionStore
     @EnvironmentObject private var feed: FeedStore
     @Environment(\.ffTheme) private var theme
     @Environment(\.dismiss) private var dismiss
-    @State private var fightID: UUID?
+    @State private var destinations: Set<FeedPostDestination>
+    @State private var tagged: Set<UUID> = []
+    @State private var people: [FitFightFeedPerson] = []
+
+    init(initial: Set<FeedPostDestination>) {
+        self.initial = initial
+        _destinations = State(initialValue: initial)
+    }
 
     private var fights: [Fight] {
         postableFights(model.fights)
-    }
-
-    private var selected: Fight? {
-        fights.first { fight in
-            guard let fightID else { return false }
-            return fight.id.caseInsensitiveCompare(fightID.uuidString) == .orderedSame
-        }
     }
 
     var body: some View {
@@ -264,9 +343,13 @@ struct FeedComposeSheet: View {
                         .fixedSize(horizontal: false, vertical: true)
                 }
             } else {
-                fightPicker
-                if let fightID {
-                    FightPostComposer(fightID: fightID, kind: kind) {
+                FeedDestinationPicker(fights: fights, destinations: $destinations)
+                FeedTagPicker(people: people, tagged: $tagged)
+                if !destinations.isEmpty {
+                    FightPostComposer(
+                        destinations: Array(destinations),
+                        taggedUserIDs: Array(tagged)
+                    ) {
                         dismiss()
                     }
                 }
@@ -275,37 +358,136 @@ struct FeedComposeSheet: View {
                 FFNotice(text: error, tone: .ember, systemImage: "exclamationmark.triangle")
             }
         }
-        .onAppear {
-            if fightID == nil {
-                fightID = fights.first.flatMap { UUID(uuidString: $0.id) }
+        .task(id: destinationKey) {
+            await loadPeople()
+        }
+    }
+
+    private var destinationKey: String {
+        destinations.map { destination in
+            destination.type + (destination.fightId?.uuidString ?? "")
+        }.sorted().joined(separator: ",")
+    }
+
+    private func loadPeople() async {
+        do {
+            let token = try await session.freshAccessToken()
+            let fightIDs = destinations.compactMap(\.fightId)
+            let result = try await FitFightAPI().feedPeople(
+                main: destinations.contains(.main),
+                fightIDs: fightIDs,
+                accessToken: token
+            )
+            people = result.people
+            let allowed = Set(people.map(\.userId))
+            tagged = tagged.intersection(allowed)
+        } catch {
+            if Task.isCancelled || error is CancellationError { return }
+            feed.error = error.localizedDescription
+        }
+    }
+}
+
+struct FeedDestinationPicker: View {
+    let fights: [Fight]
+    @Binding var destinations: Set<FeedPostDestination>
+    @Environment(\.ffTheme) private var theme
+
+    var body: some View {
+        FFCard {
+            VStack(alignment: .leading, spacing: 10) {
+                Text(String(localized: "Post to"))
+                    .ffType(.micro)
+                    .foregroundStyle(theme.textFaint)
+                Text(String(localized: "Pick one or more. Main is visible to people you already fight with."))
+                    .ffType(.caption)
+                    .foregroundStyle(theme.textSecondary)
+                    .fixedSize(horizontal: false, vertical: true)
+                destinationRow(
+                    title: String(localized: "Main"),
+                    selected: destinations.contains(.main)
+                ) {
+                    toggle(.main)
+                }
+                ForEach(fights) { fight in
+                    if let id = UUID(uuidString: fight.id) {
+                        destinationRow(title: fight.listTitle, selected: destinations.contains(.fight(id))) {
+                            toggle(.fight(id))
+                        }
+                    }
+                }
             }
         }
     }
 
-    private var fightPicker: some View {
+    private func destinationRow(title: String, selected: Bool, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            HStack {
+                Image(systemName: selected ? "checkmark.square.fill" : "square")
+                    .foregroundStyle(selected ? theme.mossText : theme.textFaint)
+                Text(title)
+                    .ffType(.rowTitle)
+                    .foregroundStyle(theme.text)
+                Spacer(minLength: 8)
+            }
+        }
+        .buttonStyle(FFHapticPlainStyle())
+    }
+
+    private func toggle(_ destination: FeedPostDestination) {
+        if destinations.contains(destination) {
+            destinations.remove(destination)
+        } else {
+            destinations.insert(destination)
+        }
+    }
+}
+
+struct FeedTagPicker: View {
+    let people: [FitFightFeedPerson]
+    @Binding var tagged: Set<UUID>
+    @Environment(\.ffTheme) private var theme
+
+    var body: some View {
         FFCard {
-            VStack(alignment: .leading, spacing: 8) {
-                Text(String(localized: "Post to"))
+            VStack(alignment: .leading, spacing: 10) {
+                Text(String(localized: "Tag people"))
                     .ffType(.micro)
                     .foregroundStyle(theme.textFaint)
-                Menu {
-                    ForEach(fights) { fight in
-                        Button(fight.listTitle) {
-                            fightID = UUID(uuidString: fight.id)
+                Text(String(localized: "A tag never adds someone to a fight. If they are not in a selected fight, they will not see that copy."))
+                    .ffType(.caption)
+                    .foregroundStyle(theme.textSecondary)
+                    .fixedSize(horizontal: false, vertical: true)
+                if people.isEmpty {
+                    Text(String(localized: "Nobody from these destinations can be tagged yet."))
+                        .ffType(.caption)
+                        .foregroundStyle(theme.textSecondary)
+                } else {
+                    ForEach(people) { person in
+                        Button {
+                            if tagged.contains(person.userId) {
+                                tagged.remove(person.userId)
+                            } else {
+                                tagged.insert(person.userId)
+                            }
+                        } label: {
+                            HStack(spacing: 10) {
+                                FFAvatar(
+                                    monogram: String(person.handle.prefix(2)).uppercased(),
+                                    size: 32,
+                                    photoURL: person.avatar?.url
+                                )
+                                Text(person.atHandle)
+                                    .ffType(.rowTitle)
+                                    .foregroundStyle(theme.text)
+                                Spacer(minLength: 8)
+                                Image(systemName: tagged.contains(person.userId) ? "checkmark.circle.fill" : "circle")
+                                    .foregroundStyle(tagged.contains(person.userId) ? theme.mossText : theme.textFaint)
+                            }
                         }
-                    }
-                } label: {
-                    HStack {
-                        Text(verbatim: selected?.listTitle ?? String(localized: "Choose a fight"))
-                            .ffType(.rowTitle)
-                            .foregroundStyle(theme.text)
-                        Spacer(minLength: 8)
-                        Image(systemName: "chevron.up.chevron.down")
-                            .font(.system(size: 12, weight: .bold))
-                            .foregroundStyle(theme.textFaint)
+                        .buttonStyle(FFHapticPlainStyle())
                     }
                 }
-                .buttonStyle(FFHapticPlainStyle())
             }
         }
     }
@@ -314,20 +496,34 @@ struct FeedComposeSheet: View {
 struct FightPostsSection: View {
     let fightID: UUID
 
+    @EnvironmentObject private var model: AppModel
     @EnvironmentObject private var session: SessionStore
     @Environment(\.ffTheme) private var theme
     @StateObject private var fightFeed = FeedStore()
+    @State private var destinations: Set<FeedPostDestination>
+    @State private var tagged: Set<UUID> = []
+    @State private var people: [FitFightFeedPerson] = []
+
+    init(fightID: UUID) {
+        self.fightID = fightID
+        _destinations = State(initialValue: [.fight(fightID)])
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: theme.space.cardGap) {
-            FightPostComposer(fightID: fightID)
+            FeedDestinationPicker(fights: postableFights(model.fights), destinations: $destinations)
+            FeedTagPicker(people: people, tagged: $tagged)
+            FightPostComposer(
+                destinations: Array(destinations),
+                taggedUserIDs: Array(tagged)
+            )
             if let error = fightFeed.error, !error.isEmpty {
                 Text(error)
                     .ffType(.caption)
                     .foregroundStyle(theme.emberText)
             }
             if fightFeed.posts.isEmpty && !fightFeed.isLoading {
-                Text(String(localized: "Be the first to post a photo, video, or note."))
+                Text(String(localized: "Be the first to post."))
                     .ffType(.caption)
                     .foregroundStyle(theme.textSecondary)
             }
@@ -339,12 +535,37 @@ struct FightPostsSection: View {
         .task {
             await fightFeed.load(session: session, fightID: fightID)
         }
+        .task(id: destinationKey) {
+            await loadPeople()
+        }
+    }
+
+    private var destinationKey: String {
+        destinations.map { destination in
+            destination.type + (destination.fightId?.uuidString ?? "")
+        }.sorted().joined(separator: ",")
+    }
+
+    private func loadPeople() async {
+        do {
+            let token = try await session.freshAccessToken()
+            let result = try await FitFightAPI().feedPeople(
+                main: destinations.contains(.main),
+                fightIDs: destinations.compactMap(\.fightId),
+                accessToken: token
+            )
+            people = result.people
+            tagged = tagged.intersection(Set(people.map(\.userId)))
+        } catch {
+            if Task.isCancelled || error is CancellationError { return }
+            fightFeed.error = error.localizedDescription
+        }
     }
 }
 
 struct FightPostComposer: View {
-    let fightID: UUID
-    var kind: FeedComposeKind?
+    let destinations: [FeedPostDestination]
+    var taggedUserIDs: [UUID] = []
     var onPosted: (() -> Void)? = nil
 
     @EnvironmentObject private var session: SessionStore
@@ -356,9 +577,6 @@ struct FightPostComposer: View {
     @State private var videoItem: PhotosPickerItem?
     @State private var images: [UIImage] = []
     @State private var videoURL: URL?
-
-    private var allowsPhotos: Bool { kind == nil || kind == .photo }
-    private var allowsVideo: Bool { kind == nil || kind == .video }
 
     var body: some View {
         FFCard {
@@ -401,28 +619,24 @@ struct FightPostComposer: View {
                     }
                 }
                 HStack {
-                    if allowsPhotos {
-                        PhotosPicker(
-                            selection: $photoItems,
-                            maxSelectionCount: max(0, 4 - images.count),
-                            matching: .images
-                        ) {
-                            Label(String(localized: "Photo"), systemImage: "photo")
-                                .ffType(.label)
-                                .foregroundStyle(theme.mossText)
-                        }
-                        .buttonStyle(FFHapticPlainStyle())
-                        .disabled(images.count >= 4 || videoURL != nil)
+                    PhotosPicker(
+                        selection: $photoItems,
+                        maxSelectionCount: max(0, 4 - images.count),
+                        matching: .images
+                    ) {
+                        Label(String(localized: "Photo"), systemImage: "photo")
+                            .ffType(.label)
+                            .foregroundStyle(theme.mossText)
                     }
-                    if allowsVideo {
-                        PhotosPicker(selection: $videoItem, matching: .videos) {
-                            Label(String(localized: "Video"), systemImage: "video")
-                                .ffType(.label)
-                                .foregroundStyle(theme.mossText)
-                        }
-                        .buttonStyle(FFHapticPlainStyle())
-                        .disabled(videoURL != nil || !images.isEmpty)
+                    .buttonStyle(FFHapticPlainStyle())
+                    .disabled(images.count >= 4 || videoURL != nil)
+                    PhotosPicker(selection: $videoItem, matching: .videos) {
+                        Label(String(localized: "Video"), systemImage: "video")
+                            .ffType(.label)
+                            .foregroundStyle(theme.mossText)
                     }
+                    .buttonStyle(FFHapticPlainStyle())
+                    .disabled(videoURL != nil || !images.isEmpty)
                     Spacer()
                     FFButton(
                         title: feed.isSaving ? String(localized: "Posting…") : String(localized: "Post"),
@@ -445,7 +659,7 @@ struct FightPostComposer: View {
 
     private var canPost: Bool {
         let note = bodyText.trimmingCharacters(in: .whitespacesAndNewlines)
-        return !feed.isSaving && (!note.isEmpty || !images.isEmpty || videoURL != nil)
+        return !feed.isSaving && !destinations.isEmpty && (!note.isEmpty || !images.isEmpty || videoURL != nil)
     }
 
     private func loadPhotos(_ items: [PhotosPickerItem]) async {
@@ -484,7 +698,14 @@ struct FightPostComposer: View {
 
     private func submit() async {
         let note = bodyText.trimmingCharacters(in: .whitespacesAndNewlines)
-        if await feed.create(session: session, fightID: fightID, body: note, images: images, videoURL: videoURL) {
+        if await feed.create(
+            session: session,
+            destinations: destinations,
+            taggedUserIDs: taggedUserIDs,
+            body: note,
+            images: images,
+            videoURL: videoURL
+        ) {
             bodyText = ""
             images = []
             clearVideo()
@@ -519,7 +740,7 @@ struct FightPostCard: View {
                                 .ffType(.rowTitle)
                                 .foregroundStyle(theme.text)
                             if showFight {
-                                Text(verbatim: post.fightName)
+                                Text(verbatim: post.isMain ? String(localized: "Main") : post.fightName)
                                     .ffType(.micro)
                                     .foregroundStyle(theme.mossText)
                             } else {
@@ -553,6 +774,11 @@ struct FightPostCard: View {
                             .frame(width: 32, height: 32)
                     }
                     .buttonStyle(FFHapticPlainStyle())
+                }
+                if !post.tags.isEmpty {
+                    Text(post.tags.map { "@\($0.handle)" }.joined(separator: " "))
+                        .ffType(.caption)
+                        .foregroundStyle(theme.mossText)
                 }
                 if !post.body.isEmpty {
                     Text(post.body)
@@ -589,6 +815,7 @@ struct FightPostCard: View {
                         .ffType(.micro)
                         .foregroundStyle(theme.textFaint)
                 }
+                FightPostEngagement(post: post)
             }
         }
     }
