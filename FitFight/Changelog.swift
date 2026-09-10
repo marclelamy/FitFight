@@ -50,6 +50,13 @@ enum Changelog {
             year: 2026,
             month: 9,
             day: 9,
+            notes: "Bugs & requests now lets you post as soon as the title and details each have at least one character."
+        ),
+        ReleaseNote(
+            version: "1.0.0",
+            year: 2026,
+            month: 9,
+            day: 9,
             notes: "Fight standings update as soon as your Steps sync, instead of waiting about 30 seconds."
         ),
         ReleaseNote(
