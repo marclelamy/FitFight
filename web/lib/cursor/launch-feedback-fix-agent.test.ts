@@ -86,6 +86,9 @@ test("starts a develop-branch cloud agent with the post and comments", async () 
     assert.match(prompt, /@dorian/);
     assert.match(prompt, /Watch catches up/);
     assert.match(prompt, /PR into develop/);
+    assert.match(prompt, /feedback_post: dddddddd-dddd-4ddd-8ddd-dddddddddddd/);
+    assert.match(prompt, /Leave Status as Building/);
+    assert.match(prompt, /Do not set Status to Done/);
   } finally {
     restoreEnv("CURSOR_API_KEY", previous);
   }

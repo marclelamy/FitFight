@@ -1,5 +1,6 @@
 import { ApiError, ERROR_CODES } from "@/lib/http";
 import type { FeedbackPostDetail } from "@/lib/types/feedback/feedback";
+import { feedbackPostNotionMarkerPrefix } from "@/lib/types/notion/product-backlog";
 import {
   cursorApiKeySchema,
   cursorCreateAgentResponseSchema,
@@ -34,6 +35,13 @@ export async function launchFeedbackFixAgent(
     "- Cloud only. Do not ask Marc to open Xcode or a home Mac.",
     "- Do not create or call app-facing Postgres RPCs.",
     "- Do not run destructive database commands.",
+    "",
+    "Notion Product Backlog (Blend HQ):",
+    "- New app feedback already creates a P0 Inbox row (Product FitFight, Source App feedback).",
+    `- Find that row by Notes containing \`${feedbackPostNotionMarkerPrefix}${detail.post.id}\`.`,
+    "- Status options are Inbox, Triaged, Ready, Building, Done, Wont.",
+    "- After you open the PR, if you can reach Notion: add the PR URL to Notes. Leave Status as Building, or set it to Building if it is still Inbox.",
+    "- Do not set Status to Done. The work is not shipped until Marc merges. Skip Notion if no row exists. Do not create a second row.",
     "",
     "Use the post and comments as the spec.",
     "",

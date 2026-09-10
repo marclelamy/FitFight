@@ -134,9 +134,12 @@ That flag is true only for the FitFight admin: email `marc@marclamy.com`, userna
 In may store no email, so the username match is required on staging. Admin-only
 `POST /api/v1/feedback/{postID}/fix-agent` starts a Cursor cloud agent on
 `develop` with the post and comments via `https://api.cursor.com/v1/agents` and
-returns `{ agent_id, agent_url }`. Vercel holds `CURSOR_API_KEY`. A missing key
-returns `503 config` to the admin and does not affect other people. The key never
-belongs in iOS, git, or chat.
+returns `{ agent_id, agent_url }`. After a successful start it best-effort moves
+the matching Product Backlog row (Notes contain `feedback_post: {id}`) from Inbox
+to Building. The agent prompt tells it to add the PR URL to Notes and to leave
+Status as Building, not Done. Done waits until Marc merges. Vercel holds
+`CURSOR_API_KEY`. A missing key returns `503 config` to the admin and does not
+affect other people. The key never belongs in iOS, git, or chat.
 
 Native Sign in with Apple sends its short-lived authorization code to authenticated
 `POST /api/v1/auth/apple`. The server exchanges it with Apple, checks the returned Apple
