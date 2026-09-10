@@ -114,7 +114,7 @@ enum HealthKitActivityAggregates {
         }
 
         do {
-            let samples = try await workouts(
+            let samples = try await Self.workouts(
                 store: store,
                 start: start,
                 end: context.serverNow
@@ -296,7 +296,8 @@ enum HealthKitActivityAggregates {
                 durationSeconds: max(0, workout.duration),
                 distanceM: workoutDistanceMeters(workout),
                 energyKcal: quantityValue(
-                    workout.statistics(for: HKQuantityType(.activeEnergyBurned))?.sumQuantity(),
+                    HKQuantityType.quantityType(forIdentifier: .activeEnergyBurned)
+                        .flatMap { workout.statistics(for: $0)?.sumQuantity() },
                     unit: .kilocalorie()
                 ),
                 effort: workoutEffort(workout)
@@ -333,18 +334,19 @@ enum HealthKitActivityAggregates {
                       let value = quantityValue(
                         workout.statistics(for: type)?.averageQuantity()
                             ?? workout.statistics(for: type)?.sumQuantity(),
-                        unit: .count()
+                        unit: .appleEffortScore()
                       )
                 else { continue }
                 return value
             }
         }
         guard let type = HKQuantityType.quantityType(forIdentifier: .physicalEffort) else { return nil }
-        return quantityValue(
-            workout.statistics(for: type)?.averageQuantity()
-                ?? workout.statistics(for: type)?.sumQuantity(),
-            unit: .applePhysicalEffortRating()
+        let quantity = workout.statistics(for: type)?.averageQuantity()
+            ?? workout.statistics(for: type)?.sumQuantity()
+        let metabolic = HKUnit.kilocalorie().unitDivided(
+            by: HKUnit.gramUnit(with: .kilo).unitMultiplied(by: .hour())
         )
+        return quantityValue(quantity, unit: metabolic) ?? quantityValue(quantity, unit: .count())
     }
 
     private static func activityTypeName(_ type: HKWorkoutActivityType) -> String {
