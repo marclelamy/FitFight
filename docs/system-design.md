@@ -442,7 +442,7 @@ A Fight rule has three independent, readable parts:
 
 - **Measure**: Steps, distance, active minutes, workouts, or another supported activity value
 - **Score**: total, average per day, days reaching a value, or another reviewed calculation
-- **Result**: highest wins, reach a value, or proportional sharing
+- **Result**: highest wins, last loses, reach a value, ranking zones, or proportional sharing
 
 This avoids a separate `daily_steps`, `daily_distance`, `average_daily_steps`, and `average_daily_distance` implementation. It also avoids an arbitrary formula language: the server owns a compatibility list of approved Measure and Score combinations.
 
@@ -768,7 +768,9 @@ The scoring engine is pure and versioned:
 
 ### Result rules
 
-- **Highest**: the highest Score receives the winning outcome; define a tie rule before launch (recommended: split evenly, with integer remainder handled deterministically). The current Steps-only API value `highest_total` is the v1 name for this rule.
+- **Highest**: the highest Score receives the winning outcome; an optional `count` marks a podium of the top N. Define a tie rule before launch (recommended: split evenly, with integer remainder handled deterministically). The current Steps-only API value `highest_total` is the v1 name for this rule.
+- **Last loses**: the lowest-ranked member (or last N) is on the hook. Higher Scores still rank higher; this only assigns the losing outcome. Use it for a group Fight where only last place pays, such as a Station F *tournée*.
+- **Ranking zones**: named rank bands with `win`, `lose`, or `safe` outcomes, the way a European league table colors qualification and relegation rows. Standings chrome follows these zones.
 - **Proportional**: divide the pot by each member's share of the Score when that Measure and Score combination permits proportional comparison; specify zero-score behavior and integer rounding.
 - **Reach**: succeed by reaching the stated Score. Depending on the Score rule, that can mean total Steps, average Steps per day, five successful days, or every Fight day. Do not compare or rank percentage-of-target unless a future rule explicitly defines and constrains that behavior.
 
@@ -1058,7 +1060,7 @@ Provider integrations require sandbox fixtures and a replay harness. Never make 
 - The creator's current IANA time zone is captured automatically for the Fight.
 - A Fight may start immediately without waiting or be scheduled. Invitations created before start remain joinable during `live`; late members receive the common full window from accessible history, and their acceptance recomputes lineup-dependent ranks, Proportional shares, and informational stakes. New invitations cannot be created after start.
 - Personal targets lock when an accepted membership or Fight locks; a late member selects and locks theirs at acceptance. Another person never sets a member's final target.
-- Result rules are Highest, Proportional, and Reach. The current Steps-only API represents Highest as `highest_total` and Hit Your Goal as `hit_your_goal` for backward compatibility.
+- Result rules are Highest, Last loses, Ranking zones, Proportional, and Reach. Production still ships only Highest. The current Steps-only API represents Highest as `highest_total` and Hit Your Goal as `hit_your_goal` for backward compatibility. Last loses, ranking zones, and optional `highest.count` stay in [`fight-rules.md`](fight-rules.md) until product moves them up.
 - Final-sync grace is 24 hours, with immediate/end reminders, early completion when all sources are complete, and verified-data-plus-incomplete fallback.
 - Health/activity history lives in `private`; shared Fight products live in RLS-protected `public`. Canonical history has no automatic age-based deletion.
 - The monorepo uses Apache-2.0, with FitFight identity protected separately by trademark.
