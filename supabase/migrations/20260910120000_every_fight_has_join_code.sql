@@ -25,7 +25,7 @@ $$;
 do $$
 declare
   fight record;
-  series_id uuid;
+  new_series_id uuid;
 begin
   for fight in
     select id, owner_id, name, action_text, time_zone, starts_at, ends_at
@@ -54,30 +54,30 @@ begin
       fight.time_zone,
       fight.id
     )
-    returning id into series_id;
+    returning id into new_series_id;
 
     update public.fights
-    set series_id = series_id
+    set series_id = new_series_id
     where id = fight.id;
 
     insert into public.fight_series_members (series_id, user_id, state)
-    select series_id, user_id, state
+    select new_series_id, user_id, state
     from public.fight_members
     where fight_id = fight.id
       and state in ('accepted', 'deferred')
     on conflict (series_id, user_id) do nothing;
 
     insert into public.fight_series_members (series_id, user_id, state)
-    values (series_id, fight.owner_id, 'accepted')
+    values (new_series_id, fight.owner_id, 'accepted')
     on conflict (series_id, user_id) do nothing;
   end loop;
 
-  for series_id in
+  for new_series_id in
     select id from public.fight_series where join_code is null
   loop
     update public.fight_series
     set join_code = pg_temp.random_join_code()
-    where id = series_id;
+    where id = new_series_id;
   end loop;
 end;
 $$;
