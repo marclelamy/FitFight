@@ -23,6 +23,19 @@ struct FFRefreshConfig {
     var action: @MainActor () async -> Void
 }
 
+/// Centered gold spinner for screens waiting on the server.
+struct FFLoadingBlock: View {
+    @Environment(\.ffTheme) private var theme
+
+    var body: some View {
+        ProgressView()
+            .tint(theme.gold)
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 28)
+            .accessibilityLabel(String(localized: "Loading"))
+    }
+}
+
 /// Spinner plus the current sync sentence. Gold is progress.
 struct FFRefreshStatus: View {
     let message: String

@@ -1,6 +1,9 @@
 {
   "sourceLanguage" : "en",
   "strings" : {
+    "Loading" : {"localizations":{"fr":{"stringUnit":{"state":"translated","value":"Chargement"}}}},
+    "Joining…" : {"localizations":{"fr":{"stringUnit":{"state":"translated","value":"Rejoindre…"}}}},
+    "Join shows a spinner while public fights load. Opening one stays on Join with a Join button, not the live fight and its step refresh." : {"localizations":{"fr":{"stringUnit":{"state":"translated","value":"Rejoindre affiche une roue pendant le chargement des défis publics. En ouvrir un reste sur Rejoindre, avec un bouton Rejoindre, pas le défi en cours ni le rafraîchissement des pas."}}}},
     "Try again" : {"localizations":{"fr":{"stringUnit":{"state":"translated","value":"Réessayer"}}}},
     "Refer a friend" : {"localizations":{"fr":{"stringUnit":{"state":"translated","value":"Parrainer un ami"}}}},
     "Share fight" : {"localizations":{"fr":{"stringUnit":{"state":"translated","value":"Partager le défi"}}}},

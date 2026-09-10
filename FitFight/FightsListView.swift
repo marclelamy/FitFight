@@ -11,7 +11,7 @@ struct FightsListView: View {
             FFScreenTitle(title: String(localized: "Fights"), subtitle: subtitle)
                 .padding(.bottom, 6)
 
-            if isEmpty {
+            if isEmpty, !model.isRefreshingFights {
                 FFEmptyState(
                     systemImage: "trophy",
                     title: String(localized: "No fights yet"),

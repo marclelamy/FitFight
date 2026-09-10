@@ -52,10 +52,23 @@ struct FightDetailView: View {
     }
 
     var body: some View {
-        FFScreen(top: AnyView(nav), refresh: fightsRefresh) {
+        FFScreen(top: AnyView(nav), refresh: pendingJoin ? nil : fightsRefresh) {
             if pendingJoin {
-                invitedHero
-                    .id(fightsRevision)
+                JoinFightPreview(
+                    fight: fight,
+                    joining: model.isJoiningFight,
+                    onJoinNow: { Task { await join(start: "now") } },
+                    onJoinNext: { Task { await join(start: "next") } },
+                    onDismiss: {
+                        Task {
+                            await model.declineFight(id: fight.id)
+                            if (model.createError ?? "").isEmpty {
+                                model.openFightID = nil
+                            }
+                        }
+                    }
+                )
+                .id(fightsRevision)
             } else {
                 FFSegmented(items: FightDetailPane.allCases, selection: $pane) { item in
                     item.title
@@ -190,112 +203,6 @@ struct FightDetailView: View {
             (mine.person.initials, String(localized: "You"), model.formatScore(mine.score, metric: fight.metric), mine.score / peak),
             (theirs.person.initials, theirs.person.name, model.formatScore(theirs.score, metric: fight.metric), theirs.score / peak)
         )
-    }
-
-    private var invitedHero: some View {
-        FFCard(padding: 24) {
-            VStack(spacing: 0) {
-                FFTag(fight.metric.eyebrow)
-                    .padding(.bottom, 12)
-                Text(fight.listTitle)
-                    .ffType(.title)
-                    .foregroundStyle(theme.text)
-                    .multilineTextAlignment(.center)
-                    .padding(.bottom, 12)
-                if let pitch = fight.invitePitch {
-                    Text(pitch)
-                        .ffType(.body)
-                        .foregroundStyle(theme.text)
-                        .multilineTextAlignment(.center)
-                        .padding(.bottom, 8)
-                }
-                Text(
-                    String(
-                        localized: "fight.duration-rule",
-                        defaultValue: "\(fight.durationLabel) · Most steps wins"
-                    )
-                )
-                    .ffType(.caption)
-                    .foregroundStyle(theme.textSecondary)
-                    .multilineTextAlignment(.center)
-                    .padding(.bottom, 8)
-                Text(fight.deadlineLabel)
-                    .ffType(.caption)
-                    .fontWeight(.heavy)
-                    .foregroundStyle(theme.gold)
-                    .multilineTextAlignment(.center)
-                    .padding(.bottom, fight.hasAction && fight.actionText != fight.listTitle ? 8 : 22)
-                if fight.hasAction, fight.actionText != fight.listTitle {
-                    Text(fight.actionText)
-                        .ffType(.body)
-                        .foregroundStyle(theme.text)
-                        .multilineTextAlignment(.center)
-                        .fixedSize(horizontal: false, vertical: true)
-                        .padding(.bottom, 22)
-                }
-                if fight.offersJoinNext {
-                    Text(
-                        String(
-                            localized: "fight.join-now-copy",
-                            defaultValue: "This round started \(joinRoundStarted). Join now and your steps count from that date."
-                        )
-                    )
-                    .ffType(.caption)
-                    .foregroundStyle(theme.textSecondary)
-                    .multilineTextAlignment(.center)
-                    .padding(.bottom, 8)
-                    Text(
-                        String(
-                            localized: "fight.join-next-copy",
-                            defaultValue: "Or start next round, from \(joinRoundNext)."
-                        )
-                    )
-                    .ffType(.caption)
-                    .foregroundStyle(theme.textSecondary)
-                    .multilineTextAlignment(.center)
-                    .padding(.bottom, 22)
-                    FFScreenCTA(title: String(localized: "Join this round")) {
-                        Task { await join(start: "now") }
-                    }
-                    FFButton(
-                        title: String(localized: "Start next round"),
-                        kind: .ghost,
-                        fullWidth: true
-                    ) {
-                        Task { await join(start: "next") }
-                    }
-                    .padding(.top, 8)
-                } else {
-                    FFScreenCTA(title: fight.pendingJoin ? String(localized: "Join fight") : String(localized: "Accept challenge")) {
-                        Task { await join(start: "now") }
-                    }
-                }
-                FFButton(
-                    title: fight.pendingJoin ? String(localized: "Not now") : String(localized: "Decline"),
-                    kind: .ghost,
-                    fullWidth: true
-                ) {
-                    Task {
-                        await model.declineFight(id: fight.id)
-                        if (model.createError ?? "").isEmpty {
-                            model.openFightID = nil
-                        }
-                    }
-                }
-                .padding(.top, 8)
-                if let error = model.createError, !error.isEmpty {
-                    Text(error)
-                        .ffType(.caption)
-                        .foregroundStyle(theme.emberText)
-                        .padding(.top, 10)
-                }
-            }
-            .frame(maxWidth: .infinity)
-        }
-    }
-
-    private var joinRoundStarted: String {
-        Fight.deadlineStamp(fight.windowStart)
     }
 
     private var joinRoundNext: String {
@@ -471,5 +378,132 @@ struct FightDetailView: View {
                 }
             }
         }
+    }
+}
+
+/// Title, rules, and Join — used before someone is in the fight. Not the live Stats view.
+struct JoinFightPreview: View {
+    let fight: Fight
+    var joining: Bool
+    let onJoinNow: () -> Void
+    let onJoinNext: () -> Void
+    let onDismiss: () -> Void
+
+    @EnvironmentObject private var model: AppModel
+    @Environment(\.ffTheme) private var theme
+
+    var body: some View {
+        FFCard(padding: 24) {
+            VStack(spacing: 0) {
+                FFTag(fight.metric.eyebrow)
+                    .padding(.bottom, 12)
+                Text(fight.listTitle)
+                    .ffType(.title)
+                    .foregroundStyle(theme.text)
+                    .multilineTextAlignment(.center)
+                    .padding(.bottom, 12)
+                if let pitch = fight.invitePitch {
+                    Text(pitch)
+                        .ffType(.body)
+                        .foregroundStyle(theme.text)
+                        .multilineTextAlignment(.center)
+                        .padding(.bottom, 8)
+                }
+                Text(
+                    String(
+                        localized: "fight.duration-rule",
+                        defaultValue: "\(fight.durationLabel) · Most steps wins"
+                    )
+                )
+                    .ffType(.caption)
+                    .foregroundStyle(theme.textSecondary)
+                    .multilineTextAlignment(.center)
+                    .padding(.bottom, 8)
+                Text(fight.deadlineLabel)
+                    .ffType(.caption)
+                    .fontWeight(.heavy)
+                    .foregroundStyle(theme.gold)
+                    .multilineTextAlignment(.center)
+                    .padding(.bottom, fight.hasAction && fight.actionText != fight.listTitle ? 8 : 22)
+                if fight.hasAction, fight.actionText != fight.listTitle {
+                    Text(fight.actionText)
+                        .ffType(.body)
+                        .foregroundStyle(theme.text)
+                        .multilineTextAlignment(.center)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .padding(.bottom, 22)
+                }
+                if fight.offersJoinNext {
+                    Text(
+                        String(
+                            localized: "fight.join-now-copy",
+                            defaultValue: "This round started \(joinRoundStarted). Join now and your steps count from that date."
+                        )
+                    )
+                    .ffType(.caption)
+                    .foregroundStyle(theme.textSecondary)
+                    .multilineTextAlignment(.center)
+                    .padding(.bottom, 8)
+                    Text(
+                        String(
+                            localized: "fight.join-next-copy",
+                            defaultValue: "Or start next round, from \(joinRoundNext)."
+                        )
+                    )
+                    .ffType(.caption)
+                    .foregroundStyle(theme.textSecondary)
+                    .multilineTextAlignment(.center)
+                    .padding(.bottom, 22)
+                    FFScreenCTA(
+                        title: joining ? String(localized: "Joining…") : String(localized: "Join this round"),
+                        busy: joining
+                    ) {
+                        onJoinNow()
+                    }
+                    FFButton(
+                        title: String(localized: "Start next round"),
+                        kind: .ghost,
+                        enabled: !joining,
+                        fullWidth: true
+                    ) {
+                        onJoinNext()
+                    }
+                    .padding(.top, 8)
+                } else {
+                    FFScreenCTA(
+                        title: joining
+                            ? String(localized: "Joining…")
+                            : (fight.pendingJoin ? String(localized: "Join fight") : String(localized: "Accept challenge")),
+                        busy: joining
+                    ) {
+                        onJoinNow()
+                    }
+                }
+                FFButton(
+                    title: fight.pendingJoin ? String(localized: "Not now") : String(localized: "Decline"),
+                    kind: .ghost,
+                    enabled: !joining,
+                    fullWidth: true
+                ) {
+                    onDismiss()
+                }
+                .padding(.top, 8)
+                if let error = model.createError, !error.isEmpty {
+                    Text(error)
+                        .ffType(.caption)
+                        .foregroundStyle(theme.emberText)
+                        .padding(.top, 10)
+                }
+            }
+            .frame(maxWidth: .infinity)
+        }
+    }
+
+    private var joinRoundStarted: String {
+        Fight.deadlineStamp(fight.windowStart)
+    }
+
+    private var joinRoundNext: String {
+        Fight.deadlineStamp(fight.windowEnd)
     }
 }
