@@ -29,6 +29,13 @@ enum Changelog {
             year: 2026,
             month: 9,
             day: 9,
+            notes: "Slide to start keeps vibrating until you let go, and the pulses speed up as you drag farther."
+        ),
+        ReleaseNote(
+            version: "1.0.0",
+            year: 2026,
+            month: 9,
+            day: 9,
             notes: "An outdated beta only shows an update dialog. You can’t use FitFight until you install the latest version."
         ),
         ReleaseNote(
