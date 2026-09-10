@@ -24,7 +24,7 @@ export default function PrivacyPage() {
       <article className="legal-content">
         <p className="eyebrow">YOUR DATA, IN PLAIN LANGUAGE</p>
         <h1>Privacy Policy</h1>
-        <p className="legal-updated">Effective 7 September 2026</p>
+          <p className="legal-updated">Effective 10 September 2026</p>
         <p className="legal-intro">
           FitFight lets named participants compete on who records the most Steps during
           a private Fight. This policy explains the data used by the FitFight iPhone app
