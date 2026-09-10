@@ -16,7 +16,7 @@ struct YouView: View {
     @State private var photoError = ""
 
     var body: some View {
-        FFScreen {
+        FFScreen(refresh: fightsRefresh) {
             profile
             if session.isSignedIn, let authError = session.authError {
                 FFNotice(text: authError, tone: .ember, systemImage: "exclamationmark.triangle")
@@ -70,6 +70,16 @@ struct YouView: View {
         } message: {
             Text("This permanently deletes your profile, photos, uploaded Steps, referrals, invitations, fights you created, and bugs or requests you posted; removes you from other fights; and signs you out. This can’t be undone.")
         }
+    }
+
+    private var fightsRefresh: FFRefreshConfig {
+        FFRefreshConfig(
+            isRefreshing: model.isRefreshingFights,
+            message: model.refreshStatusText,
+            action: {
+                await model.refreshFights(session: session, steps: steps, trigger: .manual)
+            }
+        )
     }
 
     @ViewBuilder

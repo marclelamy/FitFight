@@ -43,17 +43,24 @@ function createDatabaseStub(respond: (query: string) => unknown[]) {
   return { database, queries };
 }
 
-test("feedback schemas require a real bug or feature write-up", () => {
+test("feedback schemas accept a one-character title and details", () => {
   const created = createFeedbackPostRequestSchema.parse({
     kind: "feature",
-    title: "Show weekly totals",
-    body: "A weekly Steps total on You would make it easier to plan a fight.",
+    title: "H",
+    body: "A",
   });
   assert.equal(created.kind, "feature");
+  assert.equal(created.title, "H");
+  assert.equal(created.body, "A");
   assert.throws(() => createFeedbackPostRequestSchema.parse({
     kind: "feature",
-    title: "Hi",
+    title: " ",
     body: "A weekly Steps total on You would make it easier to plan a fight.",
+  }));
+  assert.throws(() => createFeedbackPostRequestSchema.parse({
+    kind: "feature",
+    title: "Show weekly totals",
+    body: " ",
   }));
   assert.throws(() => createFeedbackPostRequestSchema.parse({
     kind: "idea",

@@ -6,8 +6,8 @@ export const feedbackKindSchema = z.enum(feedbackKindValues);
 export const createFeedbackPostRequestSchema = z
   .object({
     kind: feedbackKindSchema,
-    title: z.string().trim().min(8).max(80),
-    body: z.string().trim().min(20).max(2000),
+    title: z.string().trim().min(1).max(80),
+    body: z.string().trim().min(1).max(2000),
   })
   .strict();
 
