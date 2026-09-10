@@ -121,7 +121,7 @@
     "Choose a smaller photo or video." : {"localizations":{"fr":{"stringUnit":{"state":"translated","value":"Choisis une photo ou une vidéo plus petite."}}}},
     "Choose a video under 3 minutes." : {"localizations":{"fr":{"stringUnit":{"state":"translated","value":"Choisis une vidéo de moins de 3 minutes."}}}},
     "Connect Apple Health" : {"localizations":{"fr":{"stringUnit":{"state":"translated","value":"Connecter Santé d’Apple"}}}},
-    "FitFight reads your step count to score fights. We’ll ask iPhone for permission next. You can change this later in You." : {"localizations":{"fr":{"stringUnit":{"state":"translated","value":"FitFight lit ton nombre de pas pour comptabiliser les défis. L’iPhone va demander l’autorisation. Tu pourras changer ça plus tard dans Vous."}}}},
+    "FitFight reads your steps and other movement from Apple Health. Fights still use steps. We’ll ask iPhone for permission next. You can change this later in You." : {"localizations":{"fr":{"stringUnit":{"state":"translated","value":"FitFight lit tes pas et d’autres mouvements depuis Santé d’Apple. Les défis utilisent encore les pas. L’iPhone va demander l’autorisation. Tu pourras changer ça plus tard dans Vous."}}}},
     "Connecting…" : {"localizations":{"fr":{"stringUnit":{"state":"translated","value":"Connexion…"}}}},
     "Hide this person" : {"localizations":{"fr":{"stringUnit":{"state":"translated","value":"Masquer cette personne"}}}},
     "Report" : {"localizations":{"fr":{"stringUnit":{"state":"translated","value":"Signaler"}}}},

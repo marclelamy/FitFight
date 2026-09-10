@@ -28,6 +28,13 @@ enum Changelog {
             version: "1.0.0",
             year: 2026,
             month: 9,
+            day: 10,
+            notes: "Apple Health can also sync energy, distance, exercise, stand, flights, and workouts. Fights still use steps only. Other activity stays private on your account."
+        ),
+        ReleaseNote(
+            version: "1.0.0",
+            year: 2026,
+            month: 9,
             day: 9,
             notes: "An outdated beta only shows an update dialog. You can’t use FitFight until you install the latest version."
         ),

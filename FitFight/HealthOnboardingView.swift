@@ -14,7 +14,7 @@ struct HealthOnboardingView: View {
             Text("Connect Apple Health")
                 .ffType(.title)
                 .foregroundStyle(theme.text)
-            Text("FitFight reads your step count to score fights. We’ll ask iPhone for permission next. You can change this later in You.")
+            Text("FitFight reads your steps and other movement from Apple Health. Fights still use steps. We’ll ask iPhone for permission next. You can change this later in You.")
                 .ffType(.body)
                 .foregroundStyle(theme.textSecondary)
                 .lineSpacing(3)

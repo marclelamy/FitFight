@@ -1,8 +1,8 @@
 # Next Apple Health types — plan, not a build
 
-Recorded **10 Sep 2026** after Marc asked which Health stats most people actually have, and whether “Activity” should be next. This is a product plan. Do **not** implement it until the backlog item moves up.
+Recorded **10 Sep 2026** after Marc asked which Health stats most people actually have, and whether “Activity” should be next. Collection of the agreed movement types started the same day. Production scoring stays **Steps**. Do **not** publish a new fight option until Marc picks one after looking at the stored data.
 
-WHOOP, Strava, Exercise Minutes, Stand, and Workout Count stay later. Production scoring stays **Steps** until Marc moves this.
+WHOOP and Strava stay later.
 
 Related: [`sports-health-integrations.md`](sports-health-integrations.md), [`fight-rules.md`](../fight-rules.md), [`system-design.md`](../system-design.md) §7 and §9.
 
@@ -10,7 +10,7 @@ Related: [`sports-health-integrations.md`](sports-health-integrations.md), [`fig
 
 “Activity” is the right instinct. The type to pull is **Active Energy** (Move calories), not the Exercise or Stand rings.
 
-Do **not** start vacuuming Health “so we have it later.” FitFight only syncs types attached to a shipped Measure. Extra types mean a new permission sheet, more privacy copy, more empty-state lies, and data we cannot score yet.
+Marc chose collect-first on 10 Sep 2026: ask Health for the agreed movement types, store them privately, and publish a fight option later. Extra types still mean a new permission sheet and honest privacy copy. Do not show those types on New until the stored data looks usable.
 
 ## What most people actually have
 
@@ -55,7 +55,11 @@ Name it **Active Energy** or **Move** in the product. Do not reuse the old **Act
 - Do not restore the old New-screen metric picker as decoration. A second Measure is real or it stays hidden.
 - Do not invent the Advanced fight-rule form.
 
-## Plan when Marc moves this up
+## Collecting now (10 Sep 2026)
+
+The phone asks Health for the agreed movement types. Users can check or uncheck each one. The same Steps sync request may send private daily totals and workout summaries. Those rows live in `private.healthkit_activity_days` and `private.healthkit_workouts`. They do not change standings, charts, or New.
+
+## Plan when Marc publishes a fight type
 
 ### 1. Lock the Measure
 

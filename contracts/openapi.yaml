@@ -623,6 +623,14 @@ components:
           type: array
           maxItems: 100
           items: { $ref: "#/components/schemas/HealthKitFightAggregate" }
+        activity_days:
+          type: array
+          maxItems: 800
+          items: { $ref: "#/components/schemas/HealthKitActivityDay" }
+        workouts:
+          type: array
+          maxItems: 200
+          items: { $ref: "#/components/schemas/HealthKitWorkout" }
     HealthKitMergedDay:
       type: object
       additionalProperties: false
@@ -642,6 +650,30 @@ components:
         ends_at: { type: string, format: date-time }
         cutoff_at: { type: string, format: date-time }
         steps: { type: integer, minimum: 0, maximum: 2147483647 }
+    HealthKitActivityDay:
+      type: object
+      additionalProperties: false
+      required: [day, starts_at, ends_at, metric, value, unit]
+      properties:
+        day: { type: string, format: date }
+        starts_at: { type: string, format: date-time }
+        ends_at: { type: string, format: date-time }
+        metric: { type: string }
+        value: { type: number, minimum: 0 }
+        unit: { type: string }
+    HealthKitWorkout:
+      type: object
+      additionalProperties: false
+      required: [healthkit_uuid, started_at, ended_at, activity_type, duration_seconds]
+      properties:
+        healthkit_uuid: { type: string, format: uuid }
+        started_at: { type: string, format: date-time }
+        ended_at: { type: string, format: date-time }
+        activity_type: { type: string }
+        duration_seconds: { type: number, minimum: 0 }
+        distance_m: { type: [number, "null"], minimum: 0 }
+        energy_kcal: { type: [number, "null"], minimum: 0 }
+        effort: { type: [number, "null"], minimum: 0 }
     HealthKitStepSyncResult:
       type: object
       additionalProperties: false

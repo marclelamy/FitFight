@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 import type { Sql } from "postgres";
 import { ApiError, ERROR_CODES } from "@/lib/http";
 import { scoreFight } from "@/lib/scoring/score-fight";
+import { MAX_ACTIVITY_LOOKBACK_MS } from "@/lib/types/healthkit/healthkit-activity";
 import { createDatabaseClient } from "@/lib/supabase/postgres";
 import {
   healthKitAggregateFightSchema,
@@ -24,11 +25,20 @@ export async function syncHealthKitAggregates(
         user_id, provider, source_label, connection_route, capabilities,
         status, consent_version, connected_at, last_success_at, complete_through
       ) values (
-        ${userId}, 'apple_health', 'Apple Health', 'healthkit', array['steps']::text[],
+        ${userId}, 'apple_health', 'Apple Health', 'healthkit',
+        array[
+          'steps','active_energy','walking_running_distance','exercise_minutes',
+          'stand_minutes','stand_hours','flights_climbed','cycling_distance',
+          'swimming_distance','move_time_minutes','wheelchair_distance',
+          'wheelchair_pushes','swimming_strokes','rowing_distance','paddle_distance',
+          'skating_distance','cross_country_ski_distance','downhill_snow_distance',
+          'workout_count','workout_time','walk_run_workout_distance'
+        ]::text[],
         'healthy', 1, now(), now(), ${input.complete_through}
       )
       on conflict (user_id, provider, connection_route) do update
       set status = 'healthy', revoked_at = null, last_success_at = now(),
+        capabilities = excluded.capabilities,
         complete_through = greatest(
           coalesce(public.data_sources.complete_through, excluded.complete_through),
           excluded.complete_through
@@ -253,6 +263,99 @@ export async function syncHealthKitAggregates(
             fight_id uuid, user_id uuid, rank integer, outcome_minor integer
           )
           where member.fight_id = score.fight_id and member.user_id = score.user_id
+        `;
+      }
+    }
+
+    if (input.activity_days && input.activity_days.length > 0) {
+      const activityRows = input.activity_days.map((day) => ({
+        user_id: userId,
+        source_id: source.id,
+        metric: day.metric,
+        day: day.day,
+        starts_at: day.starts_at,
+        ends_at: day.ends_at,
+        value: day.value,
+        unit: day.unit,
+      }));
+      await sql`
+        insert into private.healthkit_activity_days ${sql(
+          activityRows,
+          "user_id",
+          "source_id",
+          "metric",
+          "day",
+          "starts_at",
+          "ends_at",
+          "value",
+          "unit",
+        )}
+        on conflict (user_id, source_id, metric, day) do update
+        set starts_at = excluded.starts_at,
+          ends_at = excluded.ends_at,
+          value = excluded.value,
+          unit = excluded.unit,
+          updated_at = now()
+      `;
+    }
+
+    if (input.workouts) {
+      const lookback = new Date(
+        Date.parse(input.complete_through) - MAX_ACTIVITY_LOOKBACK_MS,
+      ).toISOString();
+      if (input.workouts.length > 0) {
+        const workoutRows = input.workouts.map((workout) => ({
+          user_id: userId,
+          source_id: source.id,
+          healthkit_uuid: workout.healthkit_uuid,
+          started_at: workout.started_at,
+          ended_at: workout.ended_at,
+          activity_type: workout.activity_type,
+          duration_seconds: workout.duration_seconds,
+          distance_m: workout.distance_m ?? null,
+          energy_kcal: workout.energy_kcal ?? null,
+          effort: workout.effort ?? null,
+        }));
+        await sql`
+          insert into private.healthkit_workouts ${sql(
+            workoutRows,
+            "user_id",
+            "source_id",
+            "healthkit_uuid",
+            "started_at",
+            "ended_at",
+            "activity_type",
+            "duration_seconds",
+            "distance_m",
+            "energy_kcal",
+            "effort",
+          )}
+          on conflict (user_id, healthkit_uuid) do update
+          set source_id = excluded.source_id,
+            started_at = excluded.started_at,
+            ended_at = excluded.ended_at,
+            activity_type = excluded.activity_type,
+            duration_seconds = excluded.duration_seconds,
+            distance_m = excluded.distance_m,
+            energy_kcal = excluded.energy_kcal,
+            effort = excluded.effort,
+            updated_at = now()
+        `;
+        await sql`
+          delete from private.healthkit_workouts
+          where user_id = ${userId}
+            and source_id = ${source.id}
+            and started_at >= ${lookback}
+            and healthkit_uuid <> all(${sql.array(
+              input.workouts.map((workout) => workout.healthkit_uuid),
+            )}::uuid[])
+        `;
+      } else {
+        await sql`
+          delete from private.healthkit_workouts
+          where user_id = ${userId}
+            and source_id = ${source.id}
+            and started_at >= ${lookback}
         `;
       }
     }
