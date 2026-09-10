@@ -161,6 +161,7 @@ struct FFButton: View {
     var kind: FFButtonKind = .primary
     var size: FFButtonSize = .medium
     var enabled: Bool = true
+    var busy: Bool = false
     var fullWidth: Bool = false
     let action: () -> Void
 
@@ -168,17 +169,24 @@ struct FFButton: View {
 
     var body: some View {
         Button(action: action) {
-            Text(title)
-                .ffType(size.font)
-                .foregroundStyle(foreground)
-                .padding(.horizontal, size.padding.x)
-                .padding(.vertical, size.padding.y)
-                .frame(maxWidth: fullWidth ? .infinity : nil)
-                .background(background, in: Capsule())
-                .overlay { if let stroke { Capsule().strokeBorder(stroke, lineWidth: 1) } }
+            HStack(spacing: 8) {
+                if busy {
+                    ProgressView()
+                        .controlSize(.small)
+                        .tint(foreground)
+                }
+                Text(title)
+                    .ffType(size.font)
+            }
+            .foregroundStyle(foreground)
+            .padding(.horizontal, size.padding.x)
+            .padding(.vertical, size.padding.y)
+            .frame(maxWidth: fullWidth ? .infinity : nil)
+            .background(background, in: Capsule())
+            .overlay { if let stroke { Capsule().strokeBorder(stroke, lineWidth: 1) } }
         }
         .buttonStyle(FFPressStyle())
-        .disabled(!enabled)
+        .disabled(!enabled || busy)
     }
 
     private var foreground: Color {

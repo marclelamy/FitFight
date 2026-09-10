@@ -36,6 +36,13 @@ enum Changelog {
             year: 2026,
             month: 9,
             day: 10,
+            notes: "Join shows a spinner while public fights load. Opening one stays on Join with a Join button, not the live fight and its step refresh."
+        ),
+        ReleaseNote(
+            version: "1.0.0",
+            year: 2026,
+            month: 9,
+            day: 10,
             notes: "Pull to refresh shows the sync steps from Fights, a fight, Feed, and You, not only when you open the app."
         ),
         ReleaseNote(
