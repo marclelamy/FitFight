@@ -10,7 +10,7 @@ on:
       - "scripts/check_localizations.py"
       - ".github/workflows/ios-screenshots.yml"
   push:
-    branches: [main, develop]
+    branches: [main, develop, preview]
     paths:
       - "FitFight/**"
       - "FitFight.xcodeproj/**"

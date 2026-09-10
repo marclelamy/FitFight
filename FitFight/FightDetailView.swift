@@ -52,7 +52,7 @@ struct FightDetailView: View {
     }
 
     var body: some View {
-        FFScreen(top: AnyView(nav)) {
+        FFScreen(top: AnyView(nav), refresh: fightsRefresh) {
             if pendingJoin {
                 invitedHero
                     .id(fightsRevision)
@@ -69,14 +69,21 @@ struct FightDetailView: View {
                 }
             }
         }
-        .refreshable {
-            await model.refreshFights(session: session, steps: steps)
-        }
         .onReceive(model.$fights) { _ in
             fightsRevision += 1
         }
         .navigationBarBackButtonHidden(true)
         .toolbar(.hidden, for: .navigationBar)
+    }
+
+    private var fightsRefresh: FFRefreshConfig {
+        FFRefreshConfig(
+            isRefreshing: model.isRefreshingFights,
+            message: model.refreshStatusText,
+            action: {
+                await model.refreshFights(session: session, steps: steps, trigger: .manual)
+            }
+        )
     }
 
     private var you: Standing? { model.youStanding(in: fight) }

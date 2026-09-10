@@ -170,6 +170,7 @@ private func postableFights(_ fights: [Fight]) -> [Fight] {
 struct FeedView: View {
     @EnvironmentObject private var model: AppModel
     @EnvironmentObject private var session: SessionStore
+    @EnvironmentObject private var steps: HealthKitStepsStore
     @EnvironmentObject private var feed: FeedStore
     @Environment(\.ffTheme) private var theme
     @Environment(\.ffStaticRender) private var staticRender
@@ -184,7 +185,7 @@ struct FeedView: View {
     }
 
     var body: some View {
-        FFScreen {
+        FFScreen(refresh: feedRefresh) {
             FFScreenTitle(
                 title: String(localized: "Feed"),
                 subtitle: String(localized: "Share with everyone in your fights, or pick specific fights."),
@@ -221,9 +222,6 @@ struct FeedView: View {
             guard !staticRender else { return }
             await feed.load(session: session, timeline: timeline)
         }
-        .refreshable {
-            await feed.load(session: session, timeline: timeline)
-        }
         .sheet(isPresented: $composing) {
             FeedComposeSheet(initial: [.main])
                 .environmentObject(model)
@@ -232,6 +230,17 @@ struct FeedView: View {
                 .fitFightTheme(theme)
                 .presentationBackground(theme.bg)
         }
+    }
+
+    private var feedRefresh: FFRefreshConfig {
+        FFRefreshConfig(
+            isRefreshing: model.isRefreshingFights,
+            message: model.refreshStatusText,
+            action: {
+                await model.refreshFights(session: session, steps: steps, trigger: .manual)
+                await feed.load(session: session, timeline: timeline)
+            }
+        )
     }
 
     private var composeButton: some View {

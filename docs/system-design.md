@@ -137,7 +137,7 @@ Publishing the schema and RLS policies is acceptable: security must come from au
 Use one local stack, one persistent staging branch, and one production project:
 
 - **Local**: `supabase start` runs Postgres, Auth, and Storage locally. It is not a hosted Supabase environment and costs nothing.
-- **Staging**: GitHub branch `develop`. A long-lived persistent branch of the production Supabase project, also named `develop`, with fake/test Users, stable branch credentials, staging OAuth callbacks, and staging secrets.
+- **Staging**: GitHub branch `develop` for the hosted database and site. TestFlight binaries are cut from GitHub `preview`. A long-lived persistent branch of the production Supabase project, also named `develop`, with fake/test Users, stable branch credentials, staging OAuth callbacks, and staging secrets.
 - **Production**: GitHub branch `main`. The main Supabase project in **US East (North Virginia)** with real Users, production OAuth callbacks, and production secrets.
 
 The persistent branch is still a fully isolated Supabase instance: it has its own project URL, publishable key, secret key, database, Auth users, Storage, secrets, and provider callback URLs. Production data is never copied into it. The branch remains attached to the production project for management, GitHub integration, and schema promotion.

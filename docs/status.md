@@ -18,16 +18,16 @@ Cloud database/iOS checks and staging-device verification are still pending.
 
 ## GitHub vs Supabase (the two pairs)
 
-There are two **git** branches and two **hosted databases**. They line up.
+There are two **hosted databases**. Git uses a promotion train.
 
-| | Testing | Real users / App Store |
-|---|---|---|
-| GitHub | `develop` | `main` |
-| TestFlight | push/merge to `develop` only (optional manual `workflow_dispatch`; no daily cron) | never; `main` does not upload to TestFlight |
-| Supabase | develop project (`zstzbf…`, version line says `staging`) | production (`pvqn…`, version line says `prod`) |
-| What you do | Merge PRs **into `develop`**. Try the app. | Merge `develop` → `main` only when Marc says ship |
+| | Integration | TestFlight | Real users / App Store |
+|---|---|---|---|
+| GitHub | `develop` | `preview` | `main` |
+| TestFlight | no upload | push/merge to `preview` (optional manual `workflow_dispatch` on that branch; no daily cron) | never; `main` does not upload to TestFlight |
+| Supabase | develop project (`zstzbf…`, version line says `staging`) | same staging backend | production (`pvqn…`, version line says `prod`) |
+| What you do | Merge PRs **into `develop`**. | Merge `develop` → `preview` for a TestFlight. | Merge `preview` → `main` only when Marc says ship |
 
-A feature PR is a third git branch. Merge it **into `develop`**. That updates the **staging** database (new SQL) and is the home for later chats.
+A feature PR is another git branch. Merge it **into `develop`**. That updates the **staging** database (new SQL) and is the home for later chats. It does **not** upload TestFlight.
 
 Once configured, Vercel accepts small authenticated Apple Health aggregate requests and receives account-deletion commands. The phone sends Apple's merged Steps total for each exact Fight window, plus merged daily buckets only for the relevant Fight chart days. Create, join, and leave go through the API. Opening the app closes a fight whose days are up. Standings are a comparison of rows already in the database.
 
@@ -50,7 +50,7 @@ The 5 Sep performance changes require the timing-history migration and the backe
 
 Apple Health synchronization requires `FITFIGHT_API_URL=https://staging.fitfight.app` plus Vercel's server-only Supabase URL/secret and pooled `DATABASE_URL`. Fresh Apple sign-in and automatic revocation also require the Vercel Sign in with Apple Team/key/private-key/client-ID values and stable token-encryption key. Configure those first; otherwise sign-in fails visibly. Do not expose schema `private`.
 
-After the backend is configured, merge the feature PR into **`develop`**, not `main`. The staging migration must land before testing the new TestFlight build.
+After the backend is configured, merge the feature PR into **`develop`**, not `main`. The staging migration must land before merging `develop` → `preview` for the TestFlight build.
 
 The 9 Sep Feed destinations change needs `20260909233000_feed_destinations_and_engagement.sql` plus the feed/posts, people, comments, and reactions APIs deployed before the native build. Old `GET /api/v1/feed` still returns only fight-audience posts so installed builds keep decoding.
 
@@ -80,7 +80,7 @@ The native Fight path uses the API to create and join; Apple Health synchronizat
 | Invite participants | Exact username in New for invite-only fights. Joinable fights use a 4-character code and a live list instead. They must have signed in and chosen a username. There is no friendship or friend-request layer. |
 | Apple Health | Installs background delivery at launch, keeps one interrupted opportunity for foreground reconciliation, and shows private capability/sync status under You. It sends Apple's merged cumulative Steps total for each exact active/ending Fight window in one small authenticated request. It does not send raw samples, deletions, per-source totals, device/source metadata, anchors, or archives. |
 | Daily totals | Sends Apple's merged daily buckets only for days relevant to active Fight charts. They are display data, not the source of the Fight score. |
-| Fights list | Every row is titled by the fight name. If there is no title, the loser action is used; older fights still stored as `Steps Fight` show the action the same way. The right-hand number is your gap to the person you are racing, moss when ahead and ember when behind; the days left sit under the title. There is no moss hero — live Fights are all the same size. |
+| Fights list | Every row is titled by the fight name. If there is no title, the loser action is used; older fights still stored as `Steps Fight` show the action the same way. The right-hand number is your gap to the person you are racing, moss when ahead and ember when behind; the days left sit under the title. There is no moss hero — live Fights are all the same size. Pull to refresh stays open with a spinner and the current sync sentence; opening the app shows the same while Steps are read, uploaded, and standings refresh. |
 | Standings | Live scoring uses exact Fight-window HealthKit aggregates, not overlapping whole-day totals. Both phones read the same serving rows. Each standing shows relative sync freshness; ended Fights distinguish exact final-window coverage from the last available Steps. |
 | Fight end | Exact `ends_at` is the final cutoff. Opening the app closes due fights; the protected Vercel cron runs daily if nobody opens it. After finalization, later Steps cannot change the result. |
 | Tabs | Fights, New, Feed, You. The old Requests tab and Design are removed. |

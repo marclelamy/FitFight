@@ -15,6 +15,38 @@ enum FightStatus: String, Codable, Hashable {
     case finished
 }
 
+enum FightRefreshPhase: Equatable {
+    case idle
+    case readingHealth
+    case uploading
+    case updatingFights
+
+    func statusText(line: Int) -> String {
+        let lines: [String]
+        switch self {
+        case .idle:
+            return ""
+        case .readingHealth:
+            lines = [
+                String(localized: "Syncing your step activity…"),
+                String(localized: "Asking Apple Health how far you walked…"),
+            ]
+        case .uploading:
+            lines = [
+                String(localized: "Updating the database…"),
+                String(localized: "Filing your steps where they belong…"),
+            ]
+        case .updatingFights:
+            lines = [
+                String(localized: "Updating the challenges…"),
+                String(localized: "Counting how far you are from your friend…"),
+                String(localized: "Checking whether you’re still ahead…"),
+            ]
+        }
+        return lines[line % lines.count]
+    }
+}
+
 struct Person: Codable, Identifiable, Hashable {
     var id: String
     var name: String
@@ -160,6 +192,12 @@ final class AppModel: ObservableObject {
     @Published var pendingReferralError: String?
     @Published private(set) var isCreatingFight = false
     @Published private(set) var isRefreshingFights = false
+    @Published private(set) var refreshPhase: FightRefreshPhase = .idle
+    @Published private(set) var refreshLine = 0
+
+    var refreshStatusText: String {
+        refreshPhase.statusText(line: refreshLine)
+    }
 
     @Published var you: Person
     @Published var fights: [Fight]
@@ -169,6 +207,7 @@ final class AppModel: ObservableObject {
     private var inviteTokens: [String: String] = [:]
     private var cachedUserID: UUID?
     private var refreshTask: Task<Void, Never>?
+    private var refreshLineTask: Task<Void, Never>?
     private var pendingRefresh: (
         session: SessionStore,
         steps: HealthKitStepsStore,
@@ -309,10 +348,15 @@ final class AppModel: ObservableObject {
             return
         }
         isRefreshingFights = true
+        refreshPhase = .readingHealth
         let work = Task { @MainActor in
             defer {
+                self.refreshLineTask?.cancel()
+                self.refreshLineTask = nil
                 self.refreshTask = nil
                 self.isRefreshingFights = false
+                self.refreshPhase = .idle
+                self.refreshLine = 0
             }
             var current = (session: session, steps: steps, trigger: trigger, requestAccess: requestAccess)
             repeat {
@@ -342,22 +386,51 @@ final class AppModel: ObservableObject {
         let userID = session.authSession?.user.id ?? session.client.auth.currentUser?.id
         let trace = HealthKitSyncTrace(trigger: trigger)
 
-        await steps.refresh(requestAccess: requestAccess, trace: trace)
+        await holdRefreshPhase(.readingHealth) {
+            await steps.refresh(requestAccess: requestAccess, trace: trace)
+        }
         guard (session.authSession?.user.id ?? session.client.auth.currentUser?.id) == userID else {
             trace.fail(.attemptExpired)
             steps.completeAttempt(trace, session: session, userID: userID)
             return
         }
         if session.authSession != nil {
-            await steps.syncToBackend(session: session, trigger: trigger, trace: trace)
+            await holdRefreshPhase(.uploading) {
+                await steps.syncToBackend(session: session, trigger: trigger, trace: trace)
+            }
         }
         guard (session.authSession?.user.id ?? session.client.auth.currentUser?.id) == userID else {
             trace.fail(.attemptExpired)
             steps.completeAttempt(trace, session: session, userID: userID)
             return
         }
-        await refreshFromServer(session: session, trace: trace)
+        await holdRefreshPhase(.updatingFights) {
+            await refreshFromServer(session: session, trace: trace)
+        }
         steps.completeAttempt(trace, session: session, userID: userID)
+    }
+
+    private func holdRefreshPhase(_ phase: FightRefreshPhase, work: () async -> Void) async {
+        refreshPhase = phase
+        refreshLine = 0
+        refreshLineTask?.cancel()
+        refreshLineTask = Task { @MainActor in
+            var line = 0
+            while !Task.isCancelled {
+                do { try await Task.sleep(for: .seconds(1.15)) } catch { return }
+                line += 1
+                self.refreshLine = line
+            }
+        }
+        let start = ContinuousClock.now
+        await work()
+        refreshLineTask?.cancel()
+        refreshLineTask = nil
+        let elapsed = start.duration(to: .now)
+        let minimum = Duration.milliseconds(480)
+        if elapsed < minimum {
+            try? await Task.sleep(for: minimum - elapsed)
+        }
     }
 
     func applyLocalHealthKitScores(_ sync: FitFightHealthKitStepSync) {
