@@ -29,6 +29,13 @@ enum Changelog {
             year: 2026,
             month: 9,
             day: 10,
+            notes: "Fights are public or private. Anyone can join with the code or link. Only public fights show on Join."
+        ),
+        ReleaseNote(
+            version: "1.0.0",
+            year: 2026,
+            month: 9,
+            day: 10,
             notes: "Apple Health can also sync energy, distance, exercise, stand, flights, and workouts. Fights still use steps only. Other activity stays private on your account."
         ),
         ReleaseNote(

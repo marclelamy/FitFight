@@ -20,7 +20,7 @@ enum FitFightAPIError: LocalizedError {
             case "already_member":
                 return String(localized: "That person is already in this fight.")
             case "fight_not_joinable":
-                return String(localized: "This fight is invite-only.")
+                return String(localized: "This fight cannot be joined.")
             case "fight_full":
                 return String(localized: "This fight is full.")
             case "join_rate_limited":
