@@ -52,16 +52,6 @@ export const createFightSchema = z
     if (ends <= starts) {
       ctx.addIssue({ code: z.ZodIssueCode.custom, message: "endsAt must be after startsAt" });
     }
-    const handles = (value.inviteHandles ?? [])
-      .map((handle) => handle.trim())
-      .filter((handle) => handle.length > 0);
-    if (value.visibility === "invite_only" && handles.length === 0) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        path: ["inviteHandles"],
-        message: "Invite-only fights need at least one username",
-      });
-    }
   });
 
 export type CreateFightInput = z.infer<typeof createFightSchema>;
@@ -146,30 +136,25 @@ export async function createFight(userId: string, input: CreateFightInput) {
   }
   const state = initialState({ ...input, inviteHandles: handles });
   const source = await ensureAppleHealthSource(userId, { admin });
-  const needsSeries = input.visibility === "joinable" || input.recurring;
-  let seriesId: string | null = null;
-  if (needsSeries) {
-    const durationSeconds = Math.round((Date.parse(endsAt) - Date.parse(startsAt)) / 1000);
-    const joinCode = input.visibility === "joinable" ? await allocateJoinCode(admin) : null;
-    const { data: series, error: seriesError } = await admin
-      .from("fight_series")
-      .insert({
-        owner_id: userId,
-        join_code: joinCode,
-        visibility: input.visibility,
-        recurring: input.recurring,
-        duration_seconds: durationSeconds,
-        name: stored.name,
-        action_text: stored.actionText,
-        time_zone: input.timeZone,
-      })
-      .select("id")
-      .single();
-    if (seriesError || !series) {
-      throw new ApiError(500, ERROR_CODES.db_error, "Could not create fight series");
-    }
-    seriesId = series.id as string;
+  const durationSeconds = Math.round((Date.parse(endsAt) - Date.parse(startsAt)) / 1000);
+  const { data: series, error: seriesError } = await admin
+    .from("fight_series")
+    .insert({
+      owner_id: userId,
+      join_code: await allocateJoinCode(admin),
+      visibility: input.visibility,
+      recurring: input.recurring,
+      duration_seconds: durationSeconds,
+      name: stored.name,
+      action_text: stored.actionText,
+      time_zone: input.timeZone,
+    })
+    .select("id")
+    .single();
+  if (seriesError || !series) {
+    throw new ApiError(500, ERROR_CODES.db_error, "Could not create fight series");
   }
+  const seriesId = series.id as string;
 
   const { data: inserted, error: insertError } = await admin
     .from("fights")
@@ -196,14 +181,12 @@ export async function createFight(userId: string, input: CreateFightInput) {
     throw new ApiError(500, ERROR_CODES.db_error, "Could not create fight");
   }
 
-  if (seriesId) {
-    const { error: currentError } = await admin
-      .from("fight_series")
-      .update({ current_fight_id: inserted.id })
-      .eq("id", seriesId);
-    if (currentError) {
-      throw new ApiError(500, ERROR_CODES.db_error, "Could not attach series to fight");
-    }
+  const { error: currentError } = await admin
+    .from("fight_series")
+    .update({ current_fight_id: inserted.id })
+    .eq("id", seriesId);
+  if (currentError) {
+    throw new ApiError(500, ERROR_CODES.db_error, "Could not attach series to fight");
   }
 
   const nowIso = new Date().toISOString();
@@ -219,16 +202,14 @@ export async function createFight(userId: string, input: CreateFightInput) {
     throw new ApiError(500, ERROR_CODES.db_error, "Could not add owner as member");
   }
 
-  if (seriesId) {
-    const { error: seriesMemberError } = await admin.from("fight_series_members").insert({
-      series_id: seriesId,
-      user_id: userId,
-      state: "accepted",
-      joined_at: nowIso,
-    });
-    if (seriesMemberError) {
-      throw new ApiError(500, ERROR_CODES.db_error, "Could not add owner to series");
-    }
+  const { error: seriesMemberError } = await admin.from("fight_series_members").insert({
+    series_id: seriesId,
+    user_id: userId,
+    state: "accepted",
+    joined_at: nowIso,
+  });
+  if (seriesMemberError) {
+    throw new ApiError(500, ERROR_CODES.db_error, "Could not add owner to series");
   }
 
   for (const handle of handles) {

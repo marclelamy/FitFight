@@ -12,13 +12,14 @@ const base = {
   actionText: "Cook dinner",
 };
 
-test("invite-only create requires at least one username", () => {
-  const parsed = createFightSchema.safeParse({
+test("private create can start with the owner alone", () => {
+  const parsed = createFightSchema.parse({
     ...base,
     visibility: "invite_only",
     inviteHandles: [],
   });
-  assert.equal(parsed.success, false);
+  assert.equal(parsed.visibility, "invite_only");
+  assert.deepEqual(parsed.inviteHandles, []);
 });
 
 test("joinable create can start with the owner alone", () => {
