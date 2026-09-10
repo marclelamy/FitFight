@@ -782,8 +782,8 @@ private struct ComposeRequestView: View {
     private var canPost: Bool {
         let trimmedTitle = title.trimmingCharacters(in: .whitespacesAndNewlines)
         let trimmedDetails = details.trimmingCharacters(in: .whitespacesAndNewlines)
-        return trimmedTitle.count >= 8
-            && trimmedDetails.count >= 20
+        return trimmedTitle.count >= 1
+            && trimmedDetails.count >= 1
             && !store.isSaving
     }
 
