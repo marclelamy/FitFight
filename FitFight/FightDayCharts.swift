@@ -32,13 +32,15 @@ enum FightDayChartKind: String, CaseIterable, Identifiable {
 
 struct FightDayChartsView: View {
     let days: [FightDay]
+    var initialKind: FightDayChartKind? = nil
     let formatScore: (Double) -> String
 
     @AppStorage("fight.dayChart.kind") private var kindRaw = FightDayChartKind.line.rawValue
+    @State private var pickedKind: FightDayChartKind?
     @Environment(\.ffTheme) private var theme
 
     private var kind: FightDayChartKind {
-        FightDayChartKind(rawValue: kindRaw) ?? .line
+        pickedKind ?? initialKind ?? FightDayChartKind(rawValue: kindRaw) ?? .line
     }
 
     var body: some View {
@@ -61,6 +63,7 @@ struct FightDayChartsView: View {
     private func badge(_ item: FightDayChartKind) -> some View {
         let selected = item == kind
         return Button {
+            pickedKind = item
             kindRaw = item.rawValue
         } label: {
             Text(item.title)

@@ -42,7 +42,7 @@ struct FightDetailView: View {
 
     private var canLeave: Bool {
         !pendingJoin
-            && fight.status == .live
+            && (fight.status == .live || fight.status == .pending)
             && fight.inviter?.isYou != true
             && (fight.recurring || fight.joinCode != nil)
     }
@@ -101,17 +101,23 @@ struct FightDetailView: View {
 
     private var you: Standing? { model.youStanding(in: fight) }
 
+    private var isPendingSettlement: Bool {
+        fight.status == .pending && !youDeferred
+    }
+
     @ViewBuilder
     private var statsPane: some View {
         Group {
             if youDeferred {
                 deferredHero
+            } else if fight.status == .pending {
+                settlementHero
             } else if let pair = headToHead {
                 FFVSBlock(
                     you: pair.you,
                     them: pair.them,
                     delta: fight.kickerEmphasis,
-                    ahead: fight.rank == 1,
+                    ahead: fight.rank == 1 && !fight.isTiedForFirst,
                     footnote: "\(fight.metric.eyebrow) · \(fight.durationLabel) fight",
                     timeLeft: fight.deadlineLabel
                 )
@@ -121,40 +127,16 @@ struct FightDetailView: View {
         }
         .id(fightsRevision)
 
-        if fight.joinCode != nil {
-            FFSection(title: String(localized: "Share")) {
-                shareCard
-            }
-        }
-        if fight.hasAction {
-            FFSection(title: String(localized: "Action")) {
-                FFCard {
-                    Text(fight.actionText)
-                        .ffType(.rowTitle)
-                        .foregroundStyle(theme.text)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
-            }
-        }
-
-        FFSection(title: String(localized: "Standings")) {
-            VStack(alignment: .leading, spacing: theme.space.cardGap) {
-                if let meta = fight.standingsMeta {
-                    Text(meta)
-                        .ffType(.caption)
-                        .foregroundStyle(theme.textSecondary)
-                }
-                ForEach(Array(fight.standings.enumerated()), id: \.element.id) { index, row in
-                    standingRow(index: index, row: row)
-                }
-            }
-            .id(fightsRevision)
-        }
-
-        if !fight.days.isEmpty {
-            FFSection(title: String(localized: "Every day so far")) {
-                daysCard
-            }
+        if isPendingSettlement {
+            daysSection
+            actionSection
+            standingsSection
+            shareSection
+        } else {
+            shareSection
+            actionSection
+            standingsSection
+            daysSection
         }
 
         if canLeave {
@@ -173,6 +155,54 @@ struct FightDetailView: View {
                     .ffType(.caption)
                     .foregroundStyle(theme.emberText)
                     .padding(.top, 10)
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var shareSection: some View {
+        if fight.joinCode != nil {
+            FFSection(title: String(localized: "Share")) {
+                shareCard
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var actionSection: some View {
+        if fight.hasAction {
+            FFSection(title: String(localized: "Action")) {
+                FFCard {
+                    Text(fight.actionText)
+                        .ffType(.rowTitle)
+                        .foregroundStyle(theme.text)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
+        }
+    }
+
+    private var standingsSection: some View {
+        FFSection(title: String(localized: "Standings")) {
+            VStack(alignment: .leading, spacing: theme.space.cardGap) {
+                if let meta = fight.standingsMeta {
+                    Text(meta)
+                        .ffType(.caption)
+                        .foregroundStyle(theme.textSecondary)
+                }
+                ForEach(Array(fight.standings.enumerated()), id: \.element.id) { index, row in
+                    standingRow(index: index, row: row)
+                }
+            }
+            .id(fightsRevision)
+        }
+    }
+
+    @ViewBuilder
+    private var daysSection: some View {
+        if !fight.days.isEmpty {
+            FFSection(title: String(localized: "Every day so far")) {
+                daysCard(initialKind: isPendingSettlement ? .pace : nil)
             }
         }
     }
@@ -214,6 +244,41 @@ struct FightDetailView: View {
         if (model.createError ?? "").isEmpty {
             model.joined.insert(fight.id)
         }
+    }
+
+    private var settlementHero: some View {
+        FFCard(padding: 24) {
+            VStack(alignment: .leading, spacing: 10) {
+                FFResultGlyph(.pending)
+                Text(fight.kickerEmphasis)
+                    .ffType(.title)
+                    .foregroundStyle(settlementTitleColor)
+                Text(fight.endedLabel ?? fight.deadlineLabel)
+                    .ffType(.caption)
+                    .foregroundStyle(theme.textSecondary)
+                if let grace = fight.graceEndsAt {
+                    TimelineView(.periodic(from: .now, by: 30)) { context in
+                        if grace > context.date {
+                            Text(
+                                String(
+                                    localized: "fight.sync-time-left",
+                                    defaultValue: "\(RemainingTime.phrase(from: context.date, until: grace)) left to sync"
+                                )
+                            )
+                            .ffType(.caption)
+                            .foregroundStyle(theme.goldInk)
+                        }
+                    }
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+        }
+    }
+
+    private var settlementTitleColor: Color {
+        guard you?.finalStepsComplete == true else { return theme.emberText }
+        let submitted = fight.standings.filter { !$0.invited && !$0.deferred && $0.finalStepsComplete == true }
+        return submitted.first?.person.isYou == true ? theme.mossText : theme.emberText
     }
 
     private var deferredHero: some View {
@@ -299,10 +364,12 @@ struct FightDetailView: View {
         FFRingCard(
             progress: ringProgress,
             title: fight.status == .finished
-                ? String(
-                    localized: "fight.finished-rank",
-                    defaultValue: "Finished #\(fight.rank)"
-                )
+                ? (fight.isTiedForFirst
+                    ? String(localized: "Tied")
+                    : String(
+                        localized: "fight.finished-rank",
+                        defaultValue: "Finished #\(fight.rank)"
+                    ))
                 : String(
                     localized: "fight.rank-of-count",
                     defaultValue: "#\(fight.rank) of \(fight.of)"
@@ -313,7 +380,7 @@ struct FightDetailView: View {
             ),
             metric: model.formatScore(you?.score ?? 0, metric: fight.metric),
             delta: fight.kickerEmphasis,
-            ahead: fight.rank == 1
+            ahead: fight.rank == 1 && !fight.isTiedForFirst
         )
     }
 
@@ -345,9 +412,11 @@ struct FightDetailView: View {
                 .padding(.vertical, 12)
                 .background(theme.card, in: RoundedRectangle(cornerRadius: theme.radius.card, style: .continuous))
                 .ffBorder(theme.hairline, radius: theme.radius.card)
+            } else if fight.status == .pending {
+                pendingStandingRow(row)
             } else {
                 FFLeaderboardRow(
-                    rank: index + 1,
+                    rank: row.rank ?? (index + 1),
                     monogram: row.person.initials,
                     name: row.person.name,
                     value: model.formatScore(row.score, metric: fight.metric),
@@ -362,10 +431,53 @@ struct FightDetailView: View {
         }
     }
 
-    private var daysCard: some View {
+    private func pendingStandingRow(_ row: Standing) -> some View {
+        let needsSync = row.finalStepsComplete != true
+        let submitted = fight.standings.filter { !$0.invited && !$0.deferred && $0.finalStepsComplete == true }
+        let rank = submitted.firstIndex { $0.id == row.id }.map { $0 + 1 }
+        return HStack(spacing: 13) {
+            Text(needsSync ? "—" : "\(rank ?? 0)")
+                .ffType(.button)
+                .foregroundStyle(needsSync ? theme.textFaint : (rank == 1 ? theme.gold : theme.textTertiary))
+                .frame(width: 22)
+            FFAvatar(row.person, size: 38, pending: needsSync)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(row.person.name)
+                    .ffType(.rowTitle)
+                    .foregroundStyle(needsSync ? theme.textSecondary : theme.text)
+                    .lineLimit(1)
+                TimelineView(.periodic(from: .now, by: 30)) { context in
+                    Text(model.formatStandingFreshness(row, fight: fight, now: context.date))
+                        .ffType(.micro)
+                        .foregroundStyle(needsSync && row.person.isYou ? theme.emberText : theme.textSecondary)
+                        .lineLimit(1)
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            FFPill(
+                needsSync
+                    ? String(localized: "fight.pending-sync", defaultValue: "Pending")
+                    : String(localized: "Synced"),
+                style: needsSync ? .gold : .neutral
+            )
+            Text(model.formatScore(row.score, metric: fight.metric))
+                .font(.ff(17, 800))
+                .tracking(17 * -0.02)
+                .foregroundStyle(theme.text)
+        }
+        .padding(.horizontal, 15)
+        .padding(.vertical, 12)
+        .background(
+            row.person.isYou ? theme.mossWash : theme.card,
+            in: RoundedRectangle(cornerRadius: theme.radius.card, style: .continuous)
+        )
+        .ffBorder(row.person.isYou ? theme.mossEdge : theme.hairline, radius: theme.radius.card)
+    }
+
+    private func daysCard(initialKind: FightDayChartKind? = nil) -> some View {
         FFCard {
             VStack(alignment: .leading, spacing: 0) {
-                FightDayChartsView(days: fight.days) { value in
+                FightDayChartsView(days: fight.days, initialKind: initialKind) { value in
                     model.formatScore(value, metric: fight.metric)
                 }
                 if let note = fight.paceNote {

@@ -417,6 +417,8 @@
     "fight.duration-end" : {"extractionState":"manual","localizations":{"en":{"stringUnit":{"state":"translated","value":"%1$@ · ends %2$@"}},"fr":{"stringUnit":{"state":"translated","value":"%1$@ · se termine %2$@"}}}},
     "fight.duration-rule" : {"extractionState":"manual","localizations":{"en":{"stringUnit":{"state":"translated","value":"%@ · Most steps wins"}},"fr":{"stringUnit":{"state":"translated","value":"%@ · Le plus grand nombre de pas gagne"}}}},
     "fight.ended-on" : {"extractionState":"manual","localizations":{"en":{"stringUnit":{"state":"translated","value":"Ended %@"}},"fr":{"stringUnit":{"state":"translated","value":"Terminé le %@"}}}},
+    "fight.pending-ended-on" : {"extractionState":"manual","localizations":{"en":{"stringUnit":{"state":"translated","value":"Pending · Ended %@"}},"fr":{"stringUnit":{"state":"translated","value":"En attente · Terminé le %@"}}}},
+    "fight.pending-sync" : {"extractionState":"manual","localizations":{"en":{"stringUnit":{"state":"translated","value":"Pending"}},"fr":{"stringUnit":{"state":"translated","value":"À synchroniser"}}}},
     "fight.ends-at" : {"extractionState":"manual","localizations":{"en":{"stringUnit":{"state":"translated","value":"Ends %@"}},"fr":{"stringUnit":{"state":"translated","value":"Se termine %@"}}}},
     "fight.ends-in-days" : {"extractionState":"manual","localizations":{"en":{"variations":{"plural":{"one":{"stringUnit":{"state":"translated","value":"Ends in %lld day"}},"other":{"stringUnit":{"state":"translated","value":"Ends in %lld days"}}}}},"fr":{"variations":{"plural":{"one":{"stringUnit":{"state":"translated","value":"Se termine dans %lld jour"}},"other":{"stringUnit":{"state":"translated","value":"Se termine dans %lld jours"}}}}}}},
     "fight.finished-position" : {"extractionState":"manual","localizations":{"en":{"stringUnit":{"state":"translated","value":"%1$@ · %2$@ of %3$lld"}},"fr":{"stringUnit":{"state":"translated","value":"%1$@ · %2$@ sur %3$lld"}}}},
@@ -500,7 +502,16 @@
     "You’ve posted a few times recently. Try again later." : {"localizations":{"fr":{"stringUnit":{"state":"translated","value":"Vous avez déjà beaucoup publié récemment. Réessayez plus tard."}}}},
     "You → Settings now has Bugs & requests: post a bug or a feature request, see what other people submitted, upvote, and comment with your username." : {"localizations":{"fr":{"stringUnit":{"state":"translated","value":"Vous → Réglages propose désormais Bugs et demandes : signalez un bug ou une fonctionnalité, voyez les demandes des autres, votez et commentez avec votre nom d’utilisateur."}}}},
     "feedback.meta" : {"extractionState":"manual","localizations":{"en":{"stringUnit":{"state":"translated","value":"@%@ · %lld comments"}},"fr":{"stringUnit":{"state":"translated","value":"@%@ · %lld commentaires"}}}},
-    "feedback.votes" : {"extractionState":"manual","localizations":{"en":{"stringUnit":{"state":"translated","value":"%lld upvotes"}},"fr":{"stringUnit":{"state":"translated","value":"%lld votes"}}}}
+    "feedback.votes" : {"extractionState":"manual","localizations":{"en":{"stringUnit":{"state":"translated","value":"%lld upvotes"}},"fr":{"stringUnit":{"state":"translated","value":"%lld votes"}}}},
+    "Pending" : {"localizations":{"fr":{"stringUnit":{"state":"translated","value":"En attente"}}}},
+    "Pending — open the app" : {"localizations":{"fr":{"stringUnit":{"state":"translated","value":"À synchroniser — ouvrez l’app"}}}},
+    "Synced" : {"localizations":{"fr":{"stringUnit":{"state":"translated","value":"À jour"}}}},
+    "Tentative lead" : {"localizations":{"fr":{"stringUnit":{"state":"translated","value":"En tête provisoire"}}}},
+    "Tentative loss" : {"localizations":{"fr":{"stringUnit":{"state":"translated","value":"Retard provisoire"}}}},
+    "After a fight ends, Finished shows P until everyone syncs or 24 hours pass. Miss the window and you lose. Opening it shows a tentative result, not a win." : {"localizations":{"fr":{"stringUnit":{"state":"translated","value":"Après la fin d’un défi, Terminés affiche P tant que tout le monde n’a pas synchronisé ou que 24 heures ne sont pas passées. Raté la fenêtre et tu perds. L’ouvrir montre un résultat provisoire, pas une victoire."}}}},
+    "Did not sync · forfeited" : {"localizations":{"fr":{"stringUnit":{"state":"translated","value":"Pas synchronisé · forfait"}}}},
+    "fight.finished-tied" : {"extractionState":"manual","localizations":{"en":{"stringUnit":{"state":"translated","value":"%@ · Tied"}},"fr":{"stringUnit":{"state":"translated","value":"%@ · Égalité"}}}},
+    "fight.sync-time-left" : {"extractionState":"manual","localizations":{"en":{"stringUnit":{"state":"translated","value":"%@ left to sync"}},"fr":{"stringUnit":{"state":"translated","value":"%@ pour synchroniser"}}}}
   },
   "version" : "1.0"
 }

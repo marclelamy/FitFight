@@ -155,3 +155,41 @@ export function scoreFight(input: {
     })
     .sort((a, b) => a.rank - b.rank || a.userId.localeCompare(b.userId));
 }
+
+export function scoreFightAtFinal(input: {
+  outcomeRule: OutcomeRule;
+  stakeMinor: number | null;
+  defaultGoalValue: number | null;
+  members: Array<ScoreMemberInput & { complete: boolean }>;
+}): ScoreMemberResult[] {
+  switch (input.outcomeRule) {
+    case "highest_total":
+    case "proportional":
+    case "hit_your_goal": {
+      const complete = input.members.filter((member) => member.complete);
+      const incomplete = input.members.filter((member) => !member.complete);
+      if (complete.length === 0) {
+        return scoreFight(input).map((row) => ({ ...row, rank: 1, outcomeMinor: 0 }));
+      }
+
+      const incompleteRank = complete.length + 1;
+      return [
+        ...scoreFight({ ...input, members: complete }),
+        ...incomplete.map((member) => {
+          const target = goalTarget(member, input.defaultGoalValue);
+          return {
+            userId: member.userId,
+            currentValue: member.value,
+            rank: incompleteRank,
+            outcomeMinor: 0,
+            hitGoal: target !== null && member.value >= target,
+          };
+        }),
+      ].sort((a, b) => a.rank - b.rank || a.userId.localeCompare(b.userId));
+    }
+    default: {
+      const exhaustive: never = input.outcomeRule;
+      throw new Error(`Unsupported outcome rule: ${String(exhaustive)}`);
+    }
+  }
+}

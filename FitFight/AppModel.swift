@@ -12,6 +12,7 @@ enum MetricKind: String, Codable, Hashable {
 enum FightStatus: String, Codable, Hashable {
     case live
     case invited
+    case pending
     case finished
 }
 
@@ -79,6 +80,7 @@ struct Standing: Codable, Identifiable, Hashable {
     var deferred: Bool = false
     var lastSyncedAt: Date? = nil
     var finalStepsComplete: Bool? = nil
+    var rank: Int? = nil
 
     var id: String { person.id }
 }
@@ -123,6 +125,7 @@ struct Fight: Codable, Identifiable, Hashable {
     var days: [FightDay] = []
     var windowStart: Date = Date()
     var windowEnd: Date = Date().addingTimeInterval(86400)
+    var graceEndsAt: Date? = nil
     var serverState: String? = nil
     var joinCode: String? = nil
     var seriesId: String? = nil
@@ -146,6 +149,10 @@ struct Fight: Codable, Identifiable, Hashable {
             return action.isEmpty ? (stored.isEmpty ? String(localized: "Steps Fight") : stored) : action
         }
         return stored
+    }
+
+    var isTiedForFirst: Bool {
+        standings.filter { !$0.invited && !$0.deferred && $0.rank == 1 }.count > 1
     }
 
     var durationLabel: String {
@@ -190,7 +197,7 @@ struct Fight: Codable, Identifiable, Hashable {
     }
 
     private var hasPassedDeadline: Bool {
-        daysLeft == nil || status == .finished || windowEnd <= Date()
+        daysLeft == nil || status == .finished || status == .pending || windowEnd <= Date()
     }
 
     static func deadlineStamp(_ date: Date) -> String {
@@ -280,7 +287,7 @@ final class AppModel: ObservableObject {
 
     var live: [Fight] { fights.filter { $0.status == .live } }
     var invitations: [Fight] { fights.filter { $0.status == .invited } }
-    var finished: [Fight] { fights.filter { $0.status == .finished } }
+    var finished: [Fight] { fights.filter { $0.status == .pending || $0.status == .finished } }
 
     func youStanding(in fight: Fight) -> Standing? {
         fight.standings.first { $0.person.isYou }
@@ -321,6 +328,9 @@ final class AppModel: ObservableObject {
                 localized: "health.final-steps-synced-at",
                 defaultValue: "Final steps synced · \(freshness)"
             )
+        }
+        if fight.serverState == "final", !standing.invited, !standing.deferred {
+            return String(localized: "Did not sync · forfeited")
         }
         let finalized = fight.serverState == "final" || fight.serverState == "cancelled"
         if let lastSyncedAt = standing.lastSyncedAt {
@@ -466,7 +476,7 @@ final class AppModel: ObservableObject {
         guard !totals.isEmpty else { return }
         let now = Date()
         fights = fights.map { fight in
-            guard fight.status == .live,
+            guard fight.status == .live || fight.status == .pending,
                   let score = totals[fight.id.lowercased()],
                   let index = fight.standings.firstIndex(where: {
                       $0.person.isYou && !$0.invited && !$0.deferred
@@ -475,12 +485,10 @@ final class AppModel: ObservableObject {
             var next = fight
             next.standings[index].score = score
             next.standings[index].lastSyncedAt = now
-            next.standings.sort { lhs, rhs in
-                if lhs.invited != rhs.invited { return !lhs.invited && rhs.invited }
-                if lhs.deferred != rhs.deferred { return !lhs.deferred && rhs.deferred }
-                if lhs.score == rhs.score { return lhs.person.name < rhs.person.name }
-                return lhs.score > rhs.score
+            if next.status == .pending {
+                next.standings[index].finalStepsComplete = true
             }
+            next.standings = Self.orderedStandings(next.standings, pending: next.status == .pending)
             let joined = next.standings.filter { !$0.invited && !$0.deferred }
             next.rank = joined.firstIndex { $0.person.isYou }.map { $0 + 1 } ?? next.rank
             next.of = max(joined.count, 1)
@@ -990,8 +998,10 @@ final class AppModel: ObservableObject {
         let status: FightStatus
         if mine?.state == "invited" && row.state != "final" && row.state != "cancelled" {
             status = .invited
-        } else if row.state == "final" || row.state == "cancelled" || ends < Date() {
+        } else if row.state == "final" || row.state == "cancelled" {
             status = .finished
+        } else if row.state == "awaiting_final_sync" || (row.state == "live" && ends < Date()) {
+            status = .pending
         } else {
             status = .live
         }
@@ -1010,7 +1020,7 @@ final class AppModel: ObservableObject {
         }
         let remainingLabel = RemainingTime.phrase(until: ends)
 
-        let people = members.map { member -> Standing in
+        let peopleUnsorted = members.map { member -> Standing in
             let profile = profiles[member.userId]
             let person: Person
             if let profile {
@@ -1031,22 +1041,20 @@ final class AppModel: ObservableObject {
                 invited: member.state == "invited",
                 deferred: member.state == "deferred",
                 lastSyncedAt: member.lastSyncedAt,
-                finalStepsComplete: member.finalStepsComplete
+                finalStepsComplete: member.finalStepsComplete,
+                rank: member.rank
             )
         }
-        .sorted { lhs, rhs in
-            if lhs.invited != rhs.invited { return !lhs.invited && rhs.invited }
-            if lhs.deferred != rhs.deferred { return !lhs.deferred && rhs.deferred }
-            if lhs.score == rhs.score { return lhs.person.name < rhs.person.name }
-            return lhs.score > rhs.score
-        }
+        let people = orderedStandings(peopleUnsorted, pending: status == .pending)
 
         let joined = people.filter { !$0.invited && !$0.deferred }
         let waiting = people.filter(\.deferred)
         let youRow = people.first { $0.person.isYou }
-        let rank = youRow.flatMap { row in joined.firstIndex { $0.person.id == row.person.id }.map { $0 + 1 } }
+        let listRank = youRow.flatMap { row in joined.firstIndex { $0.person.id == row.person.id }.map { $0 + 1 } }
             ?? mine?.rank
             ?? 0
+        let rank = (status == .finished ? mine?.rank : nil) ?? listRank
+        let tiedForFirst = people.filter { !$0.invited && !$0.deferred && $0.rank == 1 }.count > 1
         let of = max(joined.count, 1)
         let owner = profiles[row.ownerId].map { Self.person(from: $0, isYou: $0.userId == userId) }
         let ownerName = owner?.name ?? String(localized: "Someone")
@@ -1079,13 +1087,45 @@ final class AppModel: ObservableObject {
             if youRow?.deferred == true {
                 listSubtitle = endedLabel ?? String(localized: "Ended")
                 kickerEmphasis = String(localized: "Started next round")
+            } else if row.state == "final" && tiedForFirst {
+                listSubtitle = String(
+                    localized: "fight.finished-tied",
+                    defaultValue: "\(endedLabel ?? String(localized: "Ended")) · Tied"
+                )
+                kickerEmphasis = String(localized: "Tied")
             } else {
                 listSubtitle = String(
                     localized: "fight.finished-position",
                     defaultValue: "\(endedLabel ?? String(localized: "Ended")) · \(Self.ordinal(rank)) of \(of)"
                 )
-                kickerPrefix = rank == 1 ? String(localized: "Won by") : String(localized: "Finished")
+                if row.state == "final" {
+                    kickerPrefix = rank == 1 ? String(localized: "Won by") : String(localized: "Finished")
+                } else {
+                    kickerPrefix = String(localized: "Finished")
+                }
                 kickerEmphasis = Self.ordinal(rank)
+            }
+        case .pending:
+            endedLabel = String(
+                localized: "fight.ended-on",
+                defaultValue: "Ended \(Fight.deadlineStamp(ends))"
+            )
+            listSubtitle = String(
+                localized: "fight.pending-ended-on",
+                defaultValue: "Pending · Ended \(Fight.deadlineStamp(ends))"
+            )
+            if youRow?.deferred == true {
+                kickerEmphasis = String(localized: "Started next round")
+            } else if youRow?.finalStepsComplete == true {
+                let submitted = people.filter { !$0.invited && !$0.deferred && $0.finalStepsComplete == true }
+                let submittedRank = youRow.flatMap { you in
+                    submitted.firstIndex { $0.person.id == you.person.id }.map { $0 + 1 }
+                } ?? 0
+                kickerEmphasis = submittedRank == 1
+                    ? String(localized: "Tentative lead")
+                    : String(localized: "Tentative loss")
+            } else {
+                kickerEmphasis = String(localized: "Pending — open the app")
             }
         case .live:
             if row.state == "awaiting_final_sync" {
@@ -1185,6 +1225,7 @@ final class AppModel: ObservableObject {
             standings: people,
             windowStart: starts,
             windowEnd: ends,
+            graceEndsAt: row.graceEndsAtDate,
             serverState: row.state,
             joinCode: series?.joinCode,
             seriesId: series?.id.uuidString,
@@ -1205,6 +1246,23 @@ final class AppModel: ObservableObject {
         formatter.locale = .autoupdatingCurrent
         formatter.numberStyle = .ordinal
         return formatter.string(from: NSNumber(value: value)) ?? value.formatted()
+    }
+
+    private static func orderedStandings(_ standings: [Standing], pending: Bool) -> [Standing] {
+        standings.sorted { lhs, rhs in
+            if pending {
+                let lhsOpen = !lhs.invited && !lhs.deferred && lhs.finalStepsComplete != true
+                let rhsOpen = !rhs.invited && !rhs.deferred && rhs.finalStepsComplete != true
+                if lhsOpen != rhsOpen { return lhsOpen && !rhsOpen }
+            }
+            if lhs.invited != rhs.invited { return !lhs.invited && rhs.invited }
+            if lhs.deferred != rhs.deferred { return !lhs.deferred && rhs.deferred }
+            if !pending, let lhsRank = lhs.rank, let rhsRank = rhs.rank, lhsRank != rhsRank {
+                return lhsRank < rhsRank
+            }
+            if lhs.score == rhs.score { return lhs.person.name < rhs.person.name }
+            return lhs.score > rhs.score
+        }
     }
 }
 

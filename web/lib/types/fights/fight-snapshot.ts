@@ -23,6 +23,7 @@ export const fightSnapshotSchema = z.object({
     state: z.enum(fightStateValues),
     starts_at: timestampSchema,
     ends_at: timestampSchema,
+    grace_ends_at: timestampSchema,
     action_text: z.string().nullable(),
     series_id: z.string().uuid().nullable(),
   })),
