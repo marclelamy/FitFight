@@ -63,6 +63,7 @@ The phone’s job is: show the UI, read Apple Health Steps when it is open (or b
 
 - Marc: Apple → On on the **new** develop Auth ([providers](https://supabase.com/dashboard/project/zstzbfocunthczzubggz/auth/providers)), client ID `com.fitfight.mvp`.
 - Marc: add the Sign in with Apple key and a stable 32-byte token-encryption key to the staging and production Vercel environments before testing fresh sign-in or submitting.
+- Marc: Notion → Settings → Connections → new **internal** integration. Open **Product Backlog** → Connections → add it. Put `NOTION_TOKEN` on Vercel Preview and Production. Do not paste the token in chat.
 - Marc: one Steps fight on staging. Exact username, optional title and action, Apple Health, Start **once**.
 - Participants on TestFlight Internal Testing. Same build, their own Apple IDs and usernames. Start with a 3-day Steps fight.
 

@@ -123,6 +123,11 @@ Vercel holds `DATABASE_URL`, using Supavisor transaction mode on port `6543`, se
 
 Vercel also holds the server-only Supabase URL and secret used to authenticate requests and perform reviewed admin operations. Neither value belongs in iOS or chat.
 
+`POST /api/v1/feedback` still writes the Bugs & requests post first. After that it
+creates a P0 Inbox row in the Blend HQ Product Backlog (Product FitFight, Source
+App feedback). Vercel holds `NOTION_TOKEN`. A missing token or a Notion failure
+does not fail the in-app post. The token never belongs in iOS, git, or chat.
+
 Native Sign in with Apple sends its short-lived authorization code to authenticated
 `POST /api/v1/auth/apple`. The server exchanges it with Apple, checks the returned Apple
 subject against the User's Supabase Apple identity, encrypts the refresh token, and stores

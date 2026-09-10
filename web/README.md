@@ -19,6 +19,7 @@ iOS command API only. No marketing pages. Node.js runtime, never Edge.
 | `APPLE_SIGN_IN_PRIVATE_KEY` | Sign in with Apple `.p8` contents | same key, or its production replacement |
 | `APPLE_SIGN_IN_CLIENT_ID` | `com.fitfight.mvp` | `com.fitfight.mvp` |
 | `APPLE_SIGN_IN_TOKEN_ENCRYPTION_KEY` | separate base64 32-byte key | separate base64 32-byte key |
+| `NOTION_TOKEN` | Notion internal integration token with access to Product Backlog | same token |
 
 Preview deployments must use the **develop** Supabase project. Never point Preview at production.
 The Sign in with Apple key must be enabled for the FitFight App ID. It is not the
