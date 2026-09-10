@@ -38,7 +38,10 @@ struct FightPostEngagement: View {
             }
             .buttonStyle(FFHapticPlainStyle())
             if open {
-                commentThread(parentID: nil, depth: 0)
+                ForEach(displayedComments) { row in
+                    commentRow(row.comment)
+                        .padding(.leading, CGFloat(min(row.depth, 4)) * 14)
+                }
                 if nextCursor != nil {
                     Button(String(localized: "More comments")) {
                         Task { await loadComments(more: true) }
@@ -119,15 +122,17 @@ struct FightPostEngagement: View {
         }
     }
 
-    @ViewBuilder
-    private func commentThread(parentID: UUID?, depth: Int) -> some View {
-        ForEach(comments.filter { $0.parentId == parentID }) { comment in
-            VStack(alignment: .leading, spacing: 6) {
-                commentRow(comment)
-                commentThread(parentID: comment.id, depth: depth + 1)
+    private var displayedComments: [DisplayedFightComment] {
+        var rows: [DisplayedFightComment] = []
+        var walk: ((UUID?, Int) -> Void)!
+        walk = { parentID, depth in
+            for comment in comments where comment.parentId == parentID {
+                rows.append(DisplayedFightComment(comment: comment, depth: depth))
+                walk(comment.id, depth + 1)
             }
-            .padding(.leading, CGFloat(min(depth, 4)) * 14)
         }
+        walk(nil, 0)
+        return rows
     }
 
     private func commentRow(_ comment: FitFightFightPostComment) -> some View {
@@ -249,4 +254,10 @@ struct FightPostEngagement: View {
         let candidate = String(segment)
         return candidate.unicodeScalars.contains(where: { $0.properties.isEmoji }) ? candidate : nil
     }
+}
+
+private struct DisplayedFightComment: Identifiable {
+    let comment: FitFightFightPostComment
+    let depth: Int
+    var id: UUID { comment.id }
 }
