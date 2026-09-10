@@ -23,10 +23,18 @@ export const notionAppFeedbackDefaults = {
 } as const;
 
 export const notionAppFeedbackAgentStatus = "Building" as const;
+export const notionAppFeedbackDoneStatus = "Done" as const;
 export const feedbackPostNotionMarkerPrefix = "feedback_post: ";
 
 export const notionFeedbackPageQuerySchema = z.object({
-  results: z.array(z.object({ id: z.string().min(1) })),
+  results: z.array(z.object({
+    id: z.string().min(1),
+    properties: z.object({
+      Notes: z.object({
+        rich_text: z.array(z.object({ plain_text: z.string() })),
+      }).optional(),
+    }).optional(),
+  })),
 });
 
 export type NotionProductBacklogType = z.infer<typeof notionProductBacklogTypeSchema>;

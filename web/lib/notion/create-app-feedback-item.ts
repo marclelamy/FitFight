@@ -1,10 +1,10 @@
 import type { FeedbackPostSummary } from "@/lib/types/feedback/feedback";
 import {
   feedbackPostNotionMarkerPrefix,
-  notionAppFeedbackAgentStatus,
   notionAppFeedbackDefaults,
   notionFeedbackPageQuerySchema,
   notionTokenSchema,
+  type NotionProductBacklogStatus,
   type NotionProductBacklogType,
 } from "@/lib/types/notion/product-backlog";
 import { appReleaseProjectSchema } from "@/lib/types/releases/app-release";
@@ -105,13 +105,15 @@ export async function createAppFeedbackBacklogItem(
   }
 }
 
-export async function markAppFeedbackBacklogBuilding(
+export async function markAppFeedbackBacklogStatus(
   postId: string,
+  status: NotionProductBacklogStatus,
   fetchImpl: typeof fetch = fetch,
-): Promise<boolean> {
+  note?: string,
+): Promise<"updated" | "skipped" | "failed"> {
   const token = notionTokenSchema.safeParse(process.env.NOTION_TOKEN);
   if (!token.success) {
-    return false;
+    return "skipped";
   }
 
   const headers = {
@@ -142,38 +144,48 @@ export async function markAppFeedbackBacklogBuilding(
         post_id: postId,
         status: query.status,
       }));
-      return false;
+      return "failed";
     }
 
     const parsed = notionFeedbackPageQuerySchema.safeParse(await query.json());
-    const pageId = parsed.success ? parsed.data.results[0]?.id : undefined;
-    if (!pageId) {
-      return false;
+    const page = parsed.success ? parsed.data.results[0] : undefined;
+    if (!page) {
+      return "skipped";
     }
 
-    const patch = await fetchImpl(`https://api.notion.com/v1/pages/${pageId}`, {
+    const properties: Record<string, unknown> = {
+      Status: { select: { name: status } },
+    };
+    const existingNotes = page.properties?.Notes?.rich_text
+      .map((item) => item.plain_text)
+      .join("");
+    if (note && existingNotes !== undefined && !existingNotes.includes(note)) {
+      properties.Notes = {
+        rich_text: [{
+          text: { content: `${existingNotes}\n\n${note}`.slice(0, RICH_TEXT_LIMIT) },
+        }],
+      };
+    }
+
+    const patch = await fetchImpl(`https://api.notion.com/v1/pages/${page.id}`, {
       method: "PATCH",
       headers,
-      body: JSON.stringify({
-        properties: {
-          Status: { select: { name: notionAppFeedbackAgentStatus } },
-        },
-      }),
+      body: JSON.stringify({ properties }),
       signal: AbortSignal.timeout(8_000),
     });
     if (patch.ok) {
-      return true;
+      return "updated";
     }
     console.error("fitfight_notion_feedback", JSON.stringify({
       post_id: postId,
       status: patch.status,
     }));
-    return false;
+    return "failed";
   } catch {
     console.error("fitfight_notion_feedback", JSON.stringify({
       post_id: postId,
       status: 0,
     }));
-    return false;
+    return "failed";
   }
 }

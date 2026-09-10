@@ -1,9 +1,10 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { createAppFeedbackBacklogItem, markAppFeedbackBacklogBuilding } from "./create-app-feedback-item";
+import { createAppFeedbackBacklogItem, markAppFeedbackBacklogStatus } from "./create-app-feedback-item";
 import {
   notionAppFeedbackAgentStatus,
   notionAppFeedbackDefaults,
+  notionAppFeedbackDoneStatus,
 } from "@/lib/types/notion/product-backlog";
 import type { FeedbackPostSummary } from "@/lib/types/feedback/feedback";
 
@@ -102,11 +103,11 @@ test("skips moving a backlog row to Building when the token is missing", async (
   delete process.env.NOTION_TOKEN;
   let called = false;
   try {
-    const updated = await markAppFeedbackBacklogBuilding(post.id, (async () => {
+    const updated = await markAppFeedbackBacklogStatus(post.id, notionAppFeedbackAgentStatus, (async () => {
       called = true;
       return new Response(null, { status: 200 });
     }) as typeof fetch);
-    assert.equal(updated, false);
+    assert.equal(updated, "skipped");
     assert.equal(called, false);
   } finally {
     restoreEnv("NOTION_TOKEN", previousToken);
@@ -118,7 +119,7 @@ test("moves the matching App feedback row to Building", async () => {
   process.env.NOTION_TOKEN = "ntn_test_token";
   const calls: { url: string; method: string; body: Record<string, unknown> }[] = [];
   try {
-    const updated = await markAppFeedbackBacklogBuilding(post.id, (async (url, init) => {
+    const updated = await markAppFeedbackBacklogStatus(post.id, notionAppFeedbackAgentStatus, (async (url, init) => {
       calls.push({
         url: String(url),
         method: String(init?.method),
@@ -131,7 +132,7 @@ test("moves the matching App feedback row to Building", async () => {
       }
       return new Response(JSON.stringify({ id: "11111111-1111-4111-8111-111111111111" }), { status: 200 });
     }) as typeof fetch);
-    assert.equal(updated, true);
+    assert.equal(updated, "updated");
     assert.match(calls[0]?.url ?? "", /\/v1\/databases\/.*\/query/);
     const filter = calls[0]?.body.filter as {
       property: string;
@@ -158,12 +159,49 @@ test("does not patch Notion when no backlog row matches the feedback post", asyn
   process.env.NOTION_TOKEN = "ntn_test_token";
   const methods: string[] = [];
   try {
-    const updated = await markAppFeedbackBacklogBuilding(post.id, (async (_url, init) => {
+    const updated = await markAppFeedbackBacklogStatus(post.id, notionAppFeedbackDoneStatus, (async (_url, init) => {
       methods.push(String(init?.method));
       return new Response(JSON.stringify({ results: [] }), { status: 200 });
     }) as typeof fetch);
-    assert.equal(updated, false);
+    assert.equal(updated, "skipped");
     assert.deepEqual(methods, ["POST"]);
+  } finally {
+    restoreEnv("NOTION_TOKEN", previousToken);
+  }
+});
+
+test("moves the matching row to Done and appends the PR URL", async () => {
+  const previousToken = process.env.NOTION_TOKEN;
+  process.env.NOTION_TOKEN = "ntn_test_token";
+  const prUrl = "https://github.com/marclelamy/FitFight/pull/128";
+  try {
+    const updated = await markAppFeedbackBacklogStatus(
+      post.id,
+      notionAppFeedbackDoneStatus,
+      (async (url, init) => {
+        if (String(url).includes("/query")) {
+          return new Response(JSON.stringify({
+            results: [{
+              id: "11111111-1111-4111-8111-111111111111",
+              properties: {
+                Notes: { rich_text: [{ plain_text: `feedback_post: ${post.id}` }] },
+              },
+            }],
+          }), { status: 200 });
+        }
+        const body = JSON.parse(String(init?.body)) as {
+          properties: {
+            Status: { select: { name: string } };
+            Notes: { rich_text: { text: { content: string } }[] };
+          };
+        };
+        assert.equal(body.properties.Status.select.name, notionAppFeedbackDoneStatus);
+        assert.match(body.properties.Notes.rich_text[0]?.text.content ?? "", new RegExp(prUrl));
+        return new Response(JSON.stringify({ id: "11111111-1111-4111-8111-111111111111" }), { status: 200 });
+      }) as typeof fetch,
+      prUrl,
+    );
+    assert.equal(updated, "updated");
   } finally {
     restoreEnv("NOTION_TOKEN", previousToken);
   }

@@ -1,6 +1,6 @@
 import { ApiError, ERROR_CODES } from "@/lib/http";
+import { cursorWebhookSecret } from "@/lib/cursor/cursor-agent-webhook";
 import type { FeedbackPostDetail } from "@/lib/types/feedback/feedback";
-import { feedbackPostNotionMarkerPrefix } from "@/lib/types/notion/product-backlog";
 import {
   cursorApiKeySchema,
   cursorCreateAgentResponseSchema,
@@ -8,11 +8,12 @@ import {
   fitFightGithubRepoUrl,
 } from "@/lib/types/cursor/cloud-agent";
 
-const CURSOR_AGENTS_URL = "https://api.cursor.com/v1/agents";
+const CURSOR_AGENTS_URL = "https://api.cursor.com/v0/agents";
 
 export async function launchFeedbackFixAgent(
   detail: FeedbackPostDetail,
   fetchImpl: typeof fetch = fetch,
+  requestUrl?: string,
 ): Promise<{ agent_id: string; agent_url: string }> {
   const apiKey = cursorApiKeySchema.safeParse(process.env.CURSOR_API_KEY);
   if (!apiKey.success) {
@@ -35,13 +36,7 @@ export async function launchFeedbackFixAgent(
     "- Cloud only. Do not ask Marc to open Xcode or a home Mac.",
     "- Do not create or call app-facing Postgres RPCs.",
     "- Do not run destructive database commands.",
-    "",
-    "Notion Product Backlog (Blend HQ):",
-    "- New app feedback already creates a P0 Inbox row (Product FitFight, Source App feedback).",
-    `- Find that row by Notes containing \`${feedbackPostNotionMarkerPrefix}${detail.post.id}\`.`,
-    "- Status options are Inbox, Triaged, Ready, Building, Done, Wont.",
-    "- After you open the PR, if you can reach Notion: add the PR URL to Notes. Leave Status as Building, or set it to Building if it is still Inbox.",
-    "- Do not set Status to Done. The work is not shipped until Marc merges. Skip Notion if no row exists. Do not create a second row.",
+    "- Do not create or update Notion rows. FitFight already created the Product Backlog item and will move it to Building, then Done when this run finishes with a PR.",
     "",
     "Use the post and comments as the spec.",
     "",
@@ -59,19 +54,26 @@ export async function launchFeedbackFixAgent(
     commentBlock,
   ].join("\n");
 
+  const body: Record<string, unknown> = {
+    prompt: { text: prompt },
+    source: { repository: fitFightGithubRepoUrl, ref: fitFightAgentStartingRef },
+    target: { autoCreatePr: true, skipReviewerRequest: true },
+  };
+  const webhookSecret = cursorWebhookSecret();
+  if (requestUrl && webhookSecret) {
+    body.webhook = {
+      url: `${new URL(requestUrl).origin}/api/internal/cursor-agent/${detail.post.id}`,
+      secret: webhookSecret,
+    };
+  }
+
   const response = await fetchImpl(CURSOR_AGENTS_URL, {
     method: "POST",
     headers: {
-      Authorization: `Bearer ${apiKey.data}`,
+      Authorization: `Basic ${Buffer.from(`${apiKey.data}:`, "utf8").toString("base64")}`,
       "Content-Type": "application/json",
     },
-    body: JSON.stringify({
-      prompt: { text: prompt },
-      name: `Fix: ${detail.post.title}`.slice(0, 100),
-      repos: [{ url: fitFightGithubRepoUrl, startingRef: fitFightAgentStartingRef }],
-      autoCreatePR: true,
-      skipReviewerRequest: true,
-    }),
+    body: JSON.stringify(body),
     signal: AbortSignal.timeout(15_000),
   });
 
@@ -92,7 +94,7 @@ export async function launchFeedbackFixAgent(
     throw new ApiError(502, ERROR_CODES.internal, "Could not start the Cursor agent.");
   }
   return {
-    agent_id: parsed.data.agent.id,
-    agent_url: parsed.data.agent.url,
+    agent_id: parsed.data.id,
+    agent_url: parsed.data.target.url,
   };
 }

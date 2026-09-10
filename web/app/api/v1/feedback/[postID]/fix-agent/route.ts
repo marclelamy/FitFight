@@ -1,7 +1,8 @@
 import { ApiError, ERROR_CODES, apiRoute, corsPreflight, json, requireUuid } from "@/lib/http";
 import { isFitFightAdmin, readAdminViewer } from "@/lib/admin/is-fitfight-admin";
 import { launchFeedbackFixAgent } from "@/lib/cursor/launch-feedback-fix-agent";
-import { markAppFeedbackBacklogBuilding } from "@/lib/notion/create-app-feedback-item";
+import { markAppFeedbackBacklogStatus } from "@/lib/notion/create-app-feedback-item";
+import { notionAppFeedbackAgentStatus } from "@/lib/types/notion/product-backlog";
 import { verifyUser } from "@/lib/supabase/queries/auth-supabase-query";
 import { getFeedbackPost } from "@/lib/supabase/queries/feedback-supabase-query";
 
@@ -16,8 +17,8 @@ export const POST = apiRoute<{ postID: string }>(async (request, { params }) => 
   }
   const postId = requireUuid(params.postID, "postID");
   const detail = await getFeedbackPost(userId, postId);
-  const launched = await launchFeedbackFixAgent(detail);
-  await markAppFeedbackBacklogBuilding(detail.post.id);
+  const launched = await launchFeedbackFixAgent(detail, fetch, request.url);
+  await markAppFeedbackBacklogStatus(detail.post.id, notionAppFeedbackAgentStatus);
   return json(launched, 201);
 });
 
