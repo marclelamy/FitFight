@@ -28,6 +28,48 @@ enum Changelog {
             version: "1.0.0",
             year: 2026,
             month: 9,
+            day: 10,
+            notes: "Pull to refresh stays open with a spinner and tells you when FitFight is syncing your steps, updating the database, and counting the gap to your friend. Opening the app shows the same."
+        ),
+        ReleaseNote(
+            version: "1.0.0",
+            year: 2026,
+            month: 9,
+            day: 9,
+            notes: "Slide to start keeps vibrating until you let go, and the pulses speed up as you drag farther."
+        ),
+        ReleaseNote(
+            version: "1.0.0",
+            year: 2026,
+            month: 9,
+            day: 9,
+            notes: "Every day so far has ten chart styles. Tap a badge to switch between line, histogram, bars, pace, heat, track, oval, rings, stack, and dots."
+        ),
+        ReleaseNote(
+            version: "1.0.0",
+            year: 2026,
+            month: 9,
+            day: 9,
+            notes: "An outdated beta only shows an update dialog. You can’t use FitFight until you install the latest version."
+        ),
+        ReleaseNote(
+            version: "1.0.0",
+            year: 2026,
+            month: 9,
+            day: 9,
+            notes: "Bugs & requests now lets you post as soon as the title and details each have at least one character."
+        ),
+        ReleaseNote(
+            version: "1.0.0",
+            year: 2026,
+            month: 9,
+            day: 9,
+            notes: "Fight standings update as soon as your Steps sync, instead of waiting about 30 seconds."
+        ),
+        ReleaseNote(
+            version: "1.0.0",
+            year: 2026,
+            month: 9,
             day: 9,
             notes: "A Feed tab collects photos, videos, and notes from every fight you’re in. Tap + to post to a fight. Recurring fights keep their posts when a new round starts. You can add a profile photo when you pick a username. New accounts are asked to connect Apple Health during setup."
         ),
