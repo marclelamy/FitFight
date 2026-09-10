@@ -216,6 +216,7 @@ final class AppModel: ObservableObject {
     @Published var pendingJoinable: Fight?
     @Published var pendingReferralError: String?
     @Published private(set) var isCreatingFight = false
+    @Published private(set) var isJoiningFight = false
     @Published private(set) var isRefreshingFights = false
     @Published private(set) var refreshPhase: FightRefreshPhase = .idle
     @Published private(set) var refreshLine = 0
@@ -632,6 +633,9 @@ final class AppModel: ObservableObject {
     }
 
     func acceptFight(id: String, start: String = "now") async {
+        guard !isJoiningFight else { return }
+        isJoiningFight = true
+        defer { isJoiningFight = false }
         createError = nil
         if let pending = pendingJoinable, pending.id == id, pending.pendingJoin {
             await joinPendingFight(pending, start: start)
@@ -705,8 +709,9 @@ final class AppModel: ObservableObject {
             return
         }
         pendingJoinable = Self.fight(from: summary, you: you)
-        tab = .fights
-        openFightID = summary.fightId.uuidString
+        if tab != .newFight {
+            tab = .newFight
+        }
     }
 
     func openJoinCode(_ raw: String, session: SessionStore) async {
@@ -805,9 +810,11 @@ final class AppModel: ObservableObject {
         }
         do {
             _ = try await api.joinFight(code: fight.joinCode, fightID: fightID, accessToken: access, start: start)
-            pendingJoinable = nil
             joined.insert(fight.id)
             await refreshFromServer()
+            pendingJoinable = nil
+            tab = .fights
+            openFightID = fight.id
         } catch {
             createError = (error as? FitFightAPIError)?.errorDescription
                 ?? String(localized: "Couldn’t join.")

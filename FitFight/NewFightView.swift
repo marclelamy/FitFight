@@ -26,6 +26,7 @@ struct NewFightView: View {
     @State private var joinCode = ""
     @State private var joinable: [FitFightJoinableFight] = []
     @State private var lookingUp = false
+    @State private var loadingJoinable = false
     @FocusState private var usernameFocused: Bool
     @FocusState private var titleFocused: Bool
     @FocusState private var actionFocused: Bool
@@ -71,19 +72,40 @@ struct NewFightView: View {
         }
         .task(id: opening) {
             guard opening == .join, !staticRender else { return }
+            if joinable.isEmpty { loadingJoinable = true }
             joinable = await model.listJoinableFights(session: session)
+            loadingJoinable = false
         }
+        .task {
+            if model.pendingJoinable != nil, opening != .create {
+                opening = .join
+            }
+        }
+        .onChange(of: model.pendingJoinable?.id) { _, id in
+            if id != nil, opening != .create {
+                opening = .join
+            }
+        }
+    }
+
+    private var showingJoinPreview: Bool {
+        model.pendingJoinable != nil && opening != .create
+    }
+
+    private var effectiveOpening: NewFightOpening {
+        showingJoinPreview ? .join : opening
     }
 
     @ViewBuilder
     private var flowAction: some View {
-        if opening == .choose {
+        if effectiveOpening == .choose || showingJoinPreview {
             EmptyView()
-        } else if opening == .join {
+        } else if effectiveOpening == .join {
             FFButton(
                 title: lookingUp ? String(localized: "Looking up…") : String(localized: "Open fight"),
                 size: .large,
-                enabled: joinCode.count == 4 && !lookingUp,
+                enabled: joinCode.count == 4,
+                busy: lookingUp,
                 fullWidth: true
             ) {
                 lookupCode()
@@ -122,7 +144,7 @@ struct NewFightView: View {
     private var flowProgress: some View {
         VStack(spacing: 10) {
             HStack {
-                if opening == .choose {
+                if effectiveOpening == .choose {
                     Text("New fight")
                         .ffType(.title)
                         .foregroundStyle(theme.text)
@@ -176,13 +198,25 @@ struct NewFightView: View {
 
     @ViewBuilder
     private var currentScreen: some View {
-        switch opening {
-        case .choose:
-            chooseStep
-        case .join:
-            joinStep
-        case .create:
-            currentStep
+        if let fight = model.pendingJoinable, opening != .create {
+            JoinFightPreview(
+                fight: fight,
+                joining: model.isJoiningFight,
+                onJoinNow: { Task { await model.acceptFight(id: fight.id, start: "now") } },
+                onJoinNext: { Task { await model.acceptFight(id: fight.id, start: "next") } },
+                onDismiss: {
+                    Task { await model.declineFight(id: fight.id) }
+                }
+            )
+        } else {
+            switch opening {
+            case .choose:
+                chooseStep
+            case .join:
+                joinStep
+            case .create:
+                currentStep
+            }
         }
     }
 
@@ -213,8 +247,8 @@ struct NewFightView: View {
                     systemImage: "person.badge.plus",
                     subtitleTone: .neutral,
                     action: {
+                        if joinable.isEmpty { loadingJoinable = true }
                         opening = .join
-                        Task { joinable = await model.listJoinableFights(session: session) }
                     }
                 )
             }
@@ -267,7 +301,9 @@ struct NewFightView: View {
 
             FFSectionHeader(title: String(localized: "Live public fights"))
             let rows = staticRender ? Self.screenshotJoinable : joinable
-            if rows.isEmpty {
+            if loadingJoinable && rows.isEmpty {
+                FFLoadingBlock()
+            } else if rows.isEmpty {
                 Text("No live public fights right now. Ask for a code.")
                     .ffType(.body)
                     .foregroundStyle(theme.textSecondary)
@@ -705,6 +741,10 @@ struct NewFightView: View {
     }
 
     private func goBack() {
+        if let pending = model.pendingJoinable, opening != .create {
+            Task { await model.declineFight(id: pending.id) }
+            return
+        }
         if opening == .join || (opening == .create && step == 0) {
             opening = .choose
             model.createError = nil

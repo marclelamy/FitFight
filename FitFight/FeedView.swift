@@ -195,7 +195,9 @@ struct FeedView: View {
             if let error = feed.error, !error.isEmpty {
                 FFNotice(text: error, tone: .ember, systemImage: "exclamationmark.triangle")
             }
-            if feed.posts.isEmpty && !feed.isLoading {
+            if feed.posts.isEmpty && feed.isLoading {
+                FFLoadingBlock()
+            } else if feed.posts.isEmpty && !feed.isLoading {
                 FFCard {
                     Text(String(localized: "Nothing here yet. Tap + to post."))
                         .ffType(.body)
