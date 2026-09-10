@@ -1083,7 +1083,7 @@ final class AppModel: ObservableObject {
         case .finished:
             endedLabel = String(
                 localized: "fight.ended-on",
-                defaultValue: "Ended \(Self.deadlineStamp(ends))"
+                defaultValue: "Ended \(Fight.deadlineStamp(ends))"
             )
             if youRow?.deferred == true {
                 listSubtitle = endedLabel ?? String(localized: "Ended")
