@@ -15,15 +15,72 @@ extension EnvironmentValues {
     }
 }
 
+/// Pull-to-refresh that stays open with a spinner and a live status line.
+struct FFRefreshConfig {
+    var isRefreshing: Bool
+    var message: String
+    var action: @MainActor () async -> Void
+}
+
+/// Spinner plus the current sync sentence. Gold is progress.
+struct FFRefreshStatus: View {
+    let message: String
+    var spinning: Bool = true
+
+    @Environment(\.ffTheme) private var theme
+
+    var body: some View {
+        VStack(spacing: 8) {
+            ProgressView()
+                .tint(theme.gold)
+                .opacity(spinning ? 1 : 0.55)
+                .scaleEffect(spinning ? 1 : 0.86)
+            if !message.isEmpty {
+                Text(message)
+                    .ffType(.caption)
+                    .foregroundStyle(theme.textSecondary)
+                    .multilineTextAlignment(.center)
+                    .lineLimit(2)
+                    .minimumScaleFactor(0.85)
+            }
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.horizontal, theme.space.screenPadding)
+        .accessibilityElement(children: .combine)
+        .accessibilityIdentifier("refresh-status")
+        .accessibilityLabel(message)
+        .accessibilityAddTraits(.updatesFrequently)
+    }
+}
+
+private struct FFScrollMinYKey: PreferenceKey {
+    static var defaultValue: CGFloat = 0
+    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
+        value = nextValue()
+    }
+}
+
 /// The screen shell: an optional pinned header, then scrolling content on the
 /// screen background, with clearance for the tab bar.
 struct FFScreen<Content: View>: View {
     var top: AnyView?
     var clearance: Bool = true
+    var refresh: FFRefreshConfig? = nil
     @ViewBuilder var content: () -> Content
 
     @Environment(\.ffStaticRender) private var staticRender
     @Environment(\.ffTheme) private var theme
+    @State private var pullOffset: CGFloat = 0
+    @State private var armed = false
+    @State private var holdOpen = false
+    @State private var displayedMessage = ""
+
+    private let threshold: CGFloat = 68
+    private let restingHeight: CGFloat = 88
+
+    private var showLockedHeader: Bool {
+        !staticRender && ((refresh?.isRefreshing ?? false) || holdOpen)
+    }
 
     var body: some View {
         Group {
@@ -41,18 +98,104 @@ struct FFScreen<Content: View>: View {
                         }
                     }
             } else {
-                ScrollView(.vertical) {
-                    body(content())
-                        // Root screens are one viewport wide. Child HStacks can wrap or
-                        // truncate, but can no longer widen the scroll view and rubber-band.
-                        .containerRelativeFrame(.horizontal)
-                }
-                .safeAreaInset(edge: .top, spacing: 0) {
-                    if let top { top }
-                }
+                liveScroll
             }
         }
         .background(theme.bg)
+    }
+
+    private var liveScroll: some View {
+        ScrollView(.vertical) {
+            body(content())
+                // Root screens are one viewport wide. Child HStacks can wrap or
+                // truncate, but can no longer widen the scroll view and rubber-band.
+                .containerRelativeFrame(.horizontal)
+                .background(alignment: .top) {
+                    if refresh != nil {
+                        GeometryReader { geo in
+                            Color.clear.preference(
+                                key: FFScrollMinYKey.self,
+                                value: geo.frame(in: .named("ff-screen-scroll")).minY
+                            )
+                        }
+                        .frame(height: 0)
+                    }
+                }
+        }
+        .coordinateSpace(name: "ff-screen-scroll")
+        .safeAreaInset(edge: .top, spacing: 0) {
+            VStack(spacing: 0) {
+                if let top { top }
+                if showLockedHeader {
+                    FFRefreshStatus(
+                        message: displayedMessage,
+                        spinning: true
+                    )
+                    .frame(height: restingHeight)
+                    .transition(.opacity)
+                }
+            }
+        }
+        .overlay(alignment: .top) {
+            if refresh != nil, !showLockedHeader, pullOffset > 8 {
+                FFRefreshStatus(message: "", spinning: pullOffset > 28)
+                    .frame(height: min(pullOffset, restingHeight + 12))
+                    .opacity(min(1, Double(pullOffset / 40)))
+                    .allowsHitTesting(false)
+            }
+        }
+        .onPreferenceChange(FFScrollMinYKey.self) { minY in
+            guard refresh != nil else { return }
+            let pull = max(0, minY)
+            if !showLockedHeader, abs(pull - pullOffset) > 1 {
+                pullOffset = pull
+            }
+            handlePull(pull)
+        }
+        .onChange(of: refresh?.isRefreshing ?? false) { _, refreshing in
+            if !refreshing, !holdOpen {
+                displayedMessage = ""
+            }
+        }
+        .onChange(of: refresh?.message ?? "") { _, message in
+            if !message.isEmpty {
+                displayedMessage = message
+            }
+        }
+        .onChange(of: showLockedHeader) { _, open in
+            if open, displayedMessage.isEmpty, let message = refresh?.message, !message.isEmpty {
+                displayedMessage = message
+            }
+            if !open {
+                displayedMessage = ""
+                armed = false
+            }
+        }
+        .animation(theme.motion.sheet.animation, value: showLockedHeader)
+        .animation(theme.motion.quick.animation, value: displayedMessage)
+    }
+
+    private func handlePull(_ pull: CGFloat) {
+        guard let refresh, !showLockedHeader else {
+            if pull < 4 { armed = false }
+            return
+        }
+        if pull >= threshold {
+            if !armed {
+                armed = true
+                FFHaptics.button()
+            }
+        } else if armed, pull < threshold * 0.55 {
+            armed = false
+            holdOpen = true
+            Task { @MainActor in
+                await refresh.action()
+                holdOpen = false
+            }
+        }
+        if pull < 4 {
+            armed = false
+        }
     }
 
     private func body(_ content: Content) -> some View {
