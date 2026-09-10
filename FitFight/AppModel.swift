@@ -169,7 +169,40 @@ struct Fight: Codable, Identifiable, Hashable {
                 defaultValue: "\(daysLeft) days left"
             )
         }
-        return endedLabel ?? String(localized: "Ended")
+        return deadlineLabel
+    }
+
+    /// Exact stored cutoff, in the phone’s local date and time.
+    var deadlineLabel: String {
+        let stamp = Self.deadlineStamp(windowEnd)
+        if hasPassedDeadline {
+            return endedLabel ?? String(
+                localized: "fight.ended-on",
+                defaultValue: "Ended \(stamp)"
+            )
+        }
+        return String(
+            localized: "fight.ends-at",
+            defaultValue: "Ends \(stamp)"
+        )
+    }
+
+    var timeAndDeadlineLabel: String {
+        if hasPassedDeadline {
+            return deadlineLabel
+        }
+        return String(
+            localized: "fight.duration-end",
+            defaultValue: "\(timeLeftLabel) · ends \(Self.deadlineStamp(windowEnd))"
+        )
+    }
+
+    private var hasPassedDeadline: Bool {
+        daysLeft == nil || status == .finished || windowEnd <= Date()
+    }
+
+    static func deadlineStamp(_ date: Date) -> String {
+        date.formatted(date: .abbreviated, time: .shortened)
     }
 }
 
@@ -1048,12 +1081,9 @@ final class AppModel: ObservableObject {
             kickerEmphasis = invitePitch ?? ""
             listSubtitle = "\(ownerName) · \(durationLabel)"
         case .finished:
-            let formatter = DateFormatter()
-            formatter.locale = .autoupdatingCurrent
-            formatter.setLocalizedDateFormatFromTemplate("MMMd")
             endedLabel = String(
                 localized: "fight.ended-on",
-                defaultValue: "Ended \(formatter.string(from: ends))"
+                defaultValue: "Ended \(Fight.deadlineStamp(ends))"
             )
             if youRow?.deferred == true {
                 listSubtitle = endedLabel ?? String(localized: "Ended")
