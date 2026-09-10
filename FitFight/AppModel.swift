@@ -153,23 +153,15 @@ struct Fight: Codable, Identifiable, Hashable {
         return localizedDuration(hours: hours, days: lengthDays)
     }
 
-    /// Short test fights count in hours; a day count would round them away.
     var timeLeftLabel: String {
-        let durationHours = windowEnd.timeIntervalSince(windowStart) / 3_600
-        if durationHours <= 6, daysLeft != nil {
-            let hours = max(1, Int(ceil(windowEnd.timeIntervalSinceNow / 3_600)))
-            return String(
-                localized: "fight.hours-left",
-                defaultValue: "\(hours) hours left"
-            )
+        if hasPassedDeadline {
+            return deadlineLabel
         }
-        if let daysLeft {
-            return String(
-                localized: "fight.days-left",
-                defaultValue: "\(daysLeft) days left"
-            )
-        }
-        return deadlineLabel
+        let remaining = RemainingTime.phrase(until: windowEnd)
+        return String(
+            localized: "fight.time-left",
+            defaultValue: "\(remaining) left"
+        )
     }
 
     /// Exact stored cutoff, in the phone’s local date and time.
@@ -1009,10 +1001,7 @@ final class AppModel: ObservableObject {
                 || (remaining.second ?? 0) > 0
             daysLeft = max(1, (remaining.day ?? 0) + (hasPartialDay ? 1 : 0))
         }
-        let remainingLabel = localizedDuration(
-            hours: max(1, Int(ceil(ends.timeIntervalSinceNow / 3_600))),
-            days: daysLeft ?? 0
-        )
+        let remainingLabel = RemainingTime.phrase(until: ends)
 
         let people = members.map { member -> Standing in
             let profile = profiles[member.userId]
@@ -1297,7 +1286,8 @@ private enum AppModelFixtures {
                         DayScore(person: you, value: 14_000),
                         DayScore(person: sam, value: 12_000)
                     ])
-                ]
+                ],
+                windowEnd: Date().addingTimeInterval(4 * 24 * 60 * 60)
             ),
             Fight(
                 id: "derby",
@@ -1321,7 +1311,8 @@ private enum AppModelFixtures {
                     Standing(person: theo, score: 55200, lastSyncedAt: syncedYesterday),
                     Standing(person: leo, score: 40100, lastSyncedAt: syncedYesterday),
                     Standing(person: nina, score: 22000, invited: true)
-                ]
+                ],
+                windowEnd: Date().addingTimeInterval(1 * 24 * 60 * 60 + 8 * 60 * 60)
             ),
             Fight(
                 id: "club",
@@ -1343,7 +1334,8 @@ private enum AppModelFixtures {
                     Standing(person: you, score: 41600, lastSyncedAt: syncedJustNow),
                     Standing(person: nina, score: 31900, lastSyncedAt: syncedYesterday),
                     Standing(person: ivy, score: 28100, lastSyncedAt: syncedYesterday)
-                ]
+                ],
+                windowEnd: Date().addingTimeInterval(3 * 24 * 60 * 60)
             ),
             Fight(
                 id: "desk",

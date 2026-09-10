@@ -20,6 +20,7 @@
 		A100000000000000000000D3 /* DataViz.swift in Sources */ = {isa = PBXBuildFile; fileRef = A100000000000000000000C3 /* DataViz.swift */; };
 		A100000000000000000000D4 /* DesignSystemView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A100000000000000000000C4 /* DesignSystemView.swift */; };
 		A10000000000000000000009 /* AppModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000019 /* AppModel.swift */; };
+		A10000000000000000000375 /* RemainingTime.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000374 /* RemainingTime.swift */; };
 		A1000000000000000000000A /* tokens.json in Resources */ = {isa = PBXBuildFile; fileRef = A1000000000000000000001A /* tokens.json */; };
 		A1000000000000000000000B /* FightsListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000000000000000000001B /* FightsListView.swift */; };
 		A1000000000000000000000C /* FightDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000000000000000000001C /* FightDetailView.swift */; };
@@ -79,6 +80,7 @@
 		A100000000000000000000C3 /* DataViz.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DataViz.swift; sourceTree = "<group>"; };
 		A100000000000000000000C4 /* DesignSystemView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DesignSystemView.swift; sourceTree = "<group>"; };
 		A10000000000000000000019 /* AppModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppModel.swift; sourceTree = "<group>"; };
+		A10000000000000000000374 /* RemainingTime.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RemainingTime.swift; sourceTree = "<group>"; };
 		A1000000000000000000001A /* tokens.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = tokens.json; sourceTree = "<group>"; };
 		A1000000000000000000001B /* FightsListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FightsListView.swift; sourceTree = "<group>"; };
 		A1000000000000000000001C /* FightDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FightDetailView.swift; sourceTree = "<group>"; };
@@ -138,6 +140,7 @@
 				A10000000000000000000011 /* FitFightApp.swift */,
 				A10000000000000000000012 /* ContentView.swift */,
 				A10000000000000000000019 /* AppModel.swift */,
+				A10000000000000000000374 /* RemainingTime.swift */,
 				A1000000000000000000001B /* FightsListView.swift */,
 				A1000000000000000000001C /* FightDetailView.swift */,
 				A10000000000000000000368 /* FightDayCharts.swift */,
@@ -320,6 +323,7 @@
 				A100000000000000000000D4 /* DesignSystemView.swift in Sources */,
 				A100000000000000000000B7 /* Typography.swift in Sources */,
 				A10000000000000000000009 /* AppModel.swift in Sources */,
+				A10000000000000000000375 /* RemainingTime.swift in Sources */,
 				A1000000000000000000000B /* FightsListView.swift in Sources */,
 				A1000000000000000000000C /* FightDetailView.swift in Sources */,
 				A10000000000000000000369 /* FightDayCharts.swift in Sources */,
