@@ -83,7 +83,7 @@ enum HealthKitActivityAggregates {
         let start = [lookback, fightStart].compactMap { $0 }.min() ?? lookback
 
         var totals: [String: [String: Double]] = [:]
-        var workouts: [FitFightHealthKitStepSync.Workout]?
+        var syncedWorkouts: [FitFightHealthKitStepSync.Workout]?
         await withTaskGroup(of: (String, [String: Double])?.self) { group in
             for kind in quantityKinds {
                 group.addTask {
@@ -119,7 +119,7 @@ enum HealthKitActivityAggregates {
                 start: start,
                 end: context.serverNow
             )
-            workouts = samples
+            syncedWorkouts = samples
             var counts: [String: Double] = [:]
             var seconds: [String: Double] = [:]
             var walkRun: [String: Double] = [:]
@@ -137,7 +137,7 @@ enum HealthKitActivityAggregates {
             totals["workout_time"] = seconds
             totals["walk_run_workout_distance"] = walkRun
         } catch {
-            workouts = nil
+            syncedWorkouts = nil
         }
 
         let units: [String: String] = [
@@ -186,7 +186,7 @@ enum HealthKitActivityAggregates {
             if lhs.day != rhs.day { return lhs.day < rhs.day }
             return lhs.metric < rhs.metric
         }
-        return (days, workouts)
+        return (days, syncedWorkouts)
     }
 
     private static func dailyTotals(
