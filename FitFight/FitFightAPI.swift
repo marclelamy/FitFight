@@ -27,6 +27,10 @@ enum FitFightAPIError: LocalizedError {
                 return String(localized: "Too many join attempts. Try again later.")
             case "unauthorized":
                 return String(localized: "Your session expired. Sign in again.")
+            case "forbidden":
+                return message ?? String(localized: "This is only available to the FitFight admin.")
+            case "config":
+                return message ?? String(localized: "Cursor isn’t configured yet.")
             case "fight_not_startable", "fight_not_cancellable", "conflict":
                 return String(localized: "This fight changed. Refresh and try again.")
             case "validation":
@@ -343,6 +347,30 @@ struct FitFightFeedbackList: Decodable, Equatable {
 struct FitFightFeedbackDetail: Decodable, Equatable {
     var post: FitFightFeedbackPost
     var comments: [FitFightFeedbackComment]
+    var canLaunchFix: Bool
+
+    enum CodingKeys: String, CodingKey {
+        case post
+        case comments
+        case canLaunchFix = "can_launch_fix"
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        post = try container.decode(FitFightFeedbackPost.self, forKey: .post)
+        comments = try container.decode([FitFightFeedbackComment].self, forKey: .comments)
+        canLaunchFix = try container.decodeIfPresent(Bool.self, forKey: .canLaunchFix) ?? false
+    }
+}
+
+struct FitFightFeedbackFixAgent: Decodable, Equatable {
+    var agentId: String
+    var agentURL: URL
+
+    enum CodingKeys: String, CodingKey {
+        case agentId = "agent_id"
+        case agentURL = "agent_url"
+    }
 }
 
 struct FitFightFeedbackPostResponse: Decodable, Equatable {
@@ -872,6 +900,18 @@ struct FitFightAPI {
             path: "feedback/\(postID.uuidString.lowercased())/comments",
             accessToken: accessToken,
             body: FeedbackCommentBody(body: body),
+            expected: [201]
+        )
+    }
+
+    func launchFeedbackFix(
+        postID: UUID,
+        accessToken: String
+    ) async throws -> FitFightFeedbackFixAgent {
+        try await post(
+            path: "feedback/\(postID.uuidString.lowercased())/fix-agent",
+            accessToken: accessToken,
+            body: EmptyJSON(),
             expected: [201]
         )
     }

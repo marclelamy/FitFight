@@ -5,6 +5,7 @@ import { ApiError } from "@/lib/http";
 import {
   createFeedbackCommentRequestSchema,
   createFeedbackPostRequestSchema,
+  feedbackDetailResponseSchema,
   feedbackListResponseSchema,
   listFeedbackQuerySchema,
 } from "@/lib/types/feedback/feedback";
@@ -70,6 +71,21 @@ test("feedback schemas accept a one-character title and details", () => {
   assert.throws(() => createFeedbackCommentRequestSchema.parse({ body: "x" }));
   assert.deepEqual(listFeedbackQuerySchema.parse({}), {});
   assert.equal(listFeedbackQuerySchema.parse({ kind: "bug" }).kind, "bug");
+  assert.equal(feedbackDetailResponseSchema.parse({
+    post: {
+      id: postId,
+      kind: "bug",
+      title: postRow.title,
+      body: postRow.body,
+      vote_count: 3,
+      comment_count: 1,
+      voted: true,
+      author_handle: "maya_moves",
+      created_at: "2026-09-04T12:00:00Z",
+    },
+    comments: [],
+    can_launch_fix: true,
+  }).can_launch_fix, true);
 });
 
 test("listing feedback posts maps vote counts and the viewer vote", async () => {

@@ -29,6 +29,13 @@ enum Changelog {
             year: 2026,
             month: 9,
             day: 10,
+            notes: "On a Bugs & requests post, Marc can tap Send to Cursor to start a cloud agent with the post and comments."
+        ),
+        ReleaseNote(
+            version: "1.0.0",
+            year: 2026,
+            month: 9,
+            day: 10,
             notes: "Fights are public or private. Anyone can join with the code or link. Only public fights show on Join."
         ),
         ReleaseNote(

@@ -7,6 +7,8 @@ final class FeedbackStore: ObservableObject {
     @Published var detail: FitFightFeedbackPost?
     @Published var isLoading = false
     @Published var isSaving = false
+    @Published var isLaunchingFix = false
+    @Published var canLaunchFix = false
     @Published var error: String?
 
     private let api = FitFightAPI()
@@ -74,6 +76,7 @@ final class FeedbackStore: ObservableObject {
             detail = post
             self.comments = comments
             commentsFor = post.id
+            canLaunchFix = result.canLaunchFix
             if let index = posts.firstIndex(where: { $0.id == post.id }) {
                 posts[index] = post
             }
@@ -126,6 +129,20 @@ final class FeedbackStore: ObservableObject {
         } catch {
             self.error = error.localizedDescription
             return false
+        }
+    }
+
+    func launchFix(session: SessionStore, postID: UUID) async -> URL? {
+        isLaunchingFix = true
+        defer { isLaunchingFix = false }
+        do {
+            let token = try await session.freshAccessToken()
+            let launched = try await api.launchFeedbackFix(postID: postID, accessToken: token)
+            error = nil
+            return launched.agentURL
+        } catch {
+            self.error = error.localizedDescription
+            return nil
         }
     }
 
@@ -182,6 +199,7 @@ final class FeedbackStore: ObservableObject {
         let store = previewBoard()
         store.detail = previewPosts[0]
         store.comments = previewComments
+        store.canLaunchFix = true
         return store
     }
 
@@ -486,7 +504,9 @@ private struct RequestDetailView: View {
     @Environment(\.ffTheme) private var theme
     @Environment(\.ffStaticRender) private var staticRender
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.openURL) private var openURL
     @State private var comment = ""
+    @State private var launchedAgentURL: URL?
     @FocusState private var commentFocused: Bool
 
     private var post: FitFightFeedbackPost? {
@@ -599,6 +619,33 @@ private struct RequestDetailView: View {
                     .lineSpacing(3)
                     .fixedSize(horizontal: false, vertical: true)
 
+                if store.canLaunchFix {
+                    if launchedAgentURL != nil {
+                        FFNotice(
+                            text: String(localized: "Cursor is on it. A pull request will show up when it’s done."),
+                            tone: .moss,
+                            systemImage: "sparkles",
+                            actionTitle: String(localized: "Open"),
+                            action: {
+                                if let launchedAgentURL {
+                                    openURL(launchedAgentURL)
+                                }
+                            }
+                        )
+                    }
+                    FFButton(
+                        title: store.isLaunchingFix
+                            ? String(localized: "Sending…")
+                            : String(localized: "Send to Cursor"),
+                        kind: .secondary,
+                        fullWidth: true,
+                        enabled: !store.isLaunchingFix && !store.isSaving,
+                        action: {
+                            Task { await sendToCursor() }
+                        }
+                    )
+                }
+
                 FFSectionHeader(title: String(localized: "Comments"))
                     .padding(.top, 8)
 
@@ -651,6 +698,11 @@ private struct RequestDetailView: View {
         guard await store.comment(session: session, postID: postID, body: trimmed) else { return }
         comment = ""
         commentFocused = false
+    }
+
+    private func sendToCursor() async {
+        guard let url = await store.launchFix(session: session, postID: postID) else { return }
+        launchedAgentURL = url
     }
 }
 
