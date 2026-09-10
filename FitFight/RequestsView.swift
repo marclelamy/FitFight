@@ -638,8 +638,8 @@ private struct RequestDetailView: View {
                             ? String(localized: "Sending…")
                             : String(localized: "Send to Cursor"),
                         kind: .secondary,
-                        fullWidth: true,
                         enabled: !store.isLaunchingFix && !store.isSaving,
+                        fullWidth: true,
                         action: {
                             Task { await sendToCursor() }
                         }
