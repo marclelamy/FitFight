@@ -3,7 +3,7 @@
 Research date: **10 September 2026**  
 Scope: requirements to add **alert** remote notifications to the existing TestFlight app `com.fitfight.mvp`. **No application code in this document.**
 
-Notifications are still **parked**. [`status.md`](../status.md) and [`backlog.md`](../backlog.md) say do not build them until Marc moves the item up. First product slice, when authorized: the **end-of-window sync nudge** (open FitFight so late HealthKit Steps can upload during the existing 24-hour grace).
+Notifications are authorized only for the **final-sync cadence**. Product + forfeit + UI: [`pending-final-sync-plan.md`](pending-final-sync-plan.md). This file is the Apple/APNs vertical slice. Do not build friend pokes, paid nudges, daily AI status, or rank-change spam.
 
 Push is **not** required for App Store review. Do not add it only to look complete. [Guideline 4.5.4](https://developer.apple.com/app-store/review/guidelines/)
 
