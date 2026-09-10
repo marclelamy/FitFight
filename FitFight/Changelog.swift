@@ -28,6 +28,20 @@ enum Changelog {
             version: "1.0.0",
             year: 2026,
             month: 9,
+            day: 10,
+            notes: "Pull to refresh stays open with a spinner and tells you when FitFight is syncing your steps, updating the database, and counting the gap to your friend. Opening the app shows the same."
+        ),
+        ReleaseNote(
+            version: "1.0.0",
+            year: 2026,
+            month: 9,
+            day: 9,
+            notes: "Slide to start keeps vibrating until you let go, and the pulses speed up as you drag farther."
+        ),
+        ReleaseNote(
+            version: "1.0.0",
+            year: 2026,
+            month: 9,
             day: 9,
             notes: "Every day so far has ten chart styles. Tap a badge to switch between line, histogram, bars, pace, heat, track, oval, rings, stack, and dots."
         ),
