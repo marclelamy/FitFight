@@ -2,7 +2,7 @@
 
 Read this before building. Last updated **10 Sep 2026**. App: **1.0.0**.
 
-Do **not** restore removed surfaces. Do **not** build WHOOP, Strava, Active Minutes, Workout Count, payments, notifications, or a broader marketing site unless [`backlog.md`](backlog.md) says so. Fight posts and the Feed tab are in this build. Only the public privacy and support pages exist on the web.
+Do **not** restore removed surfaces. Do **not** build WHOOP, Strava, Active Minutes, Workout Count, payments, friend pokes, daily AI pushes, or a broader marketing site unless [`backlog.md`](backlog.md) says so. **Final-sync reminders** (end + 12h / 6h left / last hour) are now on the backlog — plan only as of 10 Sep 2026; implement from [`research/pending-final-sync-plan.md`](research/pending-final-sync-plan.md) and [`research/apns-remote-push-plan.md`](research/apns-remote-push-plan.md). Fight posts and the Feed tab are in this build. Only the public privacy and support pages exist on the web.
 
 ---
 
@@ -89,7 +89,7 @@ The native Fight path uses the API to create and join; Apple Health synchronizat
 | Daily totals | Sends Apple's merged daily buckets only for days relevant to active Fight charts. They are display data, not the source of the Fight score. |
 | Fights list | Every row is titled by the fight name. If there is no title, the loser action is used; older fights still stored as `Steps Fight` show the action the same way. The right-hand number is your gap to the person you are racing, moss when ahead and ember when behind; remaining time sits under the title as months, weeks, days, hours, and minutes, with days and hours when under two days, and without the calendar end date. There is no moss hero — live Fights are all the same size. Pull to refresh on Fights, a fight, Feed, and You stays open with the current sync sentence; opening the app shows the same while Steps are read, uploaded, and standings refresh. |
 | Standings | Live scoring uses exact Fight-window HealthKit aggregates, not overlapping whole-day totals. Both phones read the same serving rows. Each standing shows relative sync freshness; ended Fights distinguish exact final-window coverage from the last available Steps. |
-| Fight end | Exact `ends_at` is the final cutoff. The fight screen and finished list show that date and time. The live list shows remaining months, weeks, days, hours, and minutes instead of the stop date; under two days it shows days and hours. Opening the app closes due fights; the protected Vercel cron runs daily if nobody opens it. After finalization, later Steps cannot change the result. |
+| Fight end | Exact `ends_at` is the final cutoff. The fight screen and finished list show that date and time. The live list shows remaining months, weeks, days, hours, and minutes instead of the stop date; under two days it shows days and hours. Opening the app closes due fights; the protected Vercel cron runs daily if nobody opens it. After finalization, later Steps cannot change the result. **Known bug (10 Sep):** Finished shows **W** during `awaiting_final_sync` if your last-known score is ahead. Should show **P** until everyone submits or 24h grace ends. |
 | Tabs | Fights, New, Feed, You. The old Requests tab and Design are removed. |
 | Look | Night/Day, Nunito, fixed Moss/Ember/Gold semantics; no accent picker or public design-system showcase. |
 | Versions | Works under You → Settings; the version label stays at the top of every root screen. Pending the next build: both staging and production hide the app and show a blocking update dialog until the installed version/build matches their latest installable release. The version label stays at the top. |
@@ -113,5 +113,7 @@ The native Fight path uses the API to create and join; Apple Health synchronizat
 ---
 
 ## Next product work
+
+Honest pending result after a fight ends (P, not W) while someone still has not submitted final steps. Then 24h forfeit + server-owned final-sync reminders. Plans: [`research/pending-final-sync-plan.md`](research/pending-final-sync-plan.md), [`research/apns-remote-push-plan.md`](research/apns-remote-push-plan.md).
 
 Two phones: invite by exact username, accept, run a 3-day Steps challenge, verify the title or action and matching standings, and confirm the Fight finishes at the cutoff. Also smoke-test creation for 7 / 14 / 30 days. Then App Store when Marc says.
