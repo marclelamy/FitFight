@@ -65,6 +65,47 @@ test("Apple Health aggregate sync accepts one merged total per Fight", () => {
   assert.equal(parsed.fight_aggregates[0]?.steps, 42_000);
 });
 
+test("Apple Health aggregate sync keeps extra activity optional", () => {
+  const parsed = healthKitAggregateSyncSchema.parse({
+    ...validAggregate,
+    activity_days: [{
+      day: "2026-08-30",
+      starts_at: "2026-08-29T22:00:00.000Z",
+      ends_at: "2026-08-30T13:53:27.350Z",
+      metric: "active_energy",
+      value: 420,
+      unit: "kcal",
+    }],
+    workouts: [{
+      healthkit_uuid: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+      started_at: "2026-08-30T08:00:00.000Z",
+      ended_at: "2026-08-30T09:00:00.000Z",
+      activity_type: "running",
+      duration_seconds: 3600,
+      distance_m: 10_000,
+      energy_kcal: 700,
+      effort: 6,
+    }],
+  });
+
+  assert.equal(parsed.activity_days?.[0]?.metric, "active_energy");
+  assert.equal(parsed.workouts?.[0]?.activity_type, "running");
+});
+
+test("Apple Health aggregate sync rejects a mismatched activity unit", () => {
+  assert.throws(() => healthKitAggregateSyncSchema.parse({
+    ...validAggregate,
+    activity_days: [{
+      day: "2026-08-30",
+      starts_at: "2026-08-29T22:00:00.000Z",
+      ends_at: "2026-08-30T13:53:27.350Z",
+      metric: "active_energy",
+      value: 420,
+      unit: "steps",
+    }],
+  }));
+});
+
 test("Apple Health aggregate sync rejects raw HealthKit records", () => {
   assert.throws(() => healthKitAggregateSyncSchema.parse({
     ...validAggregate,
@@ -399,6 +440,68 @@ test("Apple Health aggregate sync writes merged days without raw observations", 
   assert.ok(queries.some(({ query }) => query.includes("insert into public.step_days")));
   assert.ok(queries.every(({ query }) => !query.includes("metric_observations")));
   assert.ok(queries.every(({ query }) => !query.includes("provider_events")));
+  assert.ok(queries.every(({ query }) => !query.includes("healthkit_activity_days")));
+  assert.ok(queries.every(({ query }) => !query.includes("healthkit_workouts")));
+});
+
+test("Apple Health aggregate sync stores private activity without changing Steps scoring writes", async () => {
+  const { database, queries } = createDatabaseStub((query) => {
+    if (query.includes("returning id")) {
+      return [sourceRow];
+    }
+    if (query.includes("from public.fights as fight")) {
+      return [{
+        fight_id: "b4c1285d-0232-4d15-b8cc-1a916ba2bbf7",
+        starts_at: "2026-08-27 16:06:36.729+00",
+        ends_at: "2026-09-03 16:06:35.093+00",
+        outcome_rule: "highest_total",
+        stake_minor: null,
+        default_goal_value: null,
+      }];
+    }
+    if (query.includes("from private.fight_score_snapshots")) {
+      return [{ fight_id: "b4c1285d-0232-4d15-b8cc-1a916ba2bbf7" }];
+    }
+    if (query.includes("from public.fight_members") && query.includes("state = 'accepted'")) {
+      return [{
+        fight_id: "b4c1285d-0232-4d15-b8cc-1a916ba2bbf7",
+        user_id: "5b2216f4-762d-4890-a516-63046a01df31",
+        current_value: "42000",
+        final_value: null,
+        personal_target: null,
+      }];
+    }
+    return [];
+  });
+
+  await syncHealthKitAggregates(
+    "5b2216f4-762d-4890-a516-63046a01df31",
+    healthKitAggregateSyncSchema.parse({
+      ...validAggregate,
+      activity_days: [{
+        day: "2026-08-30",
+        starts_at: "2026-08-29T22:00:00.000Z",
+        ends_at: "2026-08-30T13:53:27.350Z",
+        metric: "exercise_minutes",
+        value: 32,
+        unit: "min",
+      }],
+      workouts: [{
+        healthkit_uuid: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+        started_at: "2026-08-30T08:00:00.000Z",
+        ended_at: "2026-08-30T09:00:00.000Z",
+        activity_type: "running",
+        duration_seconds: 3600,
+        distance_m: 10_000,
+      }],
+    }),
+    database,
+  );
+
+  assert.ok(queries.some(({ query }) => query.includes("insert into public.metric_days")));
+  assert.ok(queries.some(({ query }) => query.includes("insert into private.healthkit_activity_days")));
+  assert.ok(queries.some(({ query }) => query.includes("insert into private.healthkit_workouts")));
+  assert.ok(queries.some(({ query }) => query.includes("insert into private.fight_score_snapshots")));
 });
 
 test("Apple Health aggregate sync makes the newest Fight snapshot authoritative without finalizing", async () => {

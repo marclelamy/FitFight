@@ -266,7 +266,10 @@ final class HealthKitStepsStore: ObservableObject {
         if requestAccess {
             do {
                 try await trace.measure(.authorization) {
-                    try await store.requestAuthorization(toShare: [], read: [stepsType])
+                    try await store.requestAuthorization(
+                    toShare: [],
+                    read: HealthKitActivityAggregates.readTypes
+                )
                 }
             } catch {
                 trace.fail(Self.errorCode(for: error))
@@ -345,7 +348,17 @@ final class HealthKitStepsStore: ObservableObject {
             let contextToken = try await trace.measure(.session) { try await session.freshAccessToken() }
             guard activeUserId == userId, session.authSession?.user.id == userId else { throw CancellationError() }
             let context = try await api.healthKitUploadContext(accessToken: contextToken, trace: trace)
-            let sync = try await HealthKitStepAggregates.read(store: store, type: stepsType, context: context, trace: trace)
+            var sync = try await HealthKitStepAggregates.read(
+                store: store,
+                type: stepsType,
+                context: context,
+                trace: trace
+            )
+            let activity = await trace.measure(.healthKitActivity) {
+                await HealthKitActivityAggregates.read(store: store, context: context)
+            }
+            sync.activityDays = activity.days
+            sync.workouts = activity.workouts
             onLocalAggregates?(sync)
             try Task.checkCancellation()
             let syncToken = try await trace.measure(.session) { try await session.freshAccessToken() }

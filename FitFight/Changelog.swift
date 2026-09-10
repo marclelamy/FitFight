@@ -29,6 +29,20 @@ enum Changelog {
             year: 2026,
             month: 9,
             day: 10,
+            notes: "Apple Health can also sync energy, distance, exercise, stand, flights, and workouts. Fights still use steps only. Other activity stays private on your account."
+        ),
+        ReleaseNote(
+            version: "1.0.0",
+            year: 2026,
+            month: 9,
+            day: 10,
+            notes: "Each fight now shows the exact date and time it stops, not only how many days are left."
+        ),
+        ReleaseNote(
+            version: "1.0.0",
+            year: 2026,
+            month: 9,
+            day: 10,
             notes: "Pull to refresh stays open with a spinner and tells you when FitFight is syncing your steps, updating the database, and counting the gap to your friend. Opening the app shows the same."
         ),
         ReleaseNote(
@@ -44,6 +58,13 @@ enum Changelog {
             month: 9,
             day: 9,
             notes: "Feed now has swipeable Main and fight tabs. Plus opens one composer where you add a photo, video, or note, tag people, and pick more than one place to post. Posts can get any emoji and nested comments. Inside a fight, Stats and Feed are tabs."
+        ),
+        ReleaseNote(
+            version: "1.0.0",
+            year: 2026,
+            month: 9,
+            day: 9,
+            notes: "Every day so far has ten chart styles. Tap a badge to switch between line, histogram, bars, pace, heat, track, oval, rings, stack, and dots."
         ),
         ReleaseNote(
             version: "1.0.0",
