@@ -1,5 +1,5 @@
 begin;
-select plan(65);
+select plan(66);
 
 select has_schema('private', 'private schema exists');
 select has_table('public', 'profiles', 'profiles exists');
@@ -271,6 +271,17 @@ select ok(
       and indexname = 'fights_series_starts_at_idx'
   ),
   'recurring fights are unique per series window'
+);
+select is(
+  (
+    select is_nullable
+    from information_schema.columns
+    where table_schema = 'public'
+      and table_name = 'fight_series'
+      and column_name = 'join_code'
+  ),
+  'NO',
+  'every fight series has a join code'
 );
 select ok(
   exists (select 1 from pg_constraint where conname = 'metric_observations_metric_steps_only'),

@@ -587,11 +587,6 @@ final class AppModel: ObservableObject {
                 result.append(handle)
             }
         }
-        if visibility != "joinable", handles.isEmpty {
-            createError = String(localized: "Add at least one other username.")
-            return
-        }
-
         let payload = FitFightCreateFight(
             name: storedName,
             startsAt: startsAt,
@@ -1208,15 +1203,12 @@ final class AppModel: ObservableObject {
 
 enum LiveFightError: LocalizedError {
     case notSignedIn
-    case noOpponents
     case unknownHandle(String)
 
     var errorDescription: String? {
         switch self {
         case .notSignedIn:
             return String(localized: "Sign in to start a fight.")
-        case .noOpponents:
-            return String(localized: "Add at least one other username.")
         case .unknownHandle(let handle):
             return String(
                 localized: "fight.unknown-handle",

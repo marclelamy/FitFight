@@ -364,8 +364,8 @@ test("deleting an owner with other participants removes their account and privat
   const seriesId = randomUUID();
   const peerFightId = randomUUID();
   await database`
-    insert into public.fight_series (id, owner_id, duration_seconds, name, time_zone, current_fight_id)
-    values (${seriesId}, ${f.owner}, 259200, 'Owner series', 'UTC', ${f.fightId})
+    insert into public.fight_series (id, owner_id, join_code, duration_seconds, name, time_zone, current_fight_id)
+    values (${seriesId}, ${f.owner}, ${seriesId.replace(/-/g, "").toUpperCase().replaceAll("0", "2").replaceAll("1", "3").slice(0, 4)}, 259200, 'Owner series', 'UTC', ${f.fightId})
   `;
   await database`update public.fights set series_id = ${seriesId} where id = ${f.fightId}`;
   for (const userId of f.users) {
