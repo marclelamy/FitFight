@@ -434,31 +434,8 @@ struct FightDetailView: View {
     private var daysCard: some View {
         FFCard {
             VStack(alignment: .leading, spacing: 0) {
-                ForEach(Array(fight.days.enumerated()), id: \.element.id) { index, day in
-                    if index > 0 { Color.clear.frame(height: 20) }
-                    FFEyebrow(day.label)
-                        .padding(.bottom, 12)
-                    let peak = day.scores.map(\.value).max() ?? 1
-                    let leaderID = fight.standings.first?.person.id
-                    VStack(spacing: 10) {
-                        ForEach(day.scores) { row in
-                            HStack(spacing: 10) {
-                                Text(row.person.name)
-                                    .ffType(.micro)
-                                    .foregroundStyle(theme.textSecondary)
-                                    .lineLimit(1)
-                                    .frame(width: 56, alignment: .leading)
-                                FFProgressBar(
-                                    value: peak == 0 ? 0 : row.value / peak,
-                                    fill: row.person.id == leaderID ? theme.mossFill : theme.textFaint
-                                )
-                                Text(model.formatScore(row.value, metric: fight.metric))
-                                    .ffType(.micro)
-                                    .foregroundStyle(theme.textSecondary)
-                                    .frame(width: 56, alignment: .trailing)
-                            }
-                        }
-                    }
+                FightDayChartsView(days: fight.days) { value in
+                    model.formatScore(value, metric: fight.metric)
                 }
                 if let note = fight.paceNote {
                     FFDivider(inset: 0)
