@@ -1080,8 +1080,11 @@ struct FFGroupedRow: View {
         let row = HStack(spacing: 12) {
             if let systemImage {
                 Image(systemName: systemImage)
-                    .font(.system(size: 15, weight: .medium))
+                    .fontWeight(.medium)
+                    .resizable()
+                    .scaledToFit()
                     .foregroundStyle(enabled ? theme.textDim : theme.textTertiary)
+                    .frame(width: 16, height: 16)
                     .frame(width: 36, height: 36)
                     .background(
                         enabled ? theme.control : theme.chip,
