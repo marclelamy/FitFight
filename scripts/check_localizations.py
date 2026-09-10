@@ -40,6 +40,9 @@ for key in (
 for key in (
     "duration.days",
     "duration.hours",
+    "duration.minutes",
+    "duration.months",
+    "duration.weeks",
     "fight.days-left",
     "fight.ends-in-days",
     "fight.hours-left",
