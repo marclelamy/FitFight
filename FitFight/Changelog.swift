@@ -36,6 +36,27 @@ enum Changelog {
             year: 2026,
             month: 9,
             day: 10,
+            notes: "On a Bugs & requests post, Marc can tap Send to Cursor to start a cloud agent with the post and comments."
+        ),
+        ReleaseNote(
+            version: "1.0.0",
+            year: 2026,
+            month: 9,
+            day: 10,
+            notes: "Join shows a spinner while public fights load. Opening one stays on Join with a Join button, not the live fight and its step refresh."
+        ),
+        ReleaseNote(
+            version: "1.0.0",
+            year: 2026,
+            month: 9,
+            day: 10,
+            notes: "Pull to refresh shows the sync steps from Fights, a fight, Feed, and You, not only when you open the app."
+        ),
+        ReleaseNote(
+            version: "1.0.0",
+            year: 2026,
+            month: 9,
+            day: 10,
             notes: "The Fights list shows how much time is left as months, weeks, days, hours, and minutes, without the end date. Under two days you see the days and the hours. Inside a fight, the exact end time is still there."
         ),
         ReleaseNote(

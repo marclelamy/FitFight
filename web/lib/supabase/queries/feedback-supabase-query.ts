@@ -6,9 +6,9 @@ import type {
   CreateFeedbackPostRequest,
   FeedbackComment,
   FeedbackCommentResponse,
-  FeedbackDetailResponse,
   FeedbackKind,
   FeedbackListResponse,
+  FeedbackPostDetail,
   FeedbackPostResponse,
   FeedbackPostSummary,
   FeedbackVoteResponse,
@@ -110,7 +110,7 @@ export async function getFeedbackPost(
   userId: string,
   postId: string,
   database: Sql = createDatabaseClient(),
-): Promise<FeedbackDetailResponse> {
+): Promise<FeedbackPostDetail> {
   const [row] = await database<FeedbackPostRow[]>`
     select
       post.id,

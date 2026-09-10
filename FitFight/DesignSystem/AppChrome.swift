@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 
 // App chrome that the kit specifies outside the twelve sections: the tab bar
 // (TabBarDark.dc.html) and the screen shell everything scrolls inside.
@@ -20,6 +21,19 @@ struct FFRefreshConfig {
     var isRefreshing: Bool
     var message: String
     var action: @MainActor () async -> Void
+}
+
+/// Centered gold spinner for screens waiting on the server.
+struct FFLoadingBlock: View {
+    @Environment(\.ffTheme) private var theme
+
+    var body: some View {
+        ProgressView()
+            .tint(theme.gold)
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 28)
+            .accessibilityLabel(String(localized: "Loading"))
+    }
 }
 
 /// Spinner plus the current sync sentence. Gold is progress.
@@ -53,13 +67,6 @@ struct FFRefreshStatus: View {
     }
 }
 
-private struct FFScrollMinYKey: PreferenceKey {
-    static var defaultValue: CGFloat = 0
-    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
-        value = nextValue()
-    }
-}
-
 /// The screen shell: an optional pinned header, then scrolling content on the
 /// screen background, with clearance for the tab bar.
 struct FFScreen<Content: View>: View {
@@ -70,12 +77,9 @@ struct FFScreen<Content: View>: View {
 
     @Environment(\.ffStaticRender) private var staticRender
     @Environment(\.ffTheme) private var theme
-    @State private var pullOffset: CGFloat = 0
-    @State private var armed = false
     @State private var holdOpen = false
     @State private var displayedMessage = ""
 
-    private let threshold: CGFloat = 68
     private let restingHeight: CGFloat = 88
 
     private var showLockedHeader: Bool {
@@ -112,17 +116,14 @@ struct FFScreen<Content: View>: View {
                 .containerRelativeFrame(.horizontal)
                 .background(alignment: .top) {
                     if refresh != nil {
-                        GeometryReader { geo in
-                            Color.clear.preference(
-                                key: FFScrollMinYKey.self,
-                                value: geo.frame(in: .named("ff-screen-scroll")).minY
-                            )
-                        }
-                        .frame(height: 0)
+                        FFAlwaysBounceVertical()
                     }
                 }
         }
-        .coordinateSpace(name: "ff-screen-scroll")
+        .scrollBounceBehavior(.always, axes: .vertical)
+        .ffRefreshable(refresh != nil) {
+            await runRefresh()
+        }
         .safeAreaInset(edge: .top, spacing: 0) {
             VStack(spacing: 0) {
                 if let top { top }
@@ -135,22 +136,6 @@ struct FFScreen<Content: View>: View {
                     .transition(.opacity)
                 }
             }
-        }
-        .overlay(alignment: .top) {
-            if refresh != nil, !showLockedHeader, pullOffset > 8 {
-                FFRefreshStatus(message: "", spinning: pullOffset > 28)
-                    .frame(height: min(pullOffset, restingHeight + 12))
-                    .opacity(min(1, Double(pullOffset / 40)))
-                    .allowsHitTesting(false)
-            }
-        }
-        .onPreferenceChange(FFScrollMinYKey.self) { minY in
-            guard refresh != nil else { return }
-            let pull = max(0, minY)
-            if !showLockedHeader, abs(pull - pullOffset) > 1 {
-                pullOffset = pull
-            }
-            handlePull(pull)
         }
         .onChange(of: refresh?.isRefreshing ?? false) { _, refreshing in
             if !refreshing, !holdOpen {
@@ -168,34 +153,18 @@ struct FFScreen<Content: View>: View {
             }
             if !open {
                 displayedMessage = ""
-                armed = false
             }
         }
         .animation(theme.motion.sheet.animation, value: showLockedHeader)
         .animation(theme.motion.quick.animation, value: displayedMessage)
     }
 
-    private func handlePull(_ pull: CGFloat) {
-        guard let refresh, !showLockedHeader else {
-            if pull < 4 { armed = false }
-            return
-        }
-        if pull >= threshold {
-            if !armed {
-                armed = true
-                FFHaptics.button()
-            }
-        } else if armed, pull < threshold * 0.55 {
-            armed = false
-            holdOpen = true
-            Task { @MainActor in
-                await refresh.action()
-                holdOpen = false
-            }
-        }
-        if pull < 4 {
-            armed = false
-        }
+    @MainActor
+    private func runRefresh() async {
+        guard let refresh else { return }
+        holdOpen = true
+        await refresh.action()
+        holdOpen = false
     }
 
     private func body(_ content: Content) -> some View {
@@ -206,6 +175,67 @@ struct FFScreen<Content: View>: View {
         .padding(.top, theme.space.base)
         .padding(.bottom, clearance ? theme.space.tabBarClearance : theme.space.lg)
         .frame(maxWidth: .infinity, alignment: .leading)
+    }
+}
+
+private extension View {
+    @ViewBuilder
+    func ffRefreshable(_ enabled: Bool, action: @escaping () async -> Void) -> some View {
+        if enabled {
+            refreshable(action: action)
+        } else {
+            self
+        }
+    }
+}
+
+// NOTE: SwiftUI ScrollView only bounces when content is taller than the screen unless
+// `alwaysBounceVertical` is set on the underlying UIScrollView. That is what lets a
+// short Fights / Feed / fight screen still pull to refresh.
+private struct FFAlwaysBounceVertical: UIViewRepresentable {
+    func makeCoordinator() -> Coordinator {
+        Coordinator()
+    }
+
+    func makeUIView(context: Context) -> SentinelView {
+        let view = SentinelView()
+        view.isUserInteractionEnabled = false
+        view.backgroundColor = .clear
+        view.coordinator = context.coordinator
+        return view
+    }
+
+    func updateUIView(_ uiView: SentinelView, context: Context) {
+        uiView.coordinator = context.coordinator
+        context.coordinator.sync(from: uiView)
+    }
+
+    final class SentinelView: UIView {
+        weak var coordinator: Coordinator?
+
+        override func didMoveToWindow() {
+            super.didMoveToWindow()
+            coordinator?.sync(from: self)
+        }
+
+        override func layoutSubviews() {
+            super.layoutSubviews()
+            coordinator?.sync(from: self)
+        }
+    }
+
+    final class Coordinator {
+        func sync(from view: UIView) {
+            var current: UIView? = view
+            while let node = current {
+                if let scroll = node as? UIScrollView {
+                    scroll.alwaysBounceVertical = true
+                    scroll.bounces = true
+                    return
+                }
+                current = node.superview
+            }
+        }
     }
 }
 
