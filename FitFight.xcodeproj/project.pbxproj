@@ -62,6 +62,8 @@
 		A10000000000000000000371 /* HealthKitActivityAggregates.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000370 /* HealthKitActivityAggregates.swift */; };
 		A10000000000000000000373 /* FightPostThread.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000372 /* FightPostThread.swift */; };
 		A10000000000000000000379 /* PushNotificationService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000378 /* PushNotificationService.swift */; };
+		A10000000000000000000381 /* NotificationOnboardingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000380 /* NotificationOnboardingView.swift */; };
+		A10000000000000000000383 /* DebugMenuView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000382 /* DebugMenuView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -85,6 +87,8 @@
 		A10000000000000000000374 /* RemainingTime.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RemainingTime.swift; sourceTree = "<group>"; };
 		A10000000000000000000376 /* DailyStatusRecapView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DailyStatusRecapView.swift; sourceTree = "<group>"; };
 		A10000000000000000000378 /* PushNotificationService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PushNotificationService.swift; sourceTree = "<group>"; };
+		A10000000000000000000380 /* NotificationOnboardingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationOnboardingView.swift; sourceTree = "<group>"; };
+		A10000000000000000000382 /* DebugMenuView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DebugMenuView.swift; sourceTree = "<group>"; };
 		A1000000000000000000001A /* tokens.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = tokens.json; sourceTree = "<group>"; };
 		A1000000000000000000001B /* FightsListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FightsListView.swift; sourceTree = "<group>"; };
 		A1000000000000000000001C /* FightDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FightDetailView.swift; sourceTree = "<group>"; };
@@ -164,6 +168,7 @@
 				A10000000000000000000364 /* FeedView.swift */,
 				A10000000000000000000372 /* FightPostThread.swift */,
 				A10000000000000000000366 /* HealthOnboardingView.swift */,
+				A10000000000000000000380 /* NotificationOnboardingView.swift */,
 				A10000000000000000000302 /* SessionStore.swift */,
 				A10000000000000000000303 /* AppleSignInControl.swift */,
 				A10000000000000000000309 /* WelcomeView.swift */,
@@ -178,6 +183,7 @@
 				A1000000000000000000030F /* AppUpdateChecker.swift */,
 				A10000000000000000000015 /* Changelog.swift */,
 				A10000000000000000000016 /* VersionsView.swift */,
+				A10000000000000000000382 /* DebugMenuView.swift */,
 				A10000000000000000000022 /* ScreenshotExport.swift */,
 				A10000000000000000000320 /* FitFight.entitlements */,
 				A10000000000000000000321 /* PrivacyInfo.xcprivacy */,
@@ -348,6 +354,8 @@
 				A10000000000000000000363 /* MediaUploader.swift in Sources */,
 				A10000000000000000000365 /* FeedView.swift in Sources */,
 				A10000000000000000000379 /* PushNotificationService.swift in Sources */,
+				A10000000000000000000381 /* NotificationOnboardingView.swift in Sources */,
+				A10000000000000000000383 /* DebugMenuView.swift in Sources */,
 				A10000000000000000000373 /* FightPostThread.swift in Sources */,
 				A10000000000000000000367 /* HealthOnboardingView.swift in Sources */,
 				A10000000000000000000312 /* SessionStore.swift in Sources */,

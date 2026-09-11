@@ -16,7 +16,9 @@ final class SessionStore: ObservableObject {
     private let api = FitFightAPI()
     private static let handleChosenKey = "ff.handle.chosen"
     private static let needsHealthKey = "ff.onboarding.needsHealth"
+    private static let needsNotificationKey = "ff.onboarding.needsNotifications"
     private static let profileCachePrefix = "fitfight.profile."
+    private static let adminHandle = "marc"
 
     var isSignedIn: Bool { authSession != nil || screenshotSignedIn }
 
@@ -31,8 +33,23 @@ final class SessionStore: ObservableObject {
         !needsOnboarding && UserDefaults.standard.bool(forKey: Self.needsHealthKey)
     }
 
+    var needsNotificationOnboarding: Bool {
+        !needsOnboarding && !needsHealthOnboarding
+            && UserDefaults.standard.bool(forKey: Self.needsNotificationKey)
+    }
+
+    var isFitFightAdmin: Bool {
+        guard let handle = profile?.handle else { return false }
+        return handle.caseInsensitiveCompare(Self.adminHandle) == .orderedSame
+    }
+
     func finishHealthOnboarding() {
         UserDefaults.standard.set(false, forKey: Self.needsHealthKey)
+        objectWillChange.send()
+    }
+
+    func finishNotificationOnboarding() {
+        UserDefaults.standard.set(false, forKey: Self.needsNotificationKey)
         objectWillChange.send()
     }
 
@@ -150,6 +167,7 @@ final class SessionStore: ObservableObject {
         profileUnavailable = false
         UserDefaults.standard.removeObject(forKey: Self.handleChosenKey)
         UserDefaults.standard.removeObject(forKey: Self.needsHealthKey)
+        UserDefaults.standard.removeObject(forKey: Self.needsNotificationKey)
     }
 
     static func signInFailureMessage(_ error: Error) -> String {
@@ -208,6 +226,7 @@ final class SessionStore: ObservableObject {
             )
             UserDefaults.standard.set(true, forKey: Self.handleChosenKey)
             UserDefaults.standard.set(true, forKey: Self.needsHealthKey)
+            UserDefaults.standard.set(true, forKey: Self.needsNotificationKey)
             try Task.checkCancellation()
             guard authSession?.user.id == userId, client.auth.currentUser?.id == userId else {
                 throw CancellationError()
@@ -266,6 +285,7 @@ final class SessionStore: ObservableObject {
             profileUnavailable = false
             UserDefaults.standard.removeObject(forKey: Self.handleChosenKey)
             UserDefaults.standard.removeObject(forKey: Self.needsHealthKey)
+            UserDefaults.standard.removeObject(forKey: Self.needsNotificationKey)
             if let userID {
                 UserDefaults.standard.removeObject(forKey: Self.profileCachePrefix + userID.uuidString)
             }

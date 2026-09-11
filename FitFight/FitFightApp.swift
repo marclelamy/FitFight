@@ -102,7 +102,11 @@ struct FitFightApp: App {
                     guard appUpdate.status == .current else { return }
                     model.restoreCachedFights(session: session)
                     await model.refreshFights(session: session, steps: steps)
-                    push.considerPromptIfNeeded(fights: model.fights)
+                    if !session.needsOnboarding,
+                       !session.needsHealthOnboarding,
+                       !session.needsNotificationOnboarding {
+                        push.considerPromptIfNeeded(fights: model.fights)
+                    }
                 }
                 .task(id: appUpdate.status == .current ? session.profile?.userId : nil) {
                     guard appUpdate.status == .current else { return }
