@@ -3,20 +3,25 @@ import { test } from "node:test";
 import type { Sql } from "postgres";
 import { ApiError } from "@/lib/http";
 import {
+  blockFeedbackAuthorRequestSchema,
   createFeedbackCommentRequestSchema,
   createFeedbackPostRequestSchema,
   feedbackDetailResponseSchema,
   feedbackListResponseSchema,
   listFeedbackQuerySchema,
+  reportFeedbackPostRequestSchema,
 } from "@/lib/types/feedback/feedback";
 import {
+  blockFeedbackAuthor,
   createFeedbackComment,
   createFeedbackPost,
   listFeedbackPosts,
+  reportFeedbackPost,
   toggleFeedbackVote,
 } from "./feedback-supabase-query";
 
 const userId = "11111111-1111-4111-8111-111111111111";
+const authorId = "22222222-2222-4222-8222-222222222222";
 const postId = "dddddddd-dddd-4ddd-8ddd-dddddddddddd";
 
 const postRow = {
@@ -27,7 +32,9 @@ const postRow = {
   vote_count: 3,
   comment_count: 1,
   voted: true,
+  author_id: authorId,
   author_handle: "maya_moves",
+  mine: false,
   created_at: new Date("2026-09-04T12:00:00.000Z"),
 };
 
@@ -80,12 +87,16 @@ test("feedback schemas accept a one-character title and details", () => {
       vote_count: 3,
       comment_count: 1,
       voted: true,
+      author_id: authorId,
       author_handle: "maya_moves",
+      mine: false,
       created_at: "2026-09-04T12:00:00Z",
     },
     comments: [],
     can_launch_fix: true,
   }).can_launch_fix, true);
+  assert.equal(reportFeedbackPostRequestSchema.safeParse({ reason: "other" }).success, true);
+  assert.equal(blockFeedbackAuthorRequestSchema.safeParse({ user_id: authorId }).success, true);
 });
 
 test("listing feedback posts maps vote counts and the viewer vote", async () => {
@@ -94,6 +105,7 @@ test("listing feedback posts maps vote counts and the viewer vote", async () => 
   const result = await listFeedbackPosts(userId, { kind: "bug" }, database);
 
   assert.match(queries[0] ?? "", /from public.feedback_posts as post/);
+  assert.match(queries[0] ?? "", /private.feedback_blocks/);
   assert.deepEqual(feedbackListResponseSchema.parse(result), {
     posts: [{
       id: postId,
@@ -103,7 +115,9 @@ test("listing feedback posts maps vote counts and the viewer vote", async () => 
       vote_count: 3,
       comment_count: 1,
       voted: true,
+      author_id: authorId,
       author_handle: "maya_moves",
+      mine: false,
       created_at: "2026-09-04T12:00:00Z",
     }],
   });
@@ -168,6 +182,34 @@ test("toggling a vote inserts when the viewer has not voted", async () => {
   assert.equal(result.vote_count, 1);
   assert.ok(queries.some((query) => query.includes("insert into public.feedback_votes")));
   assert.ok(queries.some((query) => query.includes("on conflict (post_id, user_id) do nothing")));
+});
+
+test("reporting a feedback post records the reason", async () => {
+  const { database, queries } = createDatabaseStub((sql) => {
+    if (sql.includes("from public.feedback_posts as post")) {
+      return [{ id: postId, author_id: authorId }];
+    }
+    return [];
+  });
+
+  const result = await reportFeedbackPost(userId, postId, { reason: "other" }, database);
+
+  assert.deepEqual(result, { reported: true });
+  assert.ok(queries.some((query) => query.includes("insert into private.feedback_post_reports")));
+});
+
+test("blocking a feedback author hides them from the viewer", async () => {
+  const { database, queries } = createDatabaseStub((sql) => {
+    if (sql.includes("select user_id from public.profiles")) {
+      return [{ user_id: authorId }];
+    }
+    return [];
+  });
+
+  const result = await blockFeedbackAuthor(userId, authorId, database);
+
+  assert.deepEqual(result, { blocked: true });
+  assert.ok(queries.some((query) => query.includes("insert into private.feedback_blocks")));
 });
 
 test("commenting on a missing post returns not found", async () => {
