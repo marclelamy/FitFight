@@ -46,6 +46,7 @@ struct FightRow: Decodable {
     let state: String
     let startsAt: String
     let endsAt: String
+    let graceEndsAt: String?
     let actionText: String?
     let seriesId: UUID?
 
@@ -56,12 +57,27 @@ struct FightRow: Decodable {
         case state
         case startsAt = "starts_at"
         case endsAt = "ends_at"
+        case graceEndsAt = "grace_ends_at"
         case actionText = "action_text"
         case seriesId = "series_id"
     }
 
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        id = try container.decode(UUID.self, forKey: .id)
+        ownerId = try container.decode(UUID.self, forKey: .ownerId)
+        name = try container.decode(String.self, forKey: .name)
+        state = try container.decode(String.self, forKey: .state)
+        startsAt = try container.decode(String.self, forKey: .startsAt)
+        endsAt = try container.decode(String.self, forKey: .endsAt)
+        graceEndsAt = try container.decodeIfPresent(String.self, forKey: .graceEndsAt)
+        actionText = try container.decodeIfPresent(String.self, forKey: .actionText)
+        seriesId = try container.decodeIfPresent(UUID.self, forKey: .seriesId)
+    }
+
     var startsAtDate: Date { Self.parse(startsAt) ?? Date() }
     var endsAtDate: Date { Self.parse(endsAt) ?? Date().addingTimeInterval(86400) }
+    var graceEndsAtDate: Date? { graceEndsAt.flatMap(Self.parse) }
 
     static func parse(_ raw: String) -> Date? {
         let iso = ISO8601DateFormatter()

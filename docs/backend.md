@@ -128,6 +128,22 @@ creates a P0 Inbox row in the Blend HQ Product Backlog (Product FitFight, Source
 App feedback). Vercel holds `NOTION_TOKEN`. A missing token or a Notion failure
 does not fail the in-app post. The token never belongs in iOS, git, or chat.
 
+`GET /api/v1/feedback/{postID}` includes `can_launch_fix` for the signed-in viewer.
+That flag is true only for the FitFight admin: email `marc@marclamy.com`, username
+`marc`, or extras in `FITFIGHT_ADMIN_EMAILS` / `FITFIGHT_ADMIN_HANDLES`. Apple Sign
+In may store no email, so the username match is required on staging. Admin-only
+`POST /api/v1/feedback/{postID}/fix-agent` starts a Cursor cloud agent on
+`develop` with the post and comments via `https://api.cursor.com/v0/agents` and
+returns `{ agent_id, agent_url }`. After a successful start it best-effort moves
+the matching Product Backlog row (Notes contain `feedback_post: {id}`) to
+Building. The launch also registers a signed webhook on
+`POST /api/internal/cursor-agent/{postID}`. When Cursor reports `FINISHED` with a
+PR URL, that route moves the same row to Done and appends the PR URL. An `ERROR`
+or a finish without a PR leaves Building. The agent is told not to edit Notion.
+Vercel holds `CURSOR_API_KEY` and reuses it to sign the webhook when the key is
+at least 32 characters. A missing key returns `503 config` to the admin and does
+not affect other people. The key never belongs in iOS, git, or chat.
+
 Native Sign in with Apple sends its short-lived authorization code to authenticated
 `POST /api/v1/auth/apple`. The server exchanges it with Apple, checks the returned Apple
 subject against the User's Supabase Apple identity, encrypts the refresh token, and stores

@@ -267,7 +267,7 @@ Apple requires an active demo account, or a prior-approved built-in demo mode wh
 
 ### 10. Complete the real-device validation gate
 
-The repository itself says to prove a full-history upload/resume/object deletion/anchor flow and watch a real two-phone three-day fight close before App Store submission in [backlog.md](../backlog.md#L68-L72). App Store Connect processing proves packaging, not product correctness.
+The product list still requires watching a real two-phone three-day fight close before App Store submission ([Notion Product Backlog](https://app.notion.com/p/3d38907c7ecf816facdff36cb59f463e)). App Store Connect processing proves packaging, not product correctness.
 
 Run the exact production candidate through:
 

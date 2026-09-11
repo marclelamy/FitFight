@@ -109,10 +109,11 @@ test("a source watermark cannot finalize a fight without exact end snapshots", a
   assert.ok(pendingMembers.every((row) => !row.final_steps_complete && row.final_value === null));
   await recalculateFight(f.fightId, new Date(Date.parse(f.endsAt) + 86_400_001), database);
   const finalized = await database`
-    select user_id, final_value::text, final_steps_complete, finalized_at
+    select user_id, final_value::text, rank, final_steps_complete, finalized_at
     from public.fight_members where fight_id = ${f.fightId} order by user_id
   `;
   assert.deepEqual(finalized.map((row) => row.final_value), ["42", "0"]);
+  assert.deepEqual(finalized.map((row) => row.rank), [1, 1]);
   assert.ok(finalized.every((row) => !row.final_steps_complete && row.finalized_at !== null));
 });
 
@@ -364,8 +365,8 @@ test("deleting an owner with other participants removes their account and privat
   const seriesId = randomUUID();
   const peerFightId = randomUUID();
   await database`
-    insert into public.fight_series (id, owner_id, duration_seconds, name, time_zone, current_fight_id)
-    values (${seriesId}, ${f.owner}, 259200, 'Owner series', 'UTC', ${f.fightId})
+    insert into public.fight_series (id, owner_id, join_code, duration_seconds, name, time_zone, current_fight_id)
+    values (${seriesId}, ${f.owner}, ${seriesId.replace(/-/g, "").toUpperCase().replaceAll("0", "2").replaceAll("1", "3").slice(0, 4)}, 259200, 'Owner series', 'UTC', ${f.fightId})
   `;
   await database`update public.fights set series_id = ${seriesId} where id = ${f.fightId}`;
   for (const userId of f.users) {

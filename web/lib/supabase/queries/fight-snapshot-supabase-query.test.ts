@@ -14,6 +14,7 @@ test("the shared native snapshot fixture preserves the API contract and strips i
     future_field: true,
     profiles: fixture.profiles.map((profile) => ({ ...profile, internal_column: "private" })),
   }), fixture);
+  assert.equal(fixture.fights[0].grace_ends_at, "2026-09-09T00:00:00Z");
   assert.equal(fixture.members[1].state, "deferred");
   assert.equal(fixture.members[0].current_value, 8500);
 });
@@ -47,6 +48,8 @@ test("snapshot establishes transaction-local caller permissions before its singl
   assert.ok(calls[1].query.includes("set_config('request.jwt.claim.sub', ?, true)"));
   assert.deepEqual(calls[1].values, [userId, JSON.stringify({ sub: userId, role: "authenticated" })]);
   assert.ok(calls[2].values.includes("Europe/Paris"));
+  assert.match(calls[2].query, /as grace_ends_at/);
+  assert.doesNotMatch(calls[2].query, /as final_sync_grace_seconds/);
 });
 
 test("ordinary maintenance uses one database query and never scans unrelated series over REST", async () => {

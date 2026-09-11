@@ -161,6 +161,7 @@ struct FFButton: View {
     var kind: FFButtonKind = .primary
     var size: FFButtonSize = .medium
     var enabled: Bool = true
+    var busy: Bool = false
     var fullWidth: Bool = false
     let action: () -> Void
 
@@ -168,17 +169,24 @@ struct FFButton: View {
 
     var body: some View {
         Button(action: action) {
-            Text(title)
-                .ffType(size.font)
-                .foregroundStyle(foreground)
-                .padding(.horizontal, size.padding.x)
-                .padding(.vertical, size.padding.y)
-                .frame(maxWidth: fullWidth ? .infinity : nil)
-                .background(background, in: Capsule())
-                .overlay { if let stroke { Capsule().strokeBorder(stroke, lineWidth: 1) } }
+            HStack(spacing: 8) {
+                if busy {
+                    ProgressView()
+                        .controlSize(.small)
+                        .tint(foreground)
+                }
+                Text(title)
+                    .ffType(size.font)
+            }
+            .foregroundStyle(foreground)
+            .padding(.horizontal, size.padding.x)
+            .padding(.vertical, size.padding.y)
+            .frame(maxWidth: fullWidth ? .infinity : nil)
+            .background(background, in: Capsule())
+            .overlay { if let stroke { Capsule().strokeBorder(stroke, lineWidth: 1) } }
         }
         .buttonStyle(FFPressStyle())
-        .disabled(!enabled)
+        .disabled(!enabled || busy)
     }
 
     private var foreground: Color {
@@ -641,6 +649,7 @@ enum FFResult: String {
     case win = "W"
     case loss = "L"
     case draw = "–"
+    case pending = "P"
 }
 
 /// 24pt square, glyph radius, for dense rows of past results.
@@ -664,6 +673,7 @@ struct FFResultGlyph: View {
         case .win: return theme.mossFill.opacity(0.24)
         case .loss: return theme.emberFill.opacity(0.22)
         case .draw: return theme.hairline
+        case .pending: return theme.gold.opacity(0.22)
         }
     }
 
@@ -672,6 +682,7 @@ struct FFResultGlyph: View {
         case .win: return theme.mossText
         case .loss: return theme.emberText
         case .draw: return theme.textTertiary
+        case .pending: return theme.goldInk
         }
     }
 }
@@ -1080,8 +1091,11 @@ struct FFGroupedRow: View {
         let row = HStack(spacing: 12) {
             if let systemImage {
                 Image(systemName: systemImage)
-                    .font(.system(size: 15, weight: .medium))
+                    .resizable()
+                    .scaledToFit()
+                    .fontWeight(.medium)
                     .foregroundStyle(enabled ? theme.textDim : theme.textTertiary)
+                    .frame(width: 16, height: 16)
                     .frame(width: 36, height: 36)
                     .background(
                         enabled ? theme.control : theme.chip,

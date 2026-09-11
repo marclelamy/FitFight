@@ -131,7 +131,7 @@ async function toSummary(
   admin = createAdminClient(),
   now: Date = new Date(),
 ): Promise<JoinableFightSummary> {
-  if (series.visibility !== "joinable" || !series.join_code) {
+  if (!series.join_code) {
     throw new ApiError(404, ERROR_CODES.not_found, "Fight not found");
   }
   const [handle, memberCount, alreadyMember] = await Promise.all([
@@ -212,7 +212,7 @@ export async function getJoinableFightByCode(
     throw new ApiError(500, ERROR_CODES.db_error, "Could not load series");
   }
   const series = data as FightSeriesRow | null;
-  if (!series || series.visibility !== "joinable" || series.paused_at) {
+  if (!series || !series.join_code || series.paused_at) {
     throw new ApiError(404, ERROR_CODES.not_found, "Fight not found");
   }
   const fight = await currentJoinableFight(series, admin, now);
@@ -269,8 +269,8 @@ export async function joinFight(
     series = await loadSeries(listed.series_id, admin);
   }
 
-  if (series.visibility !== "joinable" || series.paused_at) {
-    throw new ApiError(403, ERROR_CODES.fight_not_joinable, "This fight is invite-only");
+  if (series.paused_at || !series.join_code) {
+    throw new ApiError(403, ERROR_CODES.fight_not_joinable, "This fight cannot be joined");
   }
 
   const fight = await currentJoinableFight(series, admin, now);

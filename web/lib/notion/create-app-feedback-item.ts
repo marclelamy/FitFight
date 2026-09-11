@@ -1,7 +1,10 @@
 import type { FeedbackPostSummary } from "@/lib/types/feedback/feedback";
 import {
+  feedbackPostNotionMarkerPrefix,
   notionAppFeedbackDefaults,
+  notionFeedbackPageQuerySchema,
   notionTokenSchema,
+  type NotionProductBacklogStatus,
   type NotionProductBacklogType,
 } from "@/lib/types/notion/product-backlog";
 import { appReleaseProjectSchema } from "@/lib/types/releases/app-release";
@@ -46,7 +49,7 @@ export async function createAppFeedbackBacklogItem(
   const notes = [
     `@${post.author_handle} · ${post.kind} · ${channel}`,
     post.body,
-    `feedback_post: ${post.id}`,
+    `${feedbackPostNotionMarkerPrefix}${post.id}`,
   ].join("\n\n");
 
   try {
@@ -99,5 +102,90 @@ export async function createAppFeedbackBacklogItem(
       status: 0,
     }));
     return false;
+  }
+}
+
+export async function markAppFeedbackBacklogStatus(
+  postId: string,
+  status: NotionProductBacklogStatus,
+  fetchImpl: typeof fetch = fetch,
+  note?: string,
+): Promise<"updated" | "skipped" | "failed"> {
+  const token = notionTokenSchema.safeParse(process.env.NOTION_TOKEN);
+  if (!token.success) {
+    return "skipped";
+  }
+
+  const headers = {
+    Authorization: `Bearer ${token.data}`,
+    "Content-Type": "application/json",
+    "Notion-Version": NOTION_VERSION,
+  };
+  const marker = `${feedbackPostNotionMarkerPrefix}${postId}`;
+
+  try {
+    const query = await fetchImpl(
+      `https://api.notion.com/v1/databases/${PRODUCT_BACKLOG_DATABASE_ID}/query`,
+      {
+        method: "POST",
+        headers,
+        body: JSON.stringify({
+          page_size: 1,
+          filter: {
+            property: "Notes",
+            rich_text: { contains: marker },
+          },
+        }),
+        signal: AbortSignal.timeout(8_000),
+      },
+    );
+    if (!query.ok) {
+      console.error("fitfight_notion_feedback", JSON.stringify({
+        post_id: postId,
+        status: query.status,
+      }));
+      return "failed";
+    }
+
+    const parsed = notionFeedbackPageQuerySchema.safeParse(await query.json());
+    const page = parsed.success ? parsed.data.results[0] : undefined;
+    if (!page) {
+      return "skipped";
+    }
+
+    const properties: Record<string, unknown> = {
+      Status: { select: { name: status } },
+    };
+    const existingNotes = page.properties?.Notes?.rich_text
+      .map((item) => item.plain_text)
+      .join("");
+    if (note && existingNotes !== undefined && !existingNotes.includes(note)) {
+      properties.Notes = {
+        rich_text: [{
+          text: { content: `${existingNotes}\n\n${note}`.slice(0, RICH_TEXT_LIMIT) },
+        }],
+      };
+    }
+
+    const patch = await fetchImpl(`https://api.notion.com/v1/pages/${page.id}`, {
+      method: "PATCH",
+      headers,
+      body: JSON.stringify({ properties }),
+      signal: AbortSignal.timeout(8_000),
+    });
+    if (patch.ok) {
+      return "updated";
+    }
+    console.error("fitfight_notion_feedback", JSON.stringify({
+      post_id: postId,
+      status: patch.status,
+    }));
+    return "failed";
+  } catch {
+    console.error("fitfight_notion_feedback", JSON.stringify({
+      post_id: postId,
+      status: 0,
+    }));
+    return "failed";
   }
 }
