@@ -15,7 +15,7 @@ struct DailyStatusRecapView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            Text("Today's check-in")
+            Text(String(localized: "Today's check-in"))
                 .font(.ff(22, 800))
                 .tracking(22 * -0.015)
                 .foregroundStyle(theme.text)
