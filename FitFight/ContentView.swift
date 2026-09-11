@@ -13,14 +13,17 @@ struct ContentView: View {
     @EnvironmentObject private var steps: HealthKitStepsStore
 
     var body: some View {
-        VStack(spacing: 0) {
-            VersionBanner(onTap: versionBannerTap)
+        Group {
             if appUpdate.status == .current || ScreenshotExport.isEnabled {
-                appContent
+                VStack(spacing: 0) {
+                    VersionBanner(onTap: versionBannerTap)
+                    appContent
+                }
             } else {
-                updateDialog
+                updateScreen
             }
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(theme.bg.ignoresSafeArea())
         .task(id: scenePhase) {
             guard scenePhase == .active, !ScreenshotExport.isEnabled else { return }
@@ -118,62 +121,68 @@ struct ContentView: View {
         return { model.showingDebugMenu = true }
     }
 
-    private var updateDialog: some View {
-        ZStack {
-            theme.scrim
-            VStack(alignment: .leading, spacing: 0) {
-                if appUpdate.status == .checking {
-                    ProgressView()
-                        .tint(theme.text)
-                    Text("Checking for updates…")
-                        .font(.ff(18, 800))
-                        .tracking(18 * -0.015)
-                        .foregroundStyle(theme.text)
-                        .padding(.top, 14)
-                } else {
-                    Text(appUpdate.status == .updateRequired
-                         ? String(localized: "Update FitFight to continue")
-                         : String(localized: "Couldn’t check for updates"))
-                        .font(.ff(18, 800))
-                        .tracking(18 * -0.015)
-                        .foregroundStyle(theme.text)
-                    Text(appUpdate.status == .updateRequired
-                         ? String(localized: "You can’t use FitFight until you install the latest version.")
-                         : String(localized: "Connect to the internet and try again to use FitFight."))
-                        .ffType(.body)
-                        .foregroundStyle(theme.textSecondary)
-                        .lineSpacing(3)
-                        .fixedSize(horizontal: false, vertical: true)
-                        .padding(.top, 7)
-                    HStack(spacing: 9) {
-                        FFButton(
-                            title: String(localized: "Check again"),
-                            kind: appUpdate.status == .updateRequired && appUpdate.policy?.latest != nil
-                                ? .secondary : .primary,
-                            fullWidth: true
-                        ) {
-                            Task { await appUpdate.check() }
-                        }
-                        .disabled(appUpdate.isChecking)
-                        if appUpdate.status == .updateRequired, let release = appUpdate.policy?.latest {
-                            FFButton(title: String(localized: "Update FitFight"), kind: .primary, fullWidth: true) {
-                                openURL(release.updateURL)
-                            }
-                            .accessibilityIdentifier("required-update-button")
-                        }
-                    }
-                    .padding(.top, 18)
-                }
-            }
-            .padding(.horizontal, 20)
-            .padding(.vertical, 22)
-            .background(theme.overlay, in: RoundedRectangle(cornerRadius: theme.radius.card, style: .continuous))
-            .ffBorder(theme.overlayLine, radius: theme.radius.card)
-            .shadow(color: .black.opacity(0.9), radius: 30, y: 20)
-            .padding(24)
+    private var updateScreen: some View {
+        VStack(spacing: 0) {
+            VersionBanner()
+            Spacer(minLength: 0)
+            updateCard
+            Spacer(minLength: 0)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .accessibilityIdentifier("required-update-screen")
+    }
+
+    private var updateCard: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            if appUpdate.status == .checking {
+                ProgressView()
+                    .tint(theme.text)
+                Text("Checking for updates…")
+                    .font(.ff(18, 800))
+                    .tracking(18 * -0.015)
+                    .foregroundStyle(theme.text)
+                    .padding(.top, 14)
+            } else {
+                Text(appUpdate.status == .updateRequired
+                     ? String(localized: "Update FitFight to continue")
+                     : String(localized: "Couldn’t check for updates"))
+                    .font(.ff(18, 800))
+                    .tracking(18 * -0.015)
+                    .foregroundStyle(theme.text)
+                Text(appUpdate.status == .updateRequired
+                     ? String(localized: "You can’t use FitFight until you install the latest version.")
+                     : String(localized: "Connect to the internet and try again to use FitFight."))
+                    .ffType(.body)
+                    .foregroundStyle(theme.textSecondary)
+                    .lineSpacing(3)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .padding(.top, 7)
+                HStack(spacing: 9) {
+                    FFButton(
+                        title: String(localized: "Check again"),
+                        kind: appUpdate.status == .updateRequired && appUpdate.policy?.latest != nil
+                            ? .secondary : .primary,
+                        fullWidth: true
+                    ) {
+                        Task { await appUpdate.check() }
+                    }
+                    .disabled(appUpdate.isChecking)
+                    if appUpdate.status == .updateRequired, let release = appUpdate.policy?.latest {
+                        FFButton(title: String(localized: "Update FitFight"), kind: .primary, fullWidth: true) {
+                            openURL(release.updateURL)
+                        }
+                        .accessibilityIdentifier("required-update-button")
+                    }
+                }
+                .padding(.top, 18)
+            }
+        }
+        .padding(.horizontal, 20)
+        .padding(.vertical, 22)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(theme.overlay, in: RoundedRectangle(cornerRadius: theme.radius.card, style: .continuous))
+        .ffBorder(theme.overlayLine, radius: theme.radius.card)
+        .padding(24)
     }
 
     @ViewBuilder
