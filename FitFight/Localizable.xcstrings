@@ -533,6 +533,9 @@
     "Debug" : {"localizations":{"fr":{"stringUnit":{"state":"translated","value":"Débogage"}}}},
     "Design system" : {"localizations":{"fr":{"stringUnit":{"state":"translated","value":"Système de design"}}}},
     "Internal kit. Not shown to other people." : {"localizations":{"fr":{"stringUnit":{"state":"translated","value":"Kit interne. Les autres ne le voient pas."}}}},
+    "Developer" : {"localizations":{"fr":{"stringUnit":{"state":"translated","value":"Développeur"}}}},
+    "Replay onboarding" : {"localizations":{"fr":{"stringUnit":{"state":"translated","value":"Relancer l’accueil"}}}},
+    "Health and challenge reminders. Your account and fights stay." : {"localizations":{"fr":{"stringUnit":{"state":"translated","value":"Santé d’Apple et rappels de défis. Ton compte et tes défis restent."}}}},
     "New accounts are asked about challenge reminders during setup, before iPhone’s permission sheet. Lock-screen alerts never include step counts. Versions stays under You → Settings." : {"localizations":{"fr":{"stringUnit":{"state":"translated","value":"Les nouveaux comptes sont interrogés sur les rappels de défis pendant l’installation, avant la feuille d’autorisation de l’iPhone. Les alertes sur l’écran verrouillé n’incluent jamais le nombre de pas. Versions reste dans Vous → Réglages."}}}}
   },
   "version" : "1.0"
