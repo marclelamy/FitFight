@@ -8,7 +8,7 @@ Cloud-only iOS app: Marc talks from his phone, a Cursor cloud agent codes, GitHu
 
 ## Agents
 
-Read [`AGENTS.md`](AGENTS.md) and [`docs/`](docs/README.md) before changing anything. That’s the project memory for parallel chats. Ideas live in [`docs/backlog.md`](docs/backlog.md). The production architecture is [`docs/system-design.md`](docs/system-design.md); follow it, don’t build all of it. First real Metric is Steps.
+Read [`AGENTS.md`](AGENTS.md) and [`docs/`](docs/README.md) before changing anything. That’s the project memory for parallel chats. Ideas live in the [Notion Product Backlog](https://app.notion.com/p/3d38907c7ecf816facdff36cb59f463e) (FitFight rows only). The production architecture is [`docs/system-design.md`](docs/system-design.md); follow it, don’t build all of it. First real Metric is Steps.
 
 ## Marc
 

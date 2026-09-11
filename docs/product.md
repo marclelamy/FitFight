@@ -104,4 +104,4 @@ required. Friends, Requests, money, and alternate metrics are not part of the ap
 
 ## Next product work
 
-Honest works / doesn’t / next: [`status.md`](status.md). The living list is [`backlog.md`](backlog.md). Sign-in, username, direct-username Steps fights, HealthKit upload, and standings work on the phone against staging Supabase. The golden guide is [`system-design.md`](system-design.md) — follow it, do not implement all of it. The current product is **Steps only**. Don’t restore retired surfaces or invent the gaps listed in [`design/source/INVENTORY.md`](design/source/INVENTORY.md).
+Honest works / doesn’t / next: [`status.md`](status.md). The living list is the [Notion Product Backlog](https://app.notion.com/p/3d38907c7ecf816facdff36cb59f463e) (FitFight rows only). Sign-in, username, direct-username Steps fights, HealthKit upload, and standings work on the phone against staging Supabase. The golden guide is [`system-design.md`](system-design.md) — follow it, do not implement all of it. The current product is **Steps only**. Don’t restore retired surfaces or invent the gaps listed in [`design/source/INVENTORY.md`](design/source/INVENTORY.md).
