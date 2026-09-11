@@ -649,6 +649,7 @@ enum FFResult: String {
     case win = "W"
     case loss = "L"
     case draw = "–"
+    case pending = "P"
 }
 
 /// 24pt square, glyph radius, for dense rows of past results.
@@ -672,6 +673,7 @@ struct FFResultGlyph: View {
         case .win: return theme.mossFill.opacity(0.24)
         case .loss: return theme.emberFill.opacity(0.22)
         case .draw: return theme.hairline
+        case .pending: return theme.gold.opacity(0.22)
         }
     }
 
@@ -680,6 +682,7 @@ struct FFResultGlyph: View {
         case .win: return theme.mossText
         case .loss: return theme.emberText
         case .draw: return theme.textTertiary
+        case .pending: return theme.goldInk
         }
     }
 }

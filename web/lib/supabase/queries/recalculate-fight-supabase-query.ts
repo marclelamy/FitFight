@@ -1,6 +1,6 @@
 import type { Sql } from "postgres";
 import { nextFightState } from "@/lib/scoring/fight-clock";
-import { scoreFight } from "@/lib/scoring/score-fight";
+import { scoreFight, scoreFightAtFinal } from "@/lib/scoring/score-fight";
 import { createDatabaseClient } from "@/lib/supabase/postgres";
 import {
   fightCalculationRowSchema,
@@ -56,18 +56,23 @@ export async function recalculateFight(
       graceEndsMs: endsAtMs + fight.final_sync_grace_seconds * 1000,
       allSourcesCompleteThroughEnd: allComplete,
     });
-    const scores = scoreFight({
+    const final = nextState === "final";
+    const scoreInput = {
       outcomeRule: fight.outcome_rule,
       stakeMinor: fight.stake_minor,
       defaultGoalValue: fight.default_goal_value,
-      members: members.map((member) => ({
-        userId: member.user_id,
-        value: byUser.get(member.user_id)?.value ?? 0,
-        personalTarget: member.personal_target,
-      })),
-    });
+      members: members.map((member) => {
+        const snapshot = byUser.get(member.user_id);
+        return {
+          userId: member.user_id,
+          value: snapshot?.value ?? 0,
+          personalTarget: member.personal_target,
+          complete: snapshot !== undefined && Date.parse(snapshot.cutoff_at) === endsAtMs,
+        };
+      }),
+    };
+    const scores = final ? scoreFightAtFinal(scoreInput) : scoreFight(scoreInput);
     const revision = Math.max(0, ...members.map((member) => member.input_revision ?? 0)) + 1;
-    const final = nextState === "final";
     const scoredMembers = scores.map((score) => {
       const snapshot = byUser.get(score.userId);
       return {

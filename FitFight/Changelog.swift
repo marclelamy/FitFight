@@ -29,6 +29,13 @@ enum Changelog {
             year: 2026,
             month: 9,
             day: 10,
+            notes: "After a fight ends, Finished shows P until everyone syncs or 24 hours pass. Miss the window and you lose. Opening it shows a tentative result, not a win."
+        ),
+        ReleaseNote(
+            version: "1.0.0",
+            year: 2026,
+            month: 9,
+            day: 10,
             notes: "Create and Join on New now use the same icon size."
         ),
         ReleaseNote(

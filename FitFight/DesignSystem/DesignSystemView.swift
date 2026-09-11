@@ -270,6 +270,7 @@ struct DesignSystemView: View {
                         FFResultGlyph(.win)
                         FFResultGlyph(.loss)
                         FFResultGlyph(.draw)
+                        FFResultGlyph(.pending)
                         Spacer(minLength: 0)
                     }
                 }

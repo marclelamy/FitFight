@@ -109,10 +109,11 @@ test("a source watermark cannot finalize a fight without exact end snapshots", a
   assert.ok(pendingMembers.every((row) => !row.final_steps_complete && row.final_value === null));
   await recalculateFight(f.fightId, new Date(Date.parse(f.endsAt) + 86_400_001), database);
   const finalized = await database`
-    select user_id, final_value::text, final_steps_complete, finalized_at
+    select user_id, final_value::text, rank, final_steps_complete, finalized_at
     from public.fight_members where fight_id = ${f.fightId} order by user_id
   `;
   assert.deepEqual(finalized.map((row) => row.final_value), ["42", "0"]);
+  assert.deepEqual(finalized.map((row) => row.rank), [1, 1]);
   assert.ok(finalized.every((row) => !row.final_steps_complete && row.finalized_at !== null));
 });
 

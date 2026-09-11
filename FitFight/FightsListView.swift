@@ -156,12 +156,12 @@ struct FinishedRow: View {
             model.openFightID = fight.id
         } label: {
             HStack(spacing: 13) {
-                FFResultGlyph(fight.standings.contains(where: { $0.person.isYou && $0.deferred }) ? .draw : (fight.rank == 1 ? .win : .loss))
+                FFResultGlyph(result)
                 VStack(alignment: .leading, spacing: 2) {
                     Text(fight.listTitle)
                         .ffType(.rowTitle)
                         .foregroundStyle(theme.text)
-                    Text(fight.endedLabel ?? fight.listSubtitle)
+                    Text(result == .pending ? fight.listSubtitle : (fight.endedLabel ?? fight.listSubtitle))
                         .ffType(.caption)
                         .foregroundStyle(theme.textSecondary)
                 }
@@ -180,5 +180,21 @@ struct FinishedRow: View {
             .ffBorder(theme.hairline, radius: theme.radius.card)
         }
         .buttonStyle(FFPressStyle())
+    }
+
+    private var result: FFResult {
+        if fight.standings.contains(where: { $0.person.isYou && $0.deferred }) {
+            return .draw
+        }
+        if fight.status == .pending {
+            return .pending
+        }
+        if let state = fight.serverState, state != "final", state != "cancelled" {
+            return .pending
+        }
+        if fight.isTiedForFirst {
+            return .draw
+        }
+        return fight.rank == 1 ? .win : .loss
     }
 }
