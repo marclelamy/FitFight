@@ -481,6 +481,21 @@ select is(
   'a final fight cannot return to live'
 );
 
+insert into public.fights (
+  id, owner_id, name, state, starts_at, ends_at, time_zone,
+  outcome_rule, goal_policy
+) values (
+  'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',
+  '11111111-1111-4111-8111-111111111111',
+  'Phone fight',
+  'final',
+  now(),
+  now() + interval '3 days',
+  'America/New_York',
+  'highest_total',
+  'shared'
+);
+
 insert into public.fight_members (
   fight_id, user_id, state, current_value, finalized_at, selected_source_id
 ) values (
