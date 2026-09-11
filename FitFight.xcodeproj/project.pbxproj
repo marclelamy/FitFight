@@ -21,6 +21,7 @@
 		A100000000000000000000D4 /* DesignSystemView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A100000000000000000000C4 /* DesignSystemView.swift */; };
 		A10000000000000000000009 /* AppModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000019 /* AppModel.swift */; };
 		A10000000000000000000375 /* RemainingTime.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000374 /* RemainingTime.swift */; };
+		A10000000000000000000377 /* DailyStatusRecapView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000376 /* DailyStatusRecapView.swift */; };
 		A1000000000000000000000A /* tokens.json in Resources */ = {isa = PBXBuildFile; fileRef = A1000000000000000000001A /* tokens.json */; };
 		A1000000000000000000000B /* FightsListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000000000000000000001B /* FightsListView.swift */; };
 		A1000000000000000000000C /* FightDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000000000000000000001C /* FightDetailView.swift */; };
@@ -60,6 +61,7 @@
 		A10000000000000000000369 /* FightDayCharts.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000368 /* FightDayCharts.swift */; };
 		A10000000000000000000371 /* HealthKitActivityAggregates.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000370 /* HealthKitActivityAggregates.swift */; };
 		A10000000000000000000373 /* FightPostThread.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000372 /* FightPostThread.swift */; };
+		A10000000000000000000379 /* PushNotificationService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000378 /* PushNotificationService.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -81,6 +83,8 @@
 		A100000000000000000000C4 /* DesignSystemView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DesignSystemView.swift; sourceTree = "<group>"; };
 		A10000000000000000000019 /* AppModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppModel.swift; sourceTree = "<group>"; };
 		A10000000000000000000374 /* RemainingTime.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RemainingTime.swift; sourceTree = "<group>"; };
+		A10000000000000000000376 /* DailyStatusRecapView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DailyStatusRecapView.swift; sourceTree = "<group>"; };
+		A10000000000000000000378 /* PushNotificationService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PushNotificationService.swift; sourceTree = "<group>"; };
 		A1000000000000000000001A /* tokens.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = tokens.json; sourceTree = "<group>"; };
 		A1000000000000000000001B /* FightsListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FightsListView.swift; sourceTree = "<group>"; };
 		A1000000000000000000001C /* FightDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FightDetailView.swift; sourceTree = "<group>"; };
@@ -141,6 +145,8 @@
 				A10000000000000000000012 /* ContentView.swift */,
 				A10000000000000000000019 /* AppModel.swift */,
 				A10000000000000000000374 /* RemainingTime.swift */,
+				A10000000000000000000376 /* DailyStatusRecapView.swift */,
+				A10000000000000000000378 /* PushNotificationService.swift */,
 				A1000000000000000000001B /* FightsListView.swift */,
 				A1000000000000000000001C /* FightDetailView.swift */,
 				A10000000000000000000368 /* FightDayCharts.swift */,
@@ -324,6 +330,7 @@
 				A100000000000000000000B7 /* Typography.swift in Sources */,
 				A10000000000000000000009 /* AppModel.swift in Sources */,
 				A10000000000000000000375 /* RemainingTime.swift in Sources */,
+				A10000000000000000000377 /* DailyStatusRecapView.swift in Sources */,
 				A1000000000000000000000B /* FightsListView.swift in Sources */,
 				A1000000000000000000000C /* FightDetailView.swift in Sources */,
 				A10000000000000000000369 /* FightDayCharts.swift in Sources */,
@@ -340,6 +347,7 @@
 				A10000000000000000000361 /* Media.swift in Sources */,
 				A10000000000000000000363 /* MediaUploader.swift in Sources */,
 				A10000000000000000000365 /* FeedView.swift in Sources */,
+				A10000000000000000000379 /* PushNotificationService.swift in Sources */,
 				A10000000000000000000373 /* FightPostThread.swift in Sources */,
 				A10000000000000000000367 /* HealthOnboardingView.swift in Sources */,
 				A10000000000000000000312 /* SessionStore.swift in Sources */,

@@ -1,0 +1,17 @@
+-- Hosted Supabase only. Apply in the dashboard after CRON_SECRET is in Vault.
+-- Calls the same worker as Vercel daily backup: close due fights + drain notification outbox.
+--
+-- select cron.schedule(
+--   'fitfight-scheduled-work-15m',
+--   '*/15 * * * *',
+--   $$
+--   select net.http_post(
+--     url := 'https://staging.fitfight.app/api/internal/close-fights',
+--     headers := jsonb_build_object(
+--       'Authorization',
+--       'Bearer ' || (select decrypted_secret from vault.decrypted_secrets where name = 'cron_secret')
+--     ),
+--     body := '{}'::jsonb
+--   ) as request_id;
+--   $$
+-- );

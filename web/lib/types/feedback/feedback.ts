@@ -23,6 +23,25 @@ export const listFeedbackQuerySchema = z
   })
   .strict();
 
+export const feedbackPostReportReasonValues = ["spam", "abuse", "other"] as const;
+export const feedbackPostReportReasonSchema = z.enum(feedbackPostReportReasonValues);
+
+export const reportFeedbackPostRequestSchema = z.object({
+  reason: feedbackPostReportReasonSchema,
+}).strict();
+
+export const reportFeedbackPostResponseSchema = z.object({
+  reported: z.literal(true),
+}).strict();
+
+export const blockFeedbackAuthorRequestSchema = z.object({
+  user_id: z.string().uuid(),
+}).strict();
+
+export const blockFeedbackAuthorResponseSchema = z.object({
+  blocked: z.literal(true),
+}).strict();
+
 export const feedbackPostSummarySchema = z
   .object({
     id: z.string().uuid(),
@@ -32,7 +51,9 @@ export const feedbackPostSummarySchema = z
     vote_count: z.number().int(),
     comment_count: z.number().int(),
     voted: z.boolean(),
+    author_id: z.string().uuid(),
     author_handle: z.string(),
+    mine: z.boolean(),
     created_at: z.string().datetime(),
   })
   .strict();
@@ -92,6 +113,10 @@ export const feedbackCommentResponseSchema = z
   .strict();
 
 export type FeedbackKind = z.infer<typeof feedbackKindSchema>;
+export type ReportFeedbackPostRequest = z.infer<typeof reportFeedbackPostRequestSchema>;
+export type ReportFeedbackPostResponse = z.infer<typeof reportFeedbackPostResponseSchema>;
+export type BlockFeedbackAuthorRequest = z.infer<typeof blockFeedbackAuthorRequestSchema>;
+export type BlockFeedbackAuthorResponse = z.infer<typeof blockFeedbackAuthorResponseSchema>;
 export type CreateFeedbackPostRequest = z.infer<typeof createFeedbackPostRequestSchema>;
 export type CreateFeedbackCommentRequest = z.infer<typeof createFeedbackCommentRequestSchema>;
 export type ListFeedbackQuery = z.infer<typeof listFeedbackQuerySchema>;

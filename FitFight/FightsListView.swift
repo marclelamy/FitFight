@@ -183,18 +183,6 @@ struct FinishedRow: View {
     }
 
     private var result: FFResult {
-        if fight.standings.contains(where: { $0.person.isYou && $0.deferred }) {
-            return .draw
-        }
-        if fight.status == .pending {
-            return .pending
-        }
-        if let state = fight.serverState, state != "final", state != "cancelled" {
-            return .pending
-        }
-        if fight.isTiedForFirst {
-            return .draw
-        }
-        return fight.rank == 1 ? .win : .loss
+        model.fightResult(for: fight)
     }
 }

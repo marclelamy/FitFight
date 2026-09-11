@@ -310,7 +310,9 @@ struct FitFightFeedbackPost: Codable, Identifiable, Equatable, Hashable {
     var voteCount: Int
     var commentCount: Int
     var voted: Bool
+    var authorId: UUID
     var authorHandle: String
+    var mine: Bool
     var createdAt: Date
 
     enum CodingKeys: String, CodingKey {
@@ -321,7 +323,9 @@ struct FitFightFeedbackPost: Codable, Identifiable, Equatable, Hashable {
         case voteCount = "vote_count"
         case commentCount = "comment_count"
         case voted
+        case authorId = "author_id"
         case authorHandle = "author_handle"
+        case mine
         case createdAt = "created_at"
     }
 }
@@ -403,6 +407,16 @@ struct FitFightReferralLink: Encodable {
 
 struct FitFightReferralClaim: Decodable {
     let recorded: Bool
+}
+
+struct FitFightDailyStatusRecap: Decodable {
+    let recap: String
+    let sentAt: Date
+
+    enum CodingKeys: String, CodingKey {
+        case recap
+        case sentAt = "sent_at"
+    }
 }
 
 struct FitFightAPI {
@@ -494,6 +508,14 @@ struct FitFightAPI {
             expected: [200],
             trace: trace,
             traceStage: .fightsRefresh
+        )
+    }
+
+    func dailyStatusRecap(fightID: UUID, accessToken: String) async throws -> FitFightDailyStatusRecap {
+        try await get(
+            path: "fights/\(fightID.uuidString.lowercased())/daily-status",
+            accessToken: accessToken,
+            expected: [200]
         )
     }
 
@@ -725,6 +747,30 @@ struct FitFightAPI {
         )
     }
 
+    func notificationDeliveryStatus() async throws -> FitFightNotificationDeliveryStatus {
+        try await get(path: "notifications/status", accessToken: "", expected: [200])
+    }
+
+    func registerDeviceInstallation(
+        token: String,
+        apnsEnvironment: String,
+        locale: String,
+        permissionStatus: String,
+        accessToken: String
+    ) async throws {
+        let _: FitFightDeviceInstallationRegistered = try await post(
+            path: "device-installations",
+            accessToken: accessToken,
+            body: FitFightDeviceInstallationBody(
+                token: token,
+                apnsEnvironment: apnsEnvironment,
+                locale: locale,
+                permissionStatus: permissionStatus
+            ),
+            expected: [200]
+        )
+    }
+
     func createFight(
         _ payload: FitFightCreateFight,
         accessToken: String,
@@ -913,6 +959,24 @@ struct FitFightAPI {
             accessToken: accessToken,
             body: EmptyJSON(),
             expected: [201]
+        )
+    }
+
+    func reportFeedbackPost(postID: UUID, reason: String, accessToken: String) async throws {
+        let _: DiscardBody = try await post(
+            path: "feedback/\(postID.uuidString.lowercased())/report",
+            accessToken: accessToken,
+            body: FightPostReportBody(reason: reason),
+            expected: [200]
+        )
+    }
+
+    func blockFeedbackAuthor(userID: UUID, accessToken: String) async throws {
+        let _: DiscardBody = try await post(
+            path: "feedback/blocks",
+            accessToken: accessToken,
+            body: FeedBlockBody(userId: userID),
+            expected: [200]
         )
     }
 
@@ -1252,4 +1316,30 @@ private struct FeedbackCommentBody: Encodable {
 
 private struct DiscardBody: Decodable {
     init() {}
+}
+
+struct FitFightNotificationDeliveryStatus: Decodable {
+    var apnsConfigured: Bool
+
+    enum CodingKeys: String, CodingKey {
+        case apnsConfigured = "apns_configured"
+    }
+}
+
+private struct FitFightDeviceInstallationBody: Encodable {
+    var token: String
+    var apnsEnvironment: String
+    var locale: String
+    var permissionStatus: String
+
+    enum CodingKeys: String, CodingKey {
+        case token
+        case apnsEnvironment = "apns_environment"
+        case locale
+        case permissionStatus = "permission_status"
+    }
+}
+
+private struct FitFightDeviceInstallationRegistered: Decodable {
+    var registered: Bool
 }

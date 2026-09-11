@@ -16,7 +16,9 @@ const post: FeedbackPostSummary = {
   vote_count: 0,
   comment_count: 0,
   voted: false,
+  author_id: "22222222-2222-4222-8222-222222222222",
   author_handle: "maya_moves",
+  mine: false,
   created_at: "2026-09-04T12:00:00Z",
 };
 
