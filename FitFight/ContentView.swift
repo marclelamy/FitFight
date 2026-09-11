@@ -225,7 +225,7 @@ struct ContentView: View {
                 .toolbar(.hidden, for: .navigationBar)
                 .navigationDestination(for: String.self) { id in
                     Group {
-                        if let fight = model.fight(id: id) {
+                        if let fight = model.canonicalFight(for: id) {
                             FightDetailView(fight: fight)
                         }
                     }

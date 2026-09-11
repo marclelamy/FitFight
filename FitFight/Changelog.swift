@@ -35,6 +35,20 @@ enum Changelog {
             version: "1.0.0",
             year: 2026,
             month: 9,
+            day: 11,
+            notes: "Repeating fights stay on one page. A History tab lists earlier windows with their standings and result. The Fights list shows one row per series. Standings put the leader in a winner band, then everyone else below."
+        ),
+        ReleaseNote(
+            version: "1.0.0",
+            year: 2026,
+            month: 9,
+            day: 11,
+            notes: "Bugs & requests now has Report and Hide this person on other people’s posts, the same way Feed does."
+        ),
+        ReleaseNote(
+            version: "1.0.0",
+            year: 2026,
+            month: 9,
             day: 10,
             notes: "After a fight ends, Finished shows P until everyone syncs or 24 hours pass. Miss the window and you lose. Opening it shows a tentative result, not a win."
         ),
