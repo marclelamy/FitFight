@@ -409,6 +409,16 @@ struct FitFightReferralClaim: Decodable {
     let recorded: Bool
 }
 
+struct FitFightDailyStatusRecap: Decodable {
+    let recap: String
+    let sentAt: Date
+
+    enum CodingKeys: String, CodingKey {
+        case recap
+        case sentAt = "sent_at"
+    }
+}
+
 struct FitFightAPI {
     var baseURL: URL?
 
@@ -498,6 +508,14 @@ struct FitFightAPI {
             expected: [200],
             trace: trace,
             traceStage: .fightsRefresh
+        )
+    }
+
+    func dailyStatusRecap(fightID: UUID, accessToken: String) async throws -> FitFightDailyStatusRecap {
+        try await get(
+            path: "fights/\(fightID.uuidString.lowercased())/daily-status",
+            accessToken: accessToken,
+            expected: [200]
         )
     }
 

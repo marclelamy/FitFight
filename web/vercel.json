@@ -6,6 +6,10 @@
     {
       "path": "/api/internal/close-fights",
       "schedule": "0 3 * * *"
+    },
+    {
+      "path": "/api/internal/daily-status-notifications",
+      "schedule": "0 9 * * *"
     }
   ]
 }

@@ -1,9 +1,19 @@
 import { notificationCopyKeySchema } from "@/lib/types/notifications/notification-intent";
-import type { NotificationLocale } from "@/lib/types/notifications/device-installation";
 
-const copy: Record<
+const fallbackCopy = {
+  en: {
+    title: "FitFight",
+    body: "Your fight has an update. Open FitFight.",
+  },
+  fr: {
+    title: "FitFight",
+    body: "Votre défi a une mise à jour. Ouvrez FitFight.",
+  },
+} as const;
+
+const staticCopy: Record<
   ReturnType<typeof notificationCopyKeySchema.parse>,
-  Record<NotificationLocale, { title: string; body: string }>
+  Record<"en" | "fr", { title: string; body: string }>
 > = {
   fight_ended_everyone: {
     en: { title: "FitFight", body: "A fight ended. Open FitFight." },
@@ -29,17 +39,19 @@ const copy: Record<
     en: { title: "FitFight", body: "The result is in. Open FitFight." },
     fr: { title: "FitFight", body: "Le résultat est tombé. Ouvrez FitFight." },
   },
-  daily_status: {
-    en: { title: "FitFight", body: "Your fight has an update. Open FitFight." },
-    fr: { title: "FitFight", body: "Votre défi a une mise à jour. Ouvrez FitFight." },
-  },
+  daily_status: fallbackCopy,
 };
 
-export function notificationAlert(
-  copyKey: string,
-  locale: NotificationLocale | null | undefined,
-): { title: string; body: string } {
-  const key = notificationCopyKeySchema.parse(copyKey);
-  const language: NotificationLocale = locale === "fr" ? "fr" : "en";
-  return copy[key][language];
+export function resolveNotificationAlert(input: {
+  kind: string;
+  copyKey: string;
+  alertBody: string | null;
+  locale: "en" | "fr" | null | undefined;
+}): { title: string; body: string } {
+  const language = input.locale === "fr" ? "fr" : "en";
+  if (input.kind === "daily_status" && input.alertBody) {
+    return { title: "FitFight", body: input.alertBody };
+  }
+  const key = notificationCopyKeySchema.parse(input.copyKey);
+  return staticCopy[key][language];
 }

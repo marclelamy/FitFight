@@ -1,7 +1,12 @@
 import { z } from "zod";
 
-export const notificationKindValues = ["fight_ended", "grace_reminder", "fight_finalized"] as const;
-export const notificationSlotValues = ["t0", "t12", "t18", "t23", "final"] as const;
+export const notificationKindValues = [
+  "fight_ended",
+  "grace_reminder",
+  "fight_finalized",
+  "daily_status",
+] as const;
+export const notificationSlotValues = ["t0", "t12", "t18", "t23", "final", "daily"] as const;
 export const notificationIntentStatusValues = [
   "pending",
   "skipped",
@@ -29,6 +34,7 @@ export const notificationCopyKeyValues = [
   "grace_6h",
   "grace_1h",
   "fight_finalized",
+  "daily_status",
 ] as const;
 
 export const notificationCopyKeySchema = z.enum(notificationCopyKeyValues);

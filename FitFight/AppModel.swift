@@ -216,6 +216,7 @@ final class AppModel: ObservableObject {
     }
 
     @Published var openFightID: String?
+    @Published var dailyStatusRecap: DailyStatusRecap?
     @Published var showingVersions = false
     @Published var showingRequests = false
     @Published var joined: Set<String> = []
@@ -251,9 +252,18 @@ final class AppModel: ObservableObject {
     private static let pendingReferralCodeKey = "fitfight.pendingReferralCode"
     private static let pendingReferralUserKey = "fitfight.pendingReferralUser"
     private static let pendingFightRouteKey = "fitfight.pendingFightRoute"
+    private static let pendingDailyStatusKey = "fitfight.pendingDailyStatus"
 
-    static func storePendingFightRoute(_ route: String) {
-        UserDefaults.standard.set(route, forKey: pendingFightRouteKey)
+    static func storePendingFightRoute(_ route: String, dailyStatus: Bool = false) {
+        let trimmed = route.trimmingCharacters(in: .whitespacesAndNewlines)
+        let withSlash = trimmed.hasPrefix("/") ? trimmed : "/\(trimmed)"
+        let components = URLComponents(string: "https://fitfight.app\(withSlash)")
+        let path = (components?.path.isEmpty == false) ? components!.path : withSlash
+        let queryDailyStatus = components?.queryItems?.contains { item in
+            item.name == "daily_status" && (item.value == "1" || item.value?.lowercased() == "true")
+        } ?? false
+        UserDefaults.standard.set(path, forKey: pendingFightRouteKey)
+        UserDefaults.standard.set(dailyStatus || queryDailyStatus, forKey: pendingDailyStatusKey)
     }
 
     private static var fightsCachePrefix: String {
@@ -818,7 +828,14 @@ final class AppModel: ObservableObject {
         let parts = url.path.split(separator: "/")
         guard parts.count == 2 else { return }
         if parts[0] == "fights", let fightID = UUID(uuidString: String(parts[1])) {
-            Self.storePendingFightRoute("/fights/\(fightID.uuidString.lowercased())")
+            let items = URLComponents(url: url, resolvingAgainstBaseURL: false)?.queryItems ?? []
+            let dailyStatus = items.contains { item in
+                item.name == "daily_status" && (item.value == "1" || item.value?.lowercased() == "true")
+            }
+            Self.storePendingFightRoute(
+                "/fights/\(fightID.uuidString.lowercased())",
+                dailyStatus: dailyStatus
+            )
             await consumePendingLinks(session: session)
             return
         }
@@ -841,9 +858,10 @@ final class AppModel: ObservableObject {
     }
 
     func consumePendingLinks(session: SessionStore) async {
-        consumePendingFightRoute()
         guard !session.needsOnboarding, let profile = session.profile,
               session.authSession?.user.id == profile.userId else { return }
+        let pendingDailyStatus = UserDefaults.standard.bool(forKey: Self.pendingDailyStatusKey)
+        consumePendingFightRoute(showDailyStatusRecap: pendingDailyStatus)
         if let code = UserDefaults.standard.string(forKey: Self.pendingJoinCodeKey) {
             await openJoinCode(code, session: session)
             guard session.authSession?.user.id == profile.userId else { return }
@@ -1043,12 +1061,28 @@ final class AppModel: ObservableObject {
         }
     }
 
-    private func consumePendingFightRoute() {
+    func presentDailyStatusRecap(for fightID: String) async {
+        guard let access = session?.authSession?.accessToken,
+              api.isConfigured,
+              let id = UUID(uuidString: fightID) else { return }
+        do {
+            let recap = try await api.dailyStatusRecap(fightID: id, accessToken: access)
+            dailyStatusRecap = DailyStatusRecap(fightID: fightID, body: recap.recap)
+        } catch {
+            dailyStatusRecap = nil
+        }
+    }
+
+    private func consumePendingFightRoute(showDailyStatusRecap: Bool) {
         guard let route = UserDefaults.standard.string(forKey: Self.pendingFightRouteKey) else { return }
         UserDefaults.standard.removeObject(forKey: Self.pendingFightRouteKey)
+        UserDefaults.standard.removeObject(forKey: Self.pendingDailyStatusKey)
         let parts = route.split(separator: "/").map(String.init)
         guard parts.count == 2, parts[0] == "fights", UUID(uuidString: parts[1]) != nil else { return }
         openFightFromFeed(id: parts[1])
+        if showDailyStatusRecap {
+            Task { await presentDailyStatusRecap(for: parts[1]) }
+        }
     }
 
     private static func mapFight(

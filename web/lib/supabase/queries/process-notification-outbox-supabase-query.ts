@@ -1,7 +1,7 @@
 import type { Sql } from "postgres";
 import { sendApnsAlert } from "@/lib/apns/apns-client";
 import { isApnsConfigured, readApnsEnvironment } from "@/lib/apns/apns-config";
-import { notificationAlert } from "@/lib/notifications/notification-copy";
+import { resolveNotificationAlert } from "@/lib/notifications/resolve-notification-alert";
 import { pendingNotificationIntentSchema } from "@/lib/types/notifications/notification-intent";
 import {
   decryptInstallationToken,
@@ -28,6 +28,7 @@ type IntentRow = {
   slot: string;
   route: string;
   copy_key: string;
+  alert_body: string | null;
   fight_state: string | null;
   final_steps_complete: boolean | null;
 };
@@ -108,10 +109,10 @@ export async function processNotificationOutbox(
       where intent.id = picked.id
         and intent.status = 'pending'
       returning intent.id, intent.user_id, intent.fight_id, intent.kind, intent.slot,
-        intent.route, intent.copy_key
+        intent.route, intent.copy_key, intent.alert_body
     )
     select claimed.id, claimed.user_id, claimed.fight_id, claimed.kind, claimed.slot,
-      claimed.route, claimed.copy_key, fight.state::text as fight_state,
+      claimed.route, claimed.copy_key, claimed.alert_body, fight.state::text as fight_state,
       member.final_steps_complete
     from claimed
     left join public.fights as fight on fight.id = claimed.fight_id
@@ -167,7 +168,12 @@ export async function processNotificationOutbox(
       continue;
     }
 
-    const alert = notificationAlert(intent.copy_key, installations[0]?.locale);
+    const alert = resolveNotificationAlert({
+      kind: intent.kind,
+      copyKey: intent.copy_key,
+      alertBody: row.alert_body,
+      locale: installations[0]?.locale,
+    });
     let delivered = false;
     let retryLater = false;
     let invalidProviderToken = false;

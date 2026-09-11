@@ -29,6 +29,13 @@ enum Changelog {
             year: 2026,
             month: 9,
             day: 11,
+            notes: "Live fights can send a once-a-day status nudge. Tap it to open the fight and read a short in-app recap."
+        ),
+        ReleaseNote(
+            version: "1.0.0",
+            year: 2026,
+            month: 9,
+            day: 11,
             notes: "FitFight can remind you when a fight ends and when to sync before the 24-hour window closes. Allow notifications only when the server can send them."
         ),
         ReleaseNote(
