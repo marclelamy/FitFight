@@ -29,6 +29,20 @@ enum Changelog {
             year: 2026,
             month: 9,
             day: 11,
+            notes: "You can update Apple Health access under You, so existing accounts can allow extra Health types without deleting the account. Fights still use steps only."
+        ),
+        ReleaseNote(
+            version: "1.0.0",
+            year: 2026,
+            month: 9,
+            day: 11,
+            notes: "The required-update screen now fills Night and Day correctly, without leftover bands or a muddy overlay."
+        ),
+        ReleaseNote(
+            version: "1.0.0",
+            year: 2026,
+            month: 9,
+            day: 11,
             notes: "New accounts are asked about challenge reminders during setup, before iPhone’s permission sheet. Lock-screen alerts never include step counts. Versions stays under You → Settings."
         ),
         ReleaseNote(

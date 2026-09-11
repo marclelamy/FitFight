@@ -178,6 +178,28 @@ struct YouView: View {
             .disabled(steps.status == .reading || model.isRefreshingFights)
             FFDivider()
             FFGroupedRow(
+                title: String(localized: "Update Apple Health access"),
+                subtitle: String(localized: "Ask iPhone for the extra Health types FitFight uses. Fights still use steps."),
+                systemImage: "heart.circle",
+                enabled: steps.status != .reading && !model.isRefreshingFights,
+                subtitleTone: .neutral,
+                trailing: AnyView(
+                    FFPill(String(localized: "Allow"), style: .softMoss)
+                ),
+                action: {
+                    Task {
+                        await model.refreshFights(
+                            session: session,
+                            steps: steps,
+                            trigger: .manual,
+                            requestAccess: true
+                        )
+                    }
+                }
+            )
+            .disabled(steps.status == .reading || model.isRefreshingFights)
+            FFDivider()
+            FFGroupedRow(
                 title: String(localized: "Background App Refresh"),
                 subtitle: steps.backgroundRefreshText,
                 systemImage: "arrow.clockwise",
