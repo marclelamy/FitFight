@@ -87,20 +87,38 @@ export async function processNotificationOutbox(
   `;
 
   const rows = await database<IntentRow[]>`
-    select intent.id, intent.user_id, intent.fight_id, intent.kind, intent.slot,
-      intent.route, intent.copy_key, fight.state::text as fight_state,
+    with picked as (
+      select intent.id
+      from private.notification_intents as intent
+      where intent.status = 'pending'
+        and intent.not_before <= ${nowIso}::timestamptz
+        and intent.expires_at > ${nowIso}::timestamptz
+        and (
+          intent.processed_at is null
+          or intent.processed_at < ${nowIso}::timestamptz - interval '15 minutes'
+        )
+      order by intent.not_before, intent.id
+      limit ${BATCH}
+      for update skip locked
+    ),
+    claimed as (
+      update private.notification_intents as intent
+      set processed_at = ${nowIso}::timestamptz
+      from picked
+      where intent.id = picked.id
+        and intent.status = 'pending'
+      returning intent.id, intent.user_id, intent.fight_id, intent.kind, intent.slot,
+        intent.route, intent.copy_key
+    )
+    select claimed.id, claimed.user_id, claimed.fight_id, claimed.kind, claimed.slot,
+      claimed.route, claimed.copy_key, fight.state::text as fight_state,
       member.final_steps_complete
-    from private.notification_intents as intent
-    left join public.fights as fight on fight.id = intent.fight_id
+    from claimed
+    left join public.fights as fight on fight.id = claimed.fight_id
     left join public.fight_members as member
-      on member.fight_id = intent.fight_id
-      and member.user_id = intent.user_id
+      on member.fight_id = claimed.fight_id
+      and member.user_id = claimed.user_id
       and member.state = 'accepted'
-    where intent.status = 'pending'
-      and intent.not_before <= ${nowIso}::timestamptz
-      and intent.expires_at > ${nowIso}::timestamptz
-    order by intent.not_before, intent.id
-    limit ${BATCH}
   `;
 
   result.checked = rows.length;

@@ -1,6 +1,6 @@
 import { connect, type ClientHttp2Session } from "node:http2";
 import { readApnsEnvironment } from "./apns-config";
-import { createApnsProviderToken } from "./apns-jwt";
+import { getApnsProviderToken } from "./apns-jwt";
 
 export type ApnsSendInput = {
   deviceToken: string;
@@ -77,7 +77,9 @@ function sendOnSession(
           || reason === "Unregistered"
           || reason === "BadDeviceToken"
           || reason === "DeviceTokenNotForTopic",
-        retryLater: responseStatus === 429 || responseStatus === 503,
+        retryLater: responseStatus === 429
+          || responseStatus === 503
+          || (responseStatus === 403 && reason === "TooManyProviderTokenUpdates"),
         invalidProviderToken: responseStatus === 403 && reason === "InvalidProviderToken",
       });
     });
@@ -91,7 +93,7 @@ export async function sendApnsAlert(input: ApnsSendInput): Promise<ApnsSendResul
   if (!environment) {
     throw new Error("APNs credentials are not configured");
   }
-  const providerToken = createApnsProviderToken(environment);
+  const providerToken = getApnsProviderToken(environment);
   const session = connect(apnsHost(input.environment));
   try {
     return await sendOnSession(session, input, providerToken);
