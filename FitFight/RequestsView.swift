@@ -146,6 +146,30 @@ final class FeedbackStore: ObservableObject {
         }
     }
 
+    func report(session: SessionStore, post: FitFightFeedbackPost) async {
+        do {
+            let token = try await session.freshAccessToken()
+            try await api.reportFeedbackPost(postID: post.id, reason: "other", accessToken: token)
+        } catch {
+            if Task.isCancelled || error is CancellationError { return }
+            self.error = error.localizedDescription
+        }
+    }
+
+    func hide(session: SessionStore, authorID: UUID) async {
+        do {
+            let token = try await session.freshAccessToken()
+            try await api.blockFeedbackAuthor(userID: authorID, accessToken: token)
+            posts.removeAll { $0.authorId == authorID }
+            if detail?.authorId == authorID {
+                detail = nil
+            }
+        } catch {
+            if Task.isCancelled || error is CancellationError { return }
+            self.error = error.localizedDescription
+        }
+    }
+
     func comment(session: SessionStore, postID: UUID, body: String) async -> Bool {
         isSaving = true
         defer { isSaving = false }
@@ -214,7 +238,9 @@ final class FeedbackStore: ObservableObject {
             voteCount: 8,
             commentCount: 2,
             voted: true,
+            authorId: UUID(uuidString: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb")!,
             authorHandle: "maya_moves",
+            mine: false,
             createdAt: previewDate("2026-09-03T18:00:00Z")
         ),
         FitFightFeedbackPost(
@@ -225,7 +251,9 @@ final class FeedbackStore: ObservableObject {
             voteCount: 5,
             commentCount: 1,
             voted: false,
+            authorId: UUID(uuidString: "cccccccc-cccc-4ccc-8ccc-cccccccccccc")!,
             authorHandle: "dorian",
+            mine: false,
             createdAt: previewDate("2026-09-03T12:00:00Z")
         ),
     ]
@@ -389,6 +417,12 @@ struct RequestsView: View {
                 onOpen: { openPostID = post.id },
                 onVote: {
                     Task { await store.vote(session: session, postID: post.id) }
+                },
+                onReport: {
+                    Task { await store.report(session: session, post: post) }
+                },
+                onHide: {
+                    Task { await store.hide(session: session, authorID: post.authorId) }
                 }
             )
         }
@@ -429,6 +463,8 @@ private struct RequestRow: View {
     let post: FitFightFeedbackPost
     let onOpen: () -> Void
     let onVote: () -> Void
+    let onReport: () -> Void
+    let onHide: () -> Void
     @Environment(\.ffTheme) private var theme
 
     var body: some View {
@@ -444,6 +480,9 @@ private struct RequestRow: View {
                                 tone: post.kind == "bug" ? .ember : .moss
                             )
                             Spacer(minLength: 0)
+                            if !post.mine {
+                                RequestPostMenu(onReport: onReport, onHide: onHide)
+                            }
                             Text(post.createdAt, format: .relative(presentation: .named))
                                 .ffType(.caption)
                                 .foregroundStyle(theme.textFaint)
@@ -516,11 +555,27 @@ private struct RequestDetailView: View {
     var body: some View {
         VStack(spacing: 0) {
             VersionBanner()
-            FFNavDetail(
-                title: post?.title ?? String(localized: "Request"),
-                subtitle: post.map { "@\($0.authorHandle)" },
-                onBack: { dismiss() }
-            )
+            HStack(alignment: .top, spacing: 10) {
+                FFNavDetail(
+                    title: post?.title ?? String(localized: "Request"),
+                    subtitle: post.map { "@\($0.authorHandle)" },
+                    onBack: { dismiss() }
+                )
+                if let post, !post.mine {
+                    RequestPostMenu(
+                        onReport: {
+                            Task { await store.report(session: session, post: post) }
+                        },
+                        onHide: {
+                            Task {
+                                await store.hide(session: session, authorID: post.authorId)
+                                dismiss()
+                            }
+                        }
+                    )
+                    .padding(.top, 4)
+                }
+            }
             .padding(.horizontal, theme.space.screenPadding)
             .padding(.top, 12)
 
@@ -703,6 +758,29 @@ private struct RequestDetailView: View {
     private func sendToCursor() async {
         guard let url = await store.launchFix(session: session, postID: postID) else { return }
         launchedAgentURL = url
+    }
+}
+
+private struct RequestPostMenu: View {
+    let onReport: () -> Void
+    let onHide: () -> Void
+    @Environment(\.ffTheme) private var theme
+
+    var body: some View {
+        Menu {
+            Button(String(localized: "Report")) {
+                onReport()
+            }
+            Button(String(localized: "Hide this person"), role: .destructive) {
+                onHide()
+            }
+        } label: {
+            Image(systemName: "ellipsis")
+                .font(.system(size: 14, weight: .bold))
+                .foregroundStyle(theme.textFaint)
+                .frame(width: 32, height: 32)
+        }
+        .buttonStyle(FFHapticPlainStyle())
     }
 }
 

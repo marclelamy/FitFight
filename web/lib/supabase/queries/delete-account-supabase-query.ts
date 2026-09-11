@@ -39,6 +39,8 @@ export async function deleteAccount(
       await sql`delete from public.feedback_votes where user_id = ${userId}`;
       await sql`delete from public.feedback_comments where author_id = ${userId}`;
       await sql`delete from public.feedback_posts where author_id = ${userId}`;
+      await sql`delete from private.feedback_post_reports where reporter_id = ${userId}`;
+      await sql`delete from private.feedback_blocks where blocker_id = ${userId} or blocked_id = ${userId}`;
       await sql`delete from private.fight_post_reports where reporter_id = ${userId}`;
       await sql`delete from private.fight_post_comment_reports where reporter_id = ${userId}`;
       await sql`delete from private.feed_blocks where blocker_id = ${userId} or blocked_id = ${userId}`;
