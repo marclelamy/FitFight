@@ -20,7 +20,7 @@ final class PushNotificationService: NSObject, ObservableObject {
     }
 
     var canPromptForPermission: Bool {
-        apnsConfigured && permissionStatus == .notDetermined && !askedThisSession
+        permissionStatus == .notDetermined && !askedThisSession
     }
 
     func refreshAuthorizationStatus() async {
@@ -54,8 +54,14 @@ final class PushNotificationService: NSObject, ObservableObject {
     }
 
     func declinePrePrompt() {
+        askedThisSession = true
         showPrePrompt = false
         UserDefaults.standard.set(true, forKey: Self.declinedPrePromptKey)
+    }
+
+    func markPromptHandledThisSession() {
+        askedThisSession = true
+        showPrePrompt = false
     }
 
     func requestSystemPermission() async {
