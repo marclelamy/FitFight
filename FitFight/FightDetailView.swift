@@ -416,7 +416,7 @@ struct FightDetailView: View {
                 pendingStandingRow(row)
             } else {
                 FFLeaderboardRow(
-                    rank: row.rank ?? (index + 1),
+                    rank: fight.status == .finished ? (row.rank ?? (index + 1)) : index + 1,
                     monogram: row.person.initials,
                     name: row.person.name,
                     value: model.formatScore(row.score, metric: fight.metric),

@@ -488,7 +488,7 @@ final class AppModel: ObservableObject {
             if next.status == .pending {
                 next.standings[index].finalStepsComplete = true
             }
-            next.standings = Self.orderedStandings(next.standings, pending: next.status == .pending)
+            next.standings = Self.orderedStandings(next.standings, status: next.status)
             let joined = next.standings.filter { !$0.invited && !$0.deferred }
             next.rank = joined.firstIndex { $0.person.isYou }.map { $0 + 1 } ?? next.rank
             next.of = max(joined.count, 1)
@@ -1045,7 +1045,7 @@ final class AppModel: ObservableObject {
                 rank: member.rank
             )
         }
-        let people = orderedStandings(peopleUnsorted, pending: status == .pending)
+        let people = orderedStandings(peopleUnsorted, status: status)
 
         let joined = people.filter { !$0.invited && !$0.deferred }
         let waiting = people.filter(\.deferred)
@@ -1248,16 +1248,16 @@ final class AppModel: ObservableObject {
         return formatter.string(from: NSNumber(value: value)) ?? value.formatted()
     }
 
-    private static func orderedStandings(_ standings: [Standing], pending: Bool) -> [Standing] {
+    private static func orderedStandings(_ standings: [Standing], status: FightStatus) -> [Standing] {
         standings.sorted { lhs, rhs in
-            if pending {
+            if status == .pending {
                 let lhsOpen = !lhs.invited && !lhs.deferred && lhs.finalStepsComplete != true
                 let rhsOpen = !rhs.invited && !rhs.deferred && rhs.finalStepsComplete != true
                 if lhsOpen != rhsOpen { return lhsOpen && !rhsOpen }
             }
             if lhs.invited != rhs.invited { return !lhs.invited && rhs.invited }
             if lhs.deferred != rhs.deferred { return !lhs.deferred && rhs.deferred }
-            if !pending, let lhsRank = lhs.rank, let rhsRank = rhs.rank, lhsRank != rhsRank {
+            if status == .finished, let lhsRank = lhs.rank, let rhsRank = rhs.rank, lhsRank != rhsRank {
                 return lhsRank < rhsRank
             }
             if lhs.score == rhs.score { return lhs.person.name < rhs.person.name }
