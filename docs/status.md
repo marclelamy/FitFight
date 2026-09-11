@@ -2,9 +2,11 @@
 
 Read this before building. Last updated **10 Sep 2026**. App: **1.0.0**.
 
-Do **not** restore removed surfaces. Do **not** build WHOOP, Strava, Active Minutes, Workout Count, payments, friend pokes, daily AI pushes, or a broader marketing site unless [`backlog.md`](backlog.md) says so. **Final-sync reminders** (end + 12h / 6h left / last hour) are now on the backlog — plan only as of 10 Sep 2026; implement from [`research/pending-final-sync-plan.md`](research/pending-final-sync-plan.md) and [`research/apns-remote-push-plan.md`](research/apns-remote-push-plan.md). Fight posts and the Feed tab are in this build. Only the public privacy and support pages exist on the web.
+Do **not** restore removed surfaces. Do **not** build WHOOP, Strava, Active Minutes, Workout Count, payments, notifications, or a broader marketing site unless [`backlog.md`](backlog.md) says so. Fight posts and the Feed tab are in this build. Only the public privacy and support pages exist on the web.
 
 ---
+
+**Last TestFlight:** 10 Sep 2026 — Pending next build (not uploaded): After a fight ends, Finished shows P until everyone syncs or 24 hours pass; miss the window and you lose. Opening it shows a tentative result, not a win. Deploy the forfeit scoring and `grace_ends_at` snapshot field before the native build. The notification outbox migration can ship with it; APNs send still waits on Marc’s Apple key.
 
 ## Prepared, not deployed: backend-only database access (9 Sep)
 
