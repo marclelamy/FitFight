@@ -3,7 +3,7 @@ import { z } from "zod";
 export const cursorApiKeySchema = z.string().trim().min(1);
 export const cursorWebhookSecretSchema = z.string().min(32);
 
-export const fitFightGithubRepoUrl = "https://github.com/marclelamy/FitFight";
+export const fitFightGithubRepoUrl = "https://github.com/slooowshutter/FitFight";
 export const fitFightAgentStartingRef = "develop";
 
 export const cursorCreateAgentResponseSchema = z.object({

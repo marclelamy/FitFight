@@ -26,7 +26,7 @@ export async function launchFeedbackFixAgent(
       `${index + 1}. @${comment.author_handle} (${comment.created_at})\n${comment.body}`
     )).join("\n\n");
   const prompt = [
-    "Fix this FitFight Bugs & requests item in https://github.com/marclelamy/FitFight.",
+    `Fix this FitFight Bugs & requests item in ${fitFightGithubRepoUrl}.`,
     "",
     "Rules:",
     "- Branch off develop. Open a PR into develop. Do not merge. Do not PR into main.",
