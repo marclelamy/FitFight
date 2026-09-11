@@ -111,7 +111,9 @@ The workflow injects the production Supabase project, its iOS publishable key, a
 
 Fastlane increments only the build number. The workflow requires the project marketing version to equal `FITFIGHT_RELEASE_VERSION` (`1.0.0`) and requires a matching `1.0.0` release note. The reviewed App Store release PR into `develop` carries that version and launch note. Marc then merges `develop` → `preview` when he wants a TestFlight, and `preview` → `main` when he approves the production ship. The workflow does not change `MARKETING_VERSION`, upload metadata or screenshots, submit the build for review, or release it. After it succeeds, the candidate waits in App Store Connect for the separate metadata, review-information, build-selection, and submission steps.
 
-Vercel also needs `CRON_SECRET` (Preview + Production). Vercel Cron sends it as `Authorization: Bearer …` to `/api/internal/close-fights` once daily at **03:00 UTC**, which is compatible with Hobby. Opening the app also closes due fights, so the cron is a safety net rather than the only close path. Never put this value in git or chat.
+Vercel also needs `CRON_SECRET` (Preview + Production). Vercel Cron sends it as `Authorization: Bearer …` to `/api/internal/close-fights` once daily at **03:00 UTC**, which is compatible with Hobby. **Hosted Supabase Cron** on develop and production should call the same route every **15 minutes** so fight-end sync reminders (T+0, 12h, 6h, 1h left) fire on time; the daily Vercel job stays a backup closer. Opening the app also closes due fights and drains the notification outbox, so neither cron is the only path. Never put this value in git or chat.
+
+Vercel Preview + Production also need the FitFight APNs secrets from [`docs/research/apns-remote-push-plan.md`](research/apns-remote-push-plan.md): `APNS_KEY_ID`, `APNS_TEAM_ID`, `APNS_PRIVATE_KEY`, `APNS_TOPIC`, and `APNS_TOKEN_ENCRYPTION_KEY` (separate from Sign in with Apple). Without them the outbox enqueues intents but send stays a no-op.
 
 ## What Marc still does
 

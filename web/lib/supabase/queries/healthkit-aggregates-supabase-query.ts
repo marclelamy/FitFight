@@ -14,6 +14,7 @@ import type {
   HealthKitAggregateSync,
   HealthKitAggregateSyncResponse,
 } from "@/lib/types/healthkit/healthkit-aggregate";
+import { skipGraceNotificationsForMember } from "./notification-intents-supabase-query";
 
 export async function syncHealthKitAggregates(
   userId: string,
@@ -243,6 +244,11 @@ export async function syncHealthKitAggregates(
       `);
       if (updatedMembers.length !== fights.length) {
         throw new ApiError(500, ERROR_CODES.db_error, "Could not save Fight aggregate");
+      }
+      for (const aggregate of aggregateFights) {
+        if (aggregate.final_steps_complete) {
+          await skipGraceNotificationsForMember(sql, aggregate.fight_id, userId);
+        }
       }
       const members = healthKitAggregateMemberSchema.array().parse(await sql`
         select fight_id, user_id, current_value::text, final_value::text, personal_target::text

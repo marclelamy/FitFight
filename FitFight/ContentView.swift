@@ -9,6 +9,7 @@ struct ContentView: View {
     @Environment(\.scenePhase) private var scenePhase
     @Environment(\.openURL) private var openURL
     @EnvironmentObject private var appUpdate: AppUpdateChecker
+    @EnvironmentObject private var push: PushNotificationService
 
     var body: some View {
         VStack(spacing: 0) {
@@ -68,6 +69,19 @@ struct ContentView: View {
             Button("Not now", role: .cancel) {}
         } message: {
             Text(model.pendingReferralError ?? "")
+        }
+        .alert(
+            String(localized: "Get fight-end reminders?"),
+            isPresented: $push.showPrePrompt
+        ) {
+            Button(String(localized: "Allow notifications")) {
+                Task { await push.requestSystemPermission() }
+            }
+            Button(String(localized: "Not now"), role: .cancel) {
+                push.declinePrePrompt()
+            }
+        } message: {
+            Text(String(localized: "FitFight can remind you when a fight ends and when to sync your steps. Lock-screen alerts never show scores or fight titles."))
         }
     }
 

@@ -6,6 +6,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { createDatabaseClient } from "@/lib/supabase/postgres";
 import { fightMaintenanceCandidateSchema, userFightMaintenanceSchema, type FightMaintenanceCandidate } from "@/lib/types/fights/fight-snapshot";
 import { mintDueRecurringFights, mintNextRecurringFight } from "./mint-recurring-fight-supabase-query";
+import { processNotificationOutbox } from "./process-notification-outbox-supabase-query";
 import { recalculateFight } from "./recalculate-fight-supabase-query";
 
 const DUE_STATES = ["live", "scheduled", "awaiting_final_sync"] as const;
@@ -15,6 +16,7 @@ export type CloseDueResult = {
   checked: number;
   closed: number;
   fightIds: string[];
+  notifications: Awaited<ReturnType<typeof processNotificationOutbox>>;
 };
 
 function dueIds(rows: FightMaintenanceCandidate[], nowMs: number): string[] {
@@ -47,6 +49,7 @@ async function recalculateIds(
 export async function closeDueFights(
   admin: SupabaseClient = createAdminClient(),
   now: Date = new Date(),
+  database: Sql = createDatabaseClient(),
 ): Promise<CloseDueResult> {
   const { data, error } = await admin
     .from("fights")
@@ -58,9 +61,10 @@ export async function closeDueFights(
     throw new ApiError(500, ERROR_CODES.db_error, "Could not load fights to close");
   }
   const rows = fightMaintenanceCandidateSchema.array().parse(data);
-  const fightIds = await recalculateIds(dueIds(rows, now.getTime()), now);
+  const fightIds = await recalculateIds(dueIds(rows, now.getTime()), now, database);
   await mintDueRecurringFights(admin, now);
-  return { checked: rows.length, closed: fightIds.length, fightIds };
+  const notifications = await processNotificationOutbox(now, database);
+  return { checked: rows.length, closed: fightIds.length, fightIds, notifications };
 }
 
 /** Opening the app: close this user's due fights even if cron has not run. */
@@ -99,5 +103,6 @@ export async function closeDueFightsForUser(
   for (const previousFightId of recurring.slice(0, BATCH)) {
     await mintNextRecurringFight(previousFightId, admin, now);
   }
-  return { checked: candidates.length, closed: fightIds.length, fightIds };
+  const notifications = await processNotificationOutbox(now, database);
+  return { checked: candidates.length, closed: fightIds.length, fightIds, notifications };
 }

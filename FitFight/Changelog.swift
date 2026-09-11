@@ -29,6 +29,13 @@ enum Changelog {
             year: 2026,
             month: 9,
             day: 11,
+            notes: "FitFight can remind you when a fight ends and when to sync before the 24-hour window closes. Allow notifications only when the server can send them."
+        ),
+        ReleaseNote(
+            version: "1.0.0",
+            year: 2026,
+            month: 9,
+            day: 11,
             notes: "Repeating fights stay on one page. A History tab lists earlier windows with their standings and result. The Fights list shows one row per series. Standings put the leader in a winner band, then everyone else below."
         ),
         ReleaseNote(

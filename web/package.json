@@ -6,7 +6,7 @@
     "build": "next build",
     "start": "next start",
     "typecheck": "tsc --noEmit",
-    "test": "tsx --test lib/admin/*.test.ts lib/apple/*.test.ts lib/cursor/*.test.ts lib/ingest/*.test.ts lib/scoring/*.test.ts lib/domain/**/*.test.ts lib/observability/*.test.ts lib/releases/*.test.ts lib/notion/*.test.ts lib/supabase/queries/*.test.ts",
+    "test": "tsx --test lib/admin/*.test.ts lib/apple/*.test.ts lib/apns/*.test.ts lib/cursor/*.test.ts lib/ingest/*.test.ts lib/notifications/*.test.ts lib/scoring/*.test.ts lib/domain/**/*.test.ts lib/observability/*.test.ts lib/releases/*.test.ts lib/notion/*.test.ts lib/supabase/queries/*.test.ts",
     "test:database": "tsx --test lib/supabase/queries/*.integration.ts"
   },
   "engines": {

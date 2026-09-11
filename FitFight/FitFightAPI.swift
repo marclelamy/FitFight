@@ -729,6 +729,30 @@ struct FitFightAPI {
         )
     }
 
+    func notificationDeliveryStatus() async throws -> FitFightNotificationDeliveryStatus {
+        try await get(path: "notifications/status", accessToken: "", expected: [200])
+    }
+
+    func registerDeviceInstallation(
+        token: String,
+        apnsEnvironment: String,
+        locale: String,
+        permissionStatus: String,
+        accessToken: String
+    ) async throws {
+        let _: FitFightDeviceInstallationRegistered = try await post(
+            path: "device-installations",
+            accessToken: accessToken,
+            body: FitFightDeviceInstallationBody(
+                token: token,
+                apnsEnvironment: apnsEnvironment,
+                locale: locale,
+                permissionStatus: permissionStatus
+            ),
+            expected: [200]
+        )
+    }
+
     func createFight(
         _ payload: FitFightCreateFight,
         accessToken: String,
@@ -1274,4 +1298,30 @@ private struct FeedbackCommentBody: Encodable {
 
 private struct DiscardBody: Decodable {
     init() {}
+}
+
+struct FitFightNotificationDeliveryStatus: Decodable {
+    var apnsConfigured: Bool
+
+    enum CodingKeys: String, CodingKey {
+        case apnsConfigured = "apns_configured"
+    }
+}
+
+private struct FitFightDeviceInstallationBody: Encodable {
+    var token: String
+    var apnsEnvironment: String
+    var locale: String
+    var permissionStatus: String
+
+    enum CodingKeys: String, CodingKey {
+        case token
+        case apnsEnvironment = "apns_environment"
+        case locale
+        case permissionStatus = "permission_status"
+    }
+}
+
+private struct FitFightDeviceInstallationRegistered: Decodable {
+    var registered: Bool
 }

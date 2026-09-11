@@ -15,5 +15,7 @@
 		<string>applinks:fitfight.app</string>
 		<string>applinks:staging.fitfight.app</string>
 	</array>
+	<key>aps-environment</key>
+	<string>development</string>
 </dict>
 </plist>

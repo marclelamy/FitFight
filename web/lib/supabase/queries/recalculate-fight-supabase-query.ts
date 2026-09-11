@@ -7,6 +7,11 @@ import {
   fightCalculationMemberSchema,
   fightCalculationSnapshotSchema,
 } from "@/lib/types/fights/fight-calculation";
+import {
+  enqueueAwaitingFinalSyncNotifications,
+  enqueueFightFinalizedNotifications,
+  supersedeGraceNotifications,
+} from "./notification-intents-supabase-query";
 
 /** Serialize score reads and finalization with the aggregate upload transaction. */
 export async function recalculateFight(
@@ -106,6 +111,16 @@ export async function recalculateFight(
     }
     if (nextState !== fight.state) {
       await sql`update public.fights set state = ${nextState} where id = ${fightId}`;
+      const notificationMembers = scoredMembers.map((member) => ({
+        user_id: member.user_id,
+        final_steps_complete: member.final_steps_complete,
+      }));
+      if (nextState === "awaiting_final_sync") {
+        await enqueueAwaitingFinalSyncNotifications(sql, fightId, fight.ends_at, notificationMembers);
+      } else if (nextState === "final") {
+        await supersedeGraceNotifications(sql, fightId);
+        await enqueueFightFinalizedNotifications(sql, fightId, now, notificationMembers);
+      }
     }
   });
 }
