@@ -14,6 +14,7 @@ struct YouView: View {
     @State private var pickerItem: PhotosPickerItem?
     @State private var isUploadingPhoto = false
     @State private var photoError = ""
+    @State private var showingOnboardingPreview = false
 
     var body: some View {
         FFScreen(refresh: fightsRefresh) {
@@ -40,10 +41,24 @@ struct YouView: View {
             FFSection(title: String(localized: "Look")) {
                 appearance
             }
+
+            if session.isFitFightAdmin {
+                FFSection(title: String(localized: "Developer")) {
+                    developer
+                }
+            }
         }
         .task {
             guard !staticRender else { return }
             await model.refreshFights(session: session, steps: steps)
+        }
+        .sheet(isPresented: $showingOnboardingPreview) {
+            OnboardingPreviewView()
+                .environmentObject(session)
+                .environmentObject(steps)
+                .environmentObject(themeStore)
+                .fitFightTheme(themeStore.theme)
+                .presentationBackground(themeStore.theme.bg)
         }
         .confirmationDialog(
             "Delete account?",
@@ -278,6 +293,23 @@ struct YouView: View {
                     confirmDelete = true
                 }
             }
+        }
+    }
+
+    private var developer: some View {
+        FFGroupedRows {
+            FFGroupedRow(
+                title: String(localized: "Replay onboarding"),
+                subtitle: String(localized: "Health and challenge reminders. Your account and fights stay."),
+                systemImage: "arrow.counterclockwise",
+                subtitleTone: .neutral,
+                trailing: AnyView(
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 12, weight: .bold))
+                        .foregroundStyle(theme.textFaint)
+                ),
+                action: { showingOnboardingPreview = true }
+            )
         }
     }
 
