@@ -19,7 +19,7 @@ Do not rename the bundle ID without Apple + CI updates.
 
 - Four tabs: **Fights**, **New**, **Feed**, **You**.
 - Each fight has posts (photos, a short video, or a note) on a Feed tab next to Stats. The Feed tab swipes between Main and each fight. Tap + to compose one post, add whatever you want, tag people, and multi-select Main and/or fights. A tag does not add someone to a fight they are not in. Posts can take any emoji and nested comments.
-- New accounts pick an optional photo with their username, then connect Apple Health.
+- New accounts pick an optional photo with their username, then connect Apple Health, then allow challenge reminders.
 - Every fight is **Steps × highest total**. There are no other metrics or scoring modes.
 - Every fight has a code and a share link. Public fights are listed on Join; private fights are not. Exact usernames are optional. There is no friends list or friend-request flow.
 - Type an optional title and an optional action the loser must do. If there is no title, the action is the fight name. There is no money or bragging-rights option.

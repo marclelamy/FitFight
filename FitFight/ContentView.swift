@@ -10,10 +10,11 @@ struct ContentView: View {
     @Environment(\.openURL) private var openURL
     @EnvironmentObject private var appUpdate: AppUpdateChecker
     @EnvironmentObject private var push: PushNotificationService
+    @EnvironmentObject private var steps: HealthKitStepsStore
 
     var body: some View {
         VStack(spacing: 0) {
-            VersionBanner(onTap: appUpdate.status == .current ? { model.showingVersions = true } : nil)
+            VersionBanner(onTap: versionBannerTap)
             if appUpdate.status == .current || ScreenshotExport.isEnabled {
                 appContent
             } else {
@@ -32,6 +33,7 @@ struct ContentView: View {
         .onChange(of: appUpdate.status) { previous, status in
             if status != .current {
                 model.showingVersions = false
+                model.showingDebugMenu = false
                 model.showingRequests = false
             } else if previous != .checking, session.isSignedIn, session.profile == nil {
                 Task { await session.loadProfile() }
@@ -52,6 +54,16 @@ struct ContentView: View {
             VersionsView()
                 .fitFightTheme(themeStore.theme)
                 .presentationBackground(themeStore.theme.bg)
+        }
+        .sheet(isPresented: $model.showingDebugMenu) {
+            DebugMenuView()
+                .environmentObject(themeStore)
+                .environmentObject(steps)
+                .fitFightTheme(themeStore.theme)
+                .presentationBackground(themeStore.theme.bg)
+        }
+        .onChange(of: session.isFitFightAdmin) { _, isAdmin in
+            if !isAdmin { model.showingDebugMenu = false }
         }
         .sheet(isPresented: $model.showingRequests) {
             RequestsView()
@@ -80,7 +92,15 @@ struct ContentView: View {
         }
         .alert(
             String(localized: "Get fight-end reminders?"),
-            isPresented: $push.showPrePrompt
+            isPresented: Binding(
+                get: {
+                    push.showPrePrompt
+                        && !session.needsOnboarding
+                        && !session.needsHealthOnboarding
+                        && !session.needsNotificationOnboarding
+                },
+                set: { if !$0 { push.showPrePrompt = false } }
+            )
         ) {
             Button(String(localized: "Allow notifications")) {
                 Task { await push.requestSystemPermission() }
@@ -91,6 +111,11 @@ struct ContentView: View {
         } message: {
             Text(String(localized: "FitFight can remind you when a fight ends and when to sync your steps. Lock-screen alerts never show scores or fight titles."))
         }
+    }
+
+    private var versionBannerTap: (() -> Void)? {
+        guard appUpdate.status == .current, session.isFitFightAdmin else { return nil }
+        return { model.showingDebugMenu = true }
     }
 
     private var updateDialog: some View {
@@ -189,6 +214,8 @@ struct ContentView: View {
             OnboardingView()
         } else if session.needsHealthOnboarding {
             HealthOnboardingView()
+        } else if session.needsNotificationOnboarding {
+            NotificationOnboardingView()
         } else {
             signedInApp
         }

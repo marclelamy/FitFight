@@ -527,7 +527,13 @@
     "Get fight-end reminders?" : {"localizations":{"fr":{"stringUnit":{"state":"translated","value":"Recevoir des rappels de fin de défi ?"}}}},
     "Did not sync · forfeited" : {"localizations":{"fr":{"stringUnit":{"state":"translated","value":"Pas synchronisé · forfait"}}}},
     "fight.finished-tied" : {"extractionState":"manual","localizations":{"en":{"stringUnit":{"state":"translated","value":"%@ · Tied"}},"fr":{"stringUnit":{"state":"translated","value":"%@ · Égalité"}}}},
-    "fight.sync-time-left" : {"extractionState":"manual","localizations":{"en":{"stringUnit":{"state":"translated","value":"%@ left to sync"}},"fr":{"stringUnit":{"state":"translated","value":"%@ pour synchroniser"}}}}
+    "fight.sync-time-left" : {"extractionState":"manual","localizations":{"en":{"stringUnit":{"state":"translated","value":"%@ left to sync"}},"fr":{"stringUnit":{"state":"translated","value":"%@ pour synchroniser"}}}},
+    "Challenge reminders" : {"localizations":{"fr":{"stringUnit":{"state":"translated","value":"Rappels de défis"}}}},
+    "FitFight will send challenge reminders. Lock-screen alerts never include step counts." : {"localizations":{"fr":{"stringUnit":{"state":"translated","value":"FitFight enverra des rappels de défis. Les alertes sur l’écran verrouillé n’incluent jamais le nombre de pas."}}}},
+    "Debug" : {"localizations":{"fr":{"stringUnit":{"state":"translated","value":"Débogage"}}}},
+    "Design system" : {"localizations":{"fr":{"stringUnit":{"state":"translated","value":"Système de design"}}}},
+    "Internal kit. Not shown to other people." : {"localizations":{"fr":{"stringUnit":{"state":"translated","value":"Kit interne. Les autres ne le voient pas."}}}},
+    "New accounts are asked about challenge reminders during setup, before iPhone’s permission sheet. Lock-screen alerts never include step counts. Versions stays under You → Settings." : {"localizations":{"fr":{"stringUnit":{"state":"translated","value":"Les nouveaux comptes sont interrogés sur les rappels de défis pendant l’installation, avant la feuille d’autorisation de l’iPhone. Les alertes sur l’écran verrouillé n’incluent jamais le nombre de pas. Versions reste dans Vous → Réglages."}}}}
   },
   "version" : "1.0"
 }
