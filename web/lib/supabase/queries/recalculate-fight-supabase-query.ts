@@ -7,6 +7,11 @@ import {
   fightCalculationMemberSchema,
   fightCalculationSnapshotSchema,
 } from "@/lib/types/fights/fight-calculation";
+import {
+  enqueueAwaitingFinalSyncNotifications,
+  enqueueFightFinalizedNotifications,
+  supersedeGraceNotifications,
+} from "./notification-intents-supabase-query";
 
 /** Serialize score reads and finalization with the aggregate upload transaction. */
 export async function recalculateFight(
@@ -88,14 +93,14 @@ export async function recalculateFight(
         update public.fight_members as member
         set current_value = score.current_value, rank = score.rank,
           outcome_minor = score.outcome_minor, input_revision = ${revision},
-          final_steps_complete = score.final_steps_complete,
-          final_value = case when ${final} then score.current_value else member.final_value end,
-          finalized_at = case when ${final} then ${now.toISOString()}::timestamptz else member.finalized_at end
+          final_steps_complete = score.final_steps_complete
         from jsonb_to_recordset(${sql.json(scoredMembers)}::jsonb) as score (
           user_id uuid, current_value numeric, rank integer, outcome_minor integer,
           final_steps_complete boolean
         )
-        where member.fight_id = ${fightId} and member.user_id = score.user_id
+        where member.fight_id = ${fightId}
+          and member.user_id = score.user_id
+          and member.finalized_at is null
       `;
     }
     if (final && snapshots.length > 0) {
@@ -106,6 +111,16 @@ export async function recalculateFight(
     }
     if (nextState !== fight.state) {
       await sql`update public.fights set state = ${nextState} where id = ${fightId}`;
+      const notificationMembers = scoredMembers.map((member) => ({
+        user_id: member.user_id,
+        final_steps_complete: member.final_steps_complete,
+      }));
+      if (nextState === "awaiting_final_sync") {
+        await enqueueAwaitingFinalSyncNotifications(sql, fightId, fight.ends_at, notificationMembers);
+      } else if (nextState === "final") {
+        await supersedeGraceNotifications(sql, fightId);
+        await enqueueFightFinalizedNotifications(sql, fightId, now, notificationMembers);
+      }
     }
   });
 }

@@ -7,8 +7,8 @@ const association = {
       {
         appID: "C92DPD8ME2.com.fitfight.mvp",
         appIDs: ["C92DPD8ME2.com.fitfight.mvp"],
-        paths: ["/j/*", "/r/*"],
-        components: [{ "/": "/j/*" }, { "/": "/r/*" }],
+        paths: ["/j/*", "/r/*", "/fights/*"],
+        components: [{ "/": "/j/*" }, { "/": "/r/*" }, { "/": "/fights/*" }],
       },
     ],
   },

@@ -255,8 +255,15 @@ final class AppModel: ObservableObject {
     private static let pendingDailyStatusKey = "fitfight.pendingDailyStatus"
 
     static func storePendingFightRoute(_ route: String, dailyStatus: Bool = false) {
-        UserDefaults.standard.set(route, forKey: pendingFightRouteKey)
-        UserDefaults.standard.set(dailyStatus, forKey: pendingDailyStatusKey)
+        let trimmed = route.trimmingCharacters(in: .whitespacesAndNewlines)
+        let withSlash = trimmed.hasPrefix("/") ? trimmed : "/\(trimmed)"
+        let components = URLComponents(string: "https://fitfight.app\(withSlash)")
+        let path = (components?.path.isEmpty == false) ? components!.path : withSlash
+        let queryDailyStatus = components?.queryItems?.contains { item in
+            item.name == "daily_status" && (item.value == "1" || item.value?.lowercased() == "true")
+        } ?? false
+        UserDefaults.standard.set(path, forKey: pendingFightRouteKey)
+        UserDefaults.standard.set(dailyStatus || queryDailyStatus, forKey: pendingDailyStatusKey)
     }
 
     private static var fightsCachePrefix: String {
@@ -293,9 +300,65 @@ final class AppModel: ObservableObject {
             ?? pendingJoinable.flatMap { $0.id.caseInsensitiveCompare(id) == .orderedSame ? $0 : nil }
     }
 
-    var live: [Fight] { fights.filter { $0.status == .live } }
-    var invitations: [Fight] { fights.filter { $0.status == .invited } }
-    var finished: [Fight] { fights.filter { $0.status == .pending || $0.status == .finished } }
+    func canonicalFight(for id: String) -> Fight? {
+        guard let fight = fight(id: id) else { return nil }
+        guard let seriesId = fight.seriesId else { return fight }
+        return fights
+            .filter { $0.seriesId == seriesId }
+            .reduce(fight) { Self.preferredCanonicalFight($0, $1) }
+    }
+
+    func seriesHistory(for fight: Fight) -> [Fight] {
+        guard let seriesId = fight.seriesId else { return [] }
+        return fights
+            .filter { $0.seriesId == seriesId && $0.id != fight.id }
+            .sorted { $0.windowStart > $1.windowStart }
+    }
+
+    func fightResult(for fight: Fight) -> FFResult {
+        if fight.standings.contains(where: { $0.person.isYou && $0.deferred }) {
+            return .draw
+        }
+        if fight.status == .pending {
+            return .pending
+        }
+        if let state = fight.serverState, state != "final", state != "cancelled" {
+            return .pending
+        }
+        if fight.isTiedForFirst {
+            return .draw
+        }
+        return fight.rank == 1 ? .win : .loss
+    }
+
+    private var canonicalFights: [Fight] {
+        var chosen: [String: Fight] = [:]
+        for fight in fights {
+            let key = fight.seriesId ?? fight.id
+            if let existing = chosen[key] {
+                chosen[key] = Self.preferredCanonicalFight(existing, fight)
+            } else {
+                chosen[key] = fight
+            }
+        }
+        return Array(chosen.values)
+    }
+
+    var live: [Fight] {
+        canonicalFights
+            .filter { $0.status == .live }
+            .sorted { $0.windowStart > $1.windowStart }
+    }
+    var invitations: [Fight] {
+        canonicalFights
+            .filter { $0.status == .invited }
+            .sorted { $0.windowStart > $1.windowStart }
+    }
+    var finished: [Fight] {
+        canonicalFights
+            .filter { $0.status == .pending || $0.status == .finished }
+            .sorted { $0.windowStart > $1.windowStart }
+    }
 
     func youStanding(in fight: Fight) -> Standing? {
         fight.standings.first { $0.person.isYou }
@@ -991,7 +1054,7 @@ final class AppModel: ObservableObject {
     }
 
     func openFightFromFeed(id: String) {
-        let fightID = fight(id: id)?.id ?? id
+        let fightID = canonicalFight(for: id)?.id ?? id
         tab = .fights
         Task { @MainActor in
             self.openFightID = fightID
@@ -1285,6 +1348,23 @@ final class AppModel: ObservableObject {
     private static func isAfterFightStartDay(_ start: Date, now: Date = Date()) -> Bool {
         let calendar = Calendar.current
         return calendar.startOfDay(for: now) > calendar.startOfDay(for: start)
+    }
+
+    private static func fightStatusPriority(_ status: FightStatus) -> Int {
+        switch status {
+        case .live: return 4
+        case .pending: return 3
+        case .invited: return 2
+        case .finished: return 1
+        }
+    }
+
+    static func preferredCanonicalFight(_ a: Fight, _ b: Fight) -> Fight {
+        let left = fightStatusPriority(a.status)
+        let right = fightStatusPriority(b.status)
+        if left != right { return left > right ? a : b }
+        if a.windowStart != b.windowStart { return a.windowStart > b.windowStart ? a : b }
+        return a
     }
 
     private static func ordinal(_ value: Int) -> String {

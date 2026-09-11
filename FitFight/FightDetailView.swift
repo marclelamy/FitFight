@@ -2,14 +2,17 @@ import Combine
 import SwiftUI
 import UIKit
 
-private enum FightDetailPane: Hashable, CaseIterable {
+private enum FightDetailPane: Hashable {
     case stats
+    case history
     case feed
 
     var title: String {
         switch self {
         case .stats:
             return String(localized: "Stats")
+        case .history:
+            return String(localized: "History")
         case .feed:
             return String(localized: "Feed")
         }
@@ -33,7 +36,20 @@ struct FightDetailView: View {
     }
 
     private var fight: Fight {
-        model.fight(id: initialFight.id) ?? initialFight
+        model.canonicalFight(for: initialFight.id) ?? initialFight
+    }
+
+    private var panes: [FightDetailPane] {
+        var items: [FightDetailPane] = [.stats]
+        if showsHistory {
+            items.append(.history)
+        }
+        items.append(.feed)
+        return items
+    }
+
+    private var showsHistory: Bool {
+        fight.recurring && fight.seriesId != nil && !model.seriesHistory(for: fight).isEmpty
     }
 
     private var pendingJoin: Bool {
@@ -70,20 +86,33 @@ struct FightDetailView: View {
                 )
                 .id(fightsRevision)
             } else {
-                FFSegmented(items: FightDetailPane.allCases, selection: $pane) { item in
+                FFSegmented(items: panes, selection: $pane) { item in
                     item.title
                 }
                 .padding(.bottom, 4)
 
-                if pane == .stats {
+                switch pane {
+                case .stats:
                     statsPane
-                } else if let fightID = UUID(uuidString: fight.id) {
-                    FightPostsSection(fightID: fightID)
+                case .history:
+                    historyPane
+                case .feed:
+                    if let fightID = UUID(uuidString: fight.id) {
+                        FightPostsSection(fightID: fightID)
+                    }
                 }
             }
         }
         .onReceive(model.$fights) { _ in
             fightsRevision += 1
+        }
+        .onChange(of: fight.id) { _, _ in
+            pane = .stats
+        }
+        .onChange(of: showsHistory) { _, hasHistory in
+            if pane == .history && !hasHistory {
+                pane = .stats
+            }
         }
         .navigationBarBackButtonHidden(true)
         .toolbar(.hidden, for: .navigationBar)
@@ -190,12 +219,127 @@ struct FightDetailView: View {
                         .ffType(.caption)
                         .foregroundStyle(theme.textSecondary)
                 }
-                ForEach(Array(fight.standings.enumerated()), id: \.element.id) { index, row in
-                    standingRow(index: index, row: row)
+                standingsBands(for: fight, contextFight: fight)
+                ForEach(fight.standings.filter { $0.invited || $0.deferred }) { row in
+                    standingRow(index: 0, row: row, contextFight: fight)
                 }
             }
             .id(fightsRevision)
         }
+    }
+
+    private var historyPane: some View {
+        ForEach(model.seriesHistory(for: fight)) { window in
+            historyWindowCard(window)
+        }
+    }
+
+    @ViewBuilder
+    private func standingsBands(for fight: Fight, contextFight: Fight) -> some View {
+        let racing = fight.standings.filter { !$0.invited && !$0.deferred }
+        let winners = winnerStandings(in: racing, fight: fight)
+        let losers = racing.filter { row in !winners.contains(where: { $0.id == row.id }) }
+
+        VStack(alignment: .leading, spacing: theme.space.cardGap) {
+            VStack(alignment: .leading, spacing: theme.space.cardGap) {
+                ForEach(Array(winners.enumerated()), id: \.element.id) { index, row in
+                    standingRow(index: index, row: row, contextFight: contextFight, inWinnerBand: true)
+                }
+            }
+            .padding(.horizontal, 4)
+            .padding(.vertical, 4)
+            .background(theme.mossWash, in: RoundedRectangle(cornerRadius: theme.radius.card, style: .continuous))
+            .ffBorder(theme.mossEdge, radius: theme.radius.card)
+
+            if !losers.isEmpty {
+                standingsSeparator(for: fight)
+                ForEach(Array(losers.enumerated()), id: \.element.id) { index, row in
+                    standingRow(index: index + winners.count, row: row, contextFight: contextFight, inWinnerBand: false)
+                }
+            }
+        }
+    }
+
+    private func standingsSeparator(for fight: Fight) -> some View {
+        HStack(spacing: 10) {
+            Text(standingsSeparatorLabel(for: fight))
+                .ffType(.eyebrow)
+                .foregroundStyle(theme.textTertiary)
+            Rectangle()
+                .fill(theme.track)
+                .frame(height: 1)
+        }
+        .padding(.vertical, 2)
+    }
+
+    private func standingsSeparatorLabel(for fight: Fight) -> String {
+        if fight.status == .live {
+            return String(localized: "fight.standings-chasing", defaultValue: "Chasing the lead")
+        }
+        return String(localized: "fight.standings-everyone-else", defaultValue: "Everyone else")
+    }
+
+    private func winnerStandings(in racing: [Standing], fight: Fight) -> [Standing] {
+        guard !racing.isEmpty else { return [] }
+        if fight.status == .finished || fight.status == .pending {
+            let leaders = racing.filter { $0.rank == 1 }
+            if !leaders.isEmpty { return leaders }
+        }
+        let topScore = racing.map(\.score).max() ?? 0
+        return racing.filter { $0.score == topScore }
+    }
+
+    @ViewBuilder
+    private func historyWindowCard(_ window: Fight) -> some View {
+        FFSection(title: historyWindowTitle(window)) {
+            FFCard {
+                VStack(alignment: .leading, spacing: theme.space.cardGap) {
+                    HStack(alignment: .top, spacing: 12) {
+                        FFResultGlyph(model.fightResult(for: window))
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text(historyWindowSubtitle(window))
+                                .ffType(.caption)
+                                .foregroundStyle(theme.textSecondary)
+                            Text(historyWindowResult(window))
+                                .ffType(.rowTitle)
+                                .foregroundStyle(theme.text)
+                        }
+                        Spacer(minLength: 0)
+                    }
+                    standingsBands(for: window, contextFight: window)
+                }
+            }
+        }
+    }
+
+    private func historyWindowTitle(_ window: Fight) -> String {
+        String(
+            localized: "fight.history-window",
+            defaultValue: "\(Fight.deadlineStamp(window.windowStart)) – \(Fight.deadlineStamp(window.windowEnd))"
+        )
+    }
+
+    private func historyWindowSubtitle(_ window: Fight) -> String {
+        window.endedLabel ?? window.deadlineLabel
+    }
+
+    private func historyWindowResult(_ window: Fight) -> String {
+        let leaders = winnerStandings(
+            in: window.standings.filter { !$0.invited && !$0.deferred },
+            fight: window
+        )
+        if leaders.count > 1 {
+            return String(localized: "Tied")
+        }
+        if let winner = leaders.first {
+            return winner.person.isYou
+                ? String(localized: "You won")
+                : String(
+                    localized: "fight.history-winner",
+                    defaultValue: "\(winner.person.name) won"
+                )
+        }
+        return String(localized: "No result yet")
     }
 
     @ViewBuilder
@@ -390,7 +534,12 @@ struct FightDetailView: View {
         return leader == 0 ? 0 : min(yours / leader, 1)
     }
 
-    private func standingRow(index: Int, row: Standing) -> some View {
+    private func standingRow(
+        index: Int,
+        row: Standing,
+        contextFight: Fight,
+        inWinnerBand: Bool = false
+    ) -> some View {
         Group {
             if row.invited || row.deferred {
                 HStack(spacing: 13) {
@@ -412,28 +561,28 @@ struct FightDetailView: View {
                 .padding(.vertical, 12)
                 .background(theme.card, in: RoundedRectangle(cornerRadius: theme.radius.card, style: .continuous))
                 .ffBorder(theme.hairline, radius: theme.radius.card)
-            } else if fight.status == .pending {
-                pendingStandingRow(row)
+            } else if contextFight.status == .pending {
+                pendingStandingRow(row, contextFight: contextFight)
             } else {
                 FFLeaderboardRow(
-                    rank: fight.status == .finished ? (row.rank ?? (index + 1)) : index + 1,
+                    rank: contextFight.status == .finished ? (row.rank ?? (index + 1)) : index + 1,
                     monogram: row.person.initials,
                     name: row.person.name,
-                    value: model.formatScore(row.score, metric: fight.metric),
+                    value: model.formatScore(row.score, metric: contextFight.metric),
                     move: .same,
                     isYou: row.person.isYou,
-                    captionUrgent: false,
+                    captionUrgent: !inWinnerBand && row.person.isYou && contextFight.status == .live,
                     captionAt: { now in
-                        model.formatStandingFreshness(row, fight: fight, now: now)
+                        model.formatStandingFreshness(row, fight: contextFight, now: now)
                     }
                 )
             }
         }
     }
 
-    private func pendingStandingRow(_ row: Standing) -> some View {
+    private func pendingStandingRow(_ row: Standing, contextFight: Fight) -> some View {
         let needsSync = row.finalStepsComplete != true
-        let submitted = fight.standings.filter { !$0.invited && !$0.deferred && $0.finalStepsComplete == true }
+        let submitted = contextFight.standings.filter { !$0.invited && !$0.deferred && $0.finalStepsComplete == true }
         let rank = submitted.firstIndex { $0.id == row.id }.map { $0 + 1 }
         return HStack(spacing: 13) {
             Text(needsSync ? "—" : "\(rank ?? 0)")
@@ -447,7 +596,7 @@ struct FightDetailView: View {
                     .foregroundStyle(needsSync ? theme.textSecondary : theme.text)
                     .lineLimit(1)
                 TimelineView(.periodic(from: .now, by: 30)) { context in
-                    Text(model.formatStandingFreshness(row, fight: fight, now: context.date))
+                    Text(model.formatStandingFreshness(row, fight: contextFight, now: context.date))
                         .ffType(.micro)
                         .foregroundStyle(needsSync && row.person.isYou ? theme.emberText : theme.textSecondary)
                         .lineLimit(1)
@@ -460,7 +609,7 @@ struct FightDetailView: View {
                     : String(localized: "Synced"),
                 style: needsSync ? .gold : .neutral
             )
-            Text(model.formatScore(row.score, metric: fight.metric))
+            Text(model.formatScore(row.score, metric: contextFight.metric))
                 .font(.ff(17, 800))
                 .tracking(17 * -0.02)
                 .foregroundStyle(theme.text)

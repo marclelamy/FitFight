@@ -39,8 +39,19 @@ export const notificationCopyKeyValues = [
 
 export const notificationCopyKeySchema = z.enum(notificationCopyKeyValues);
 
+export const pendingNotificationIntentSchema = z.object({
+  id: z.string().uuid(),
+  user_id: z.string().uuid(),
+  fight_id: z.string().uuid(),
+  kind: notificationKindSchema,
+  slot: notificationSlotSchema,
+  route: z.string().min(1),
+  copy_key: notificationCopyKeySchema,
+});
+
 export type NotificationKind = z.infer<typeof notificationKindSchema>;
 export type NotificationSlot = z.infer<typeof notificationSlotSchema>;
 export type NotificationIntentStatus = z.infer<typeof notificationIntentStatusSchema>;
 export type NotificationSkipReason = z.infer<typeof notificationSkipReasonSchema>;
 export type NotificationCopyKey = z.infer<typeof notificationCopyKeySchema>;
+export type PendingNotificationIntent = z.infer<typeof pendingNotificationIntentSchema>;

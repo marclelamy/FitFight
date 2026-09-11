@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 import type { Sql } from "postgres";
 import { ApiError, ERROR_CODES } from "@/lib/http";
+import { civilDayStamp } from "@/lib/scoring/civil-day";
 import { scoreFight } from "@/lib/scoring/score-fight";
 import { MAX_ACTIVITY_LOOKBACK_MS } from "@/lib/types/healthkit/healthkit-activity";
 import { createDatabaseClient } from "@/lib/supabase/postgres";
@@ -13,6 +14,7 @@ import type {
   HealthKitAggregateSync,
   HealthKitAggregateSyncResponse,
 } from "@/lib/types/healthkit/healthkit-aggregate";
+import { skipGraceNotificationsForMember } from "./notification-intents-supabase-query";
 
 export async function syncHealthKitAggregates(
   userId: string,
@@ -132,6 +134,10 @@ export async function syncHealthKitAggregates(
     }
 
     if (input.merged_days.length > 0) {
+      const completeLocalDay = civilDayStamp(
+        new Date(input.complete_through),
+        input.time_zone,
+      );
       const dayRows = input.merged_days.map((day) => ({
         user_id: userId,
         source_id: source.id,
@@ -145,6 +151,7 @@ export async function syncHealthKitAggregates(
         })).digest("hex"),
         normalization_version: 1,
         calculation_version: 1,
+        finalized_at: day.day < completeLocalDay ? new Date(input.complete_through) : null,
       }));
       await sql`
         insert into public.metric_days ${sql(
@@ -158,14 +165,19 @@ export async function syncHealthKitAggregates(
           "input_hash",
           "normalization_version",
           "calculation_version",
+          "finalized_at",
         )}
         on conflict (user_id, source_id, metric, day) do update
         set value = excluded.value,
           input_hash = excluded.input_hash,
           normalization_version = excluded.normalization_version,
           calculation_version = excluded.calculation_version,
-          finalized_at = null,
+          finalized_at = case
+            when public.metric_days.finalized_at is not null then public.metric_days.finalized_at
+            else excluded.finalized_at
+          end,
           updated_at = now()
+        where public.metric_days.finalized_at is null
       `;
       await sql`
         insert into public.step_days (user_id, day, steps, updated_at)
@@ -227,10 +239,16 @@ export async function syncHealthKitAggregates(
         where member.fight_id = latest.fight_id
           and member.user_id = ${userId}
           and member.state = 'accepted'
+          and member.finalized_at is null
         returning member.fight_id
       `);
       if (updatedMembers.length !== fights.length) {
         throw new ApiError(500, ERROR_CODES.db_error, "Could not save Fight aggregate");
+      }
+      for (const aggregate of aggregateFights) {
+        if (aggregate.final_steps_complete) {
+          await skipGraceNotificationsForMember(sql, aggregate.fight_id, userId);
+        }
       }
       const members = healthKitAggregateMemberSchema.array().parse(await sql`
         select fight_id, user_id, current_value::text, final_value::text, personal_target::text
@@ -262,7 +280,9 @@ export async function syncHealthKitAggregates(
           from jsonb_to_recordset(${sql.json(scores)}::jsonb) as score (
             fight_id uuid, user_id uuid, rank integer, outcome_minor integer
           )
-          where member.fight_id = score.fight_id and member.user_id = score.user_id
+          where member.fight_id = score.fight_id
+            and member.user_id = score.user_id
+            and member.finalized_at is null
         `;
       }
     }

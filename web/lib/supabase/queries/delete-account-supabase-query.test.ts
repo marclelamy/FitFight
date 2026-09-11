@@ -37,6 +37,8 @@ test("account deletion removes owned Fights and every user-owned row before the 
     "public.feedback_votes",
     "public.feedback_comments",
     "public.feedback_posts",
+    "private.feedback_post_reports",
+    "private.feedback_blocks",
     "private.fight_post_reports",
     "private.fight_post_comment_reports",
     "private.feed_blocks",

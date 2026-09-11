@@ -438,6 +438,9 @@ test("Apple Health aggregate sync writes merged days without raw observations", 
 
   assert.ok(queries.some(({ query }) => query.includes("insert into public.metric_days")));
   assert.ok(queries.some(({ query }) => query.includes("insert into public.step_days")));
+  assert.ok(queries.some(({ query }) =>
+    query.includes("where public.metric_days.finalized_at is null")
+  ));
   assert.ok(queries.every(({ query }) => !query.includes("metric_observations")));
   assert.ok(queries.every(({ query }) => !query.includes("provider_events")));
   assert.ok(queries.every(({ query }) => !query.includes("healthkit_activity_days")));
@@ -554,6 +557,7 @@ test("Apple Health aggregate sync makes the newest Fight snapshot authoritative 
     JSON.stringify(value).includes('"final_steps_complete":false')
   ));
   assert.ok(queries.some(({ query }) => query.includes("set rank")));
+  assert.ok(queries.some(({ query }) => query.includes("and member.finalized_at is null")));
   assert.ok(queries.every(({ query }) => !/set\s+final_value/i.test(query)));
 });
 

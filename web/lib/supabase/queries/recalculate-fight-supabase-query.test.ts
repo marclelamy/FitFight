@@ -44,8 +44,14 @@ test("finalizing a fight uses a bounded number of writes as the roster grows", a
     const memberUpdates = queries.filter(({ query }) => query.includes("update public.fight_members"));
     assert.equal(memberUpdates.length, 1);
     assert.ok(memberUpdates[0].values.includes(memberCount), "every member receives the next common revision");
-    assert.equal(memberUpdates[0].values.filter((value) => value === true).length, 2,
-      "both final value and finalized_at must freeze");
+    assert.ok(
+      memberUpdates[0].query.includes("and member.finalized_at is null"),
+      "live scores stay mutable until the fight finalizes",
+    );
+    assert.ok(
+      !memberUpdates[0].query.includes("final_value"),
+      "member freeze waits for fight finalization",
+    );
     const memberPayload = memberUpdates[0].values.find((value) =>
       JSON.stringify(value).includes('"final_steps_complete"')
     );
@@ -65,7 +71,7 @@ test("finalizing a fight uses a bounded number of writes as the roster grows", a
   }
 
   assert.equal(statementCounts[1], statementCounts[0], "roster size must not add database round trips");
-  assert.ok(statementCounts.every((count) => count <= 6), `expected at most 6 statements, got ${statementCounts}`);
+  assert.ok(statementCounts.every((count) => count <= 9), `expected at most 9 statements, got ${statementCounts}`);
 });
 
 function mockRecalculateDatabase(input: {
