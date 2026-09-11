@@ -216,6 +216,7 @@ final class AppModel: ObservableObject {
     }
 
     @Published var openFightID: String?
+    @Published var dailyStatusRecap: DailyStatusRecap?
     @Published var showingVersions = false
     @Published var showingRequests = false
     @Published var joined: Set<String> = []
@@ -250,6 +251,13 @@ final class AppModel: ObservableObject {
     private static let pendingJoinCodeKey = "fitfight.pendingJoinCode"
     private static let pendingReferralCodeKey = "fitfight.pendingReferralCode"
     private static let pendingReferralUserKey = "fitfight.pendingReferralUser"
+    private static let pendingFightRouteKey = "fitfight.pendingFightRoute"
+    private static let pendingDailyStatusKey = "fitfight.pendingDailyStatus"
+
+    static func storePendingFightRoute(_ route: String, dailyStatus: Bool = false) {
+        UserDefaults.standard.set(route, forKey: pendingFightRouteKey)
+        UserDefaults.standard.set(dailyStatus, forKey: pendingDailyStatusKey)
+    }
 
     private static var fightsCachePrefix: String {
         "fitfight.fights.\(Bundle.main.preferredLocalizations.first ?? "en")."
@@ -756,6 +764,18 @@ final class AppModel: ObservableObject {
               url.user == nil, url.password == nil, url.port == nil || url.port == 443 else { return }
         let parts = url.path.split(separator: "/")
         guard parts.count == 2 else { return }
+        if parts[0] == "fights", let fightID = UUID(uuidString: String(parts[1])) {
+            let items = URLComponents(url: url, resolvingAgainstBaseURL: false)?.queryItems ?? []
+            let dailyStatus = items.contains { item in
+                item.name == "daily_status" && (item.value == "1" || item.value?.lowercased() == "true")
+            }
+            Self.storePendingFightRoute(
+                "/fights/\(fightID.uuidString.lowercased())",
+                dailyStatus: dailyStatus
+            )
+            await consumePendingLinks(session: session)
+            return
+        }
         let referral: UUID?
         if parts[0] == "r", let code = UUID(uuidString: String(parts[1])) {
             referral = code
@@ -775,6 +795,8 @@ final class AppModel: ObservableObject {
     }
 
     func consumePendingLinks(session: SessionStore) async {
+        let pendingDailyStatus = UserDefaults.standard.bool(forKey: Self.pendingDailyStatusKey)
+        consumePendingFightRoute(showDailyStatusRecap: pendingDailyStatus)
         guard !session.needsOnboarding, let profile = session.profile,
               session.authSession?.user.id == profile.userId else { return }
         if let code = UserDefaults.standard.string(forKey: Self.pendingJoinCodeKey) {
@@ -973,6 +995,30 @@ final class AppModel: ObservableObject {
         tab = .fights
         Task { @MainActor in
             self.openFightID = fightID
+        }
+    }
+
+    func presentDailyStatusRecap(for fightID: String) async {
+        guard let access = session?.authSession?.accessToken,
+              api.isConfigured,
+              let id = UUID(uuidString: fightID) else { return }
+        do {
+            let recap = try await api.dailyStatusRecap(fightID: id, accessToken: access)
+            dailyStatusRecap = DailyStatusRecap(fightID: fightID, body: recap.recap)
+        } catch {
+            dailyStatusRecap = nil
+        }
+    }
+
+    private func consumePendingFightRoute(showDailyStatusRecap: Bool) {
+        guard let route = UserDefaults.standard.string(forKey: Self.pendingFightRouteKey) else { return }
+        UserDefaults.standard.removeObject(forKey: Self.pendingFightRouteKey)
+        UserDefaults.standard.removeObject(forKey: Self.pendingDailyStatusKey)
+        let parts = route.split(separator: "/").map(String.init)
+        guard parts.count == 2, parts[0] == "fights", UUID(uuidString: parts[1]) != nil else { return }
+        openFightFromFeed(id: parts[1])
+        if showDailyStatusRecap {
+            Task { await presentDailyStatusRecap(for: parts[1]) }
         }
     }
 

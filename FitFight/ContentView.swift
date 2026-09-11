@@ -58,6 +58,14 @@ struct ContentView: View {
                 .fitFightTheme(themeStore.theme)
                 .presentationBackground(themeStore.theme.bg)
         }
+        .sheet(item: $model.dailyStatusRecap) { recap in
+            DailyStatusRecapView(recap: recap) {
+                model.dailyStatusRecap = nil
+            }
+            .fitFightTheme(themeStore.theme)
+            .presentationBackground(themeStore.theme.bg)
+            .presentationDetents([.medium])
+        }
         .alert("Couldn’t save referral", isPresented: Binding(
             get: { model.pendingReferralError != nil },
             set: { if !$0 { model.pendingReferralError = nil } }
