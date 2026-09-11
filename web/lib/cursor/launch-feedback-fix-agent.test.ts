@@ -14,7 +14,9 @@ const detail: FeedbackPostDetail = {
     vote_count: 3,
     comment_count: 1,
     voted: true,
+    author_id: "22222222-2222-4222-8222-222222222222",
     author_handle: "maya_moves",
+    mine: false,
     created_at: "2026-09-04T12:00:00Z",
   },
   comments: [{
