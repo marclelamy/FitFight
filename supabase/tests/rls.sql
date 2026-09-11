@@ -1,5 +1,5 @@
 begin;
-select plan(29);
+select plan(36);
 
 create function pg_temp.make_user(uid uuid, email text)
 returns void
@@ -417,6 +417,146 @@ select is(
       and day = current_date),
   8000,
   'deferred member can read current racers chart days'
+);
+
+reset role;
+insert into public.data_sources (
+  id, user_id, provider, source_label, connection_route
+) values (
+  'dddddddd-dddd-4ddd-8ddd-dddddddddddd',
+  '11111111-1111-4111-8111-111111111111',
+  'apple_health',
+  'Apple Health',
+  'healthkit'
+);
+
+update public.fights
+set state = 'awaiting_final_sync'
+where id = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
+
+update public.fight_members
+set current_value = 12_000
+where fight_id = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'
+  and user_id = '11111111-1111-4111-8111-111111111111';
+
+select ok(
+  (select current_value::integer from public.fight_members
+    where fight_id = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'
+      and user_id = '11111111-1111-4111-8111-111111111111') = 12000,
+  'awaiting_final_sync still accepts score updates before the fight finalizes'
+);
+
+update public.fights
+set state = 'final'
+where id = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
+
+select isnt(
+  (select finalized_at from public.fight_members
+    where fight_id = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'
+      and user_id = '11111111-1111-4111-8111-111111111111'),
+  null,
+  'moving a fight to final freezes accepted member scores together'
+);
+
+update public.fight_members
+set current_value = 1
+where fight_id = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'
+  and user_id = '11111111-1111-4111-8111-111111111111';
+
+select ok(
+  (select current_value::integer from public.fight_members
+    where fight_id = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'
+      and user_id = '11111111-1111-4111-8111-111111111111') = 12000,
+  'finalized member scores ignore later aggregation writes'
+);
+
+update public.fights
+set state = 'live'
+where id = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
+
+select is(
+  (select state::text from public.fights
+    where id = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'),
+  'final',
+  'a final fight cannot return to live'
+);
+
+insert into public.fights (
+  id, owner_id, name, state, starts_at, ends_at, time_zone,
+  outcome_rule, goal_policy
+) values (
+  'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',
+  '11111111-1111-4111-8111-111111111111',
+  'Phone fight',
+  'final',
+  now(),
+  now() + interval '3 days',
+  'America/New_York',
+  'highest_total',
+  'shared'
+);
+
+insert into public.fight_members (
+  fight_id, user_id, state, current_value, finalized_at, selected_source_id
+) values (
+  'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',
+  '33333333-3333-4333-8333-333333333333',
+  'invited',
+  42,
+  now(),
+  'dddddddd-dddd-4ddd-8ddd-dddddddddddd'
+);
+
+select ok(
+  (select current_value is null
+      and finalized_at is null
+      and selected_source_id = 'dddddddd-dddd-4ddd-8ddd-dddddddddddd'
+   from public.fight_members
+    where fight_id = 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb'
+      and user_id = '33333333-3333-4333-8333-333333333333'),
+  'insert strips scores even for the database role and keeps the selected source'
+);
+
+insert into public.metric_days (
+  user_id, source_id, metric, day, value, unit, input_hash,
+  normalization_version, calculation_version, finalized_at
+) values (
+  '11111111-1111-4111-8111-111111111111',
+  'dddddddd-dddd-4ddd-8ddd-dddddddddddd',
+  'steps',
+  current_date,
+  9000,
+  'steps',
+  'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+  1,
+  1,
+  now()
+);
+
+update public.metric_days
+set value = 1
+where user_id = '11111111-1111-4111-8111-111111111111'
+  and day = current_date;
+
+select is(
+  (select value::integer from public.metric_days
+    where user_id = '11111111-1111-4111-8111-111111111111'
+      and day = current_date),
+  9000,
+  'finalized metric days ignore later aggregation writes'
+);
+
+update public.step_days
+set steps = 1
+where user_id = '11111111-1111-4111-8111-111111111111'
+  and day = current_date;
+
+select is(
+  (select steps from public.step_days
+    where user_id = '11111111-1111-4111-8111-111111111111'
+      and day = current_date),
+  9000,
+  'frozen step days pin to the finalized metric day total'
 );
 
 select * from finish();
