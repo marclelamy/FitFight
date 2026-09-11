@@ -250,6 +250,11 @@ final class AppModel: ObservableObject {
     private static let pendingJoinCodeKey = "fitfight.pendingJoinCode"
     private static let pendingReferralCodeKey = "fitfight.pendingReferralCode"
     private static let pendingReferralUserKey = "fitfight.pendingReferralUser"
+    private static let pendingFightRouteKey = "fitfight.pendingFightRoute"
+
+    static func storePendingFightRoute(_ route: String) {
+        UserDefaults.standard.set(route, forKey: pendingFightRouteKey)
+    }
 
     private static var fightsCachePrefix: String {
         "fitfight.fights.\(Bundle.main.preferredLocalizations.first ?? "en")."
@@ -756,6 +761,11 @@ final class AppModel: ObservableObject {
               url.user == nil, url.password == nil, url.port == nil || url.port == 443 else { return }
         let parts = url.path.split(separator: "/")
         guard parts.count == 2 else { return }
+        if parts[0] == "fights", let fightID = UUID(uuidString: String(parts[1])) {
+            Self.storePendingFightRoute("/fights/\(fightID.uuidString.lowercased())")
+            await consumePendingLinks(session: session)
+            return
+        }
         let referral: UUID?
         if parts[0] == "r", let code = UUID(uuidString: String(parts[1])) {
             referral = code
@@ -775,6 +785,7 @@ final class AppModel: ObservableObject {
     }
 
     func consumePendingLinks(session: SessionStore) async {
+        consumePendingFightRoute()
         guard !session.needsOnboarding, let profile = session.profile,
               session.authSession?.user.id == profile.userId else { return }
         if let code = UserDefaults.standard.string(forKey: Self.pendingJoinCodeKey) {
@@ -974,6 +985,14 @@ final class AppModel: ObservableObject {
         Task { @MainActor in
             self.openFightID = fightID
         }
+    }
+
+    private func consumePendingFightRoute() {
+        guard let route = UserDefaults.standard.string(forKey: Self.pendingFightRouteKey) else { return }
+        UserDefaults.standard.removeObject(forKey: Self.pendingFightRouteKey)
+        let parts = route.split(separator: "/").map(String.init)
+        guard parts.count == 2, parts[0] == "fights", UUID(uuidString: parts[1]) != nil else { return }
+        openFightFromFeed(id: parts[1])
     }
 
     private static func mapFight(

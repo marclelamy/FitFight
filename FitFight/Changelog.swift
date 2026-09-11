@@ -28,6 +28,13 @@ enum Changelog {
             version: "1.0.0",
             year: 2026,
             month: 9,
+            day: 11,
+            notes: "FitFight can remind you when a fight ends and when to sync before the 24-hour window closes. Allow notifications only when the server can send them."
+        ),
+        ReleaseNote(
+            version: "1.0.0",
+            year: 2026,
+            month: 9,
             day: 10,
             notes: "After a fight ends, Finished shows P until everyone syncs or 24 hours pass. Miss the window and you lose. Opening it shows a tentative result, not a win."
         ),

@@ -1,5 +1,6 @@
 import SwiftUI
 import UIKit
+import UserNotifications
 
 extension AppUpdateChecker {
     static let shared = AppUpdateChecker(
@@ -16,7 +17,22 @@ final class FitFightAppDelegate: NSObject, UIApplicationDelegate {
         didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil
     ) -> Bool {
         HealthKitStepsStore.shared.installObserverAtLaunch()
+        UNUserNotificationCenter.current().delegate = PushNotificationService.shared
         return true
+    }
+
+    func application(
+        _ application: UIApplication,
+        didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data
+    ) {
+        Task { await PushNotificationService.shared.handleDeviceToken(deviceToken) }
+    }
+
+    func application(
+        _ application: UIApplication,
+        didFailToRegisterForRemoteNotificationsWithError error: Error
+    ) {
+        PushNotificationService.shared.handleRegistrationFailure()
     }
 
     func application(
@@ -41,6 +57,7 @@ struct FitFightApp: App {
     @StateObject private var session: SessionStore
     @StateObject private var steps: HealthKitStepsStore
     @StateObject private var feed = FeedStore()
+    @StateObject private var push = PushNotificationService.shared
 
     init() {
         let session = SessionStore()
@@ -59,6 +76,7 @@ struct FitFightApp: App {
                 .environmentObject(steps)
                 .environmentObject(feed)
                 .environmentObject(appUpdate)
+                .environmentObject(push)
                 .fitFightTheme(themeStore.theme)
                 .task {
                     steps.onLocalAggregates = { sync in
@@ -67,6 +85,10 @@ struct FitFightApp: App {
                     steps.onBackendSync = {
                         await model.refreshFromServer(session: session)
                     }
+                    push.configure(session: session)
+                    await push.refreshServerStatus()
+                    await push.refreshAuthorizationStatus()
+                    push.registerIfAuthorized()
                     if ScreenshotExport.isEnabled {
                         ScreenshotExport.exportAll()
                     }
@@ -80,6 +102,7 @@ struct FitFightApp: App {
                     guard appUpdate.status == .current else { return }
                     model.restoreCachedFights(session: session)
                     await model.refreshFights(session: session, steps: steps)
+                    push.considerPromptIfNeeded(fights: model.fights)
                 }
                 .task(id: appUpdate.status == .current ? session.profile?.userId : nil) {
                     guard appUpdate.status == .current else { return }

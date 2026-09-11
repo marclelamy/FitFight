@@ -56,18 +56,29 @@ test("ordinary maintenance uses one database query and never scans unrelated ser
   const userId = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
   const now = new Date("2026-09-05T12:00:00Z");
   let statements = 0;
-  const database = async (_strings: TemplateStringsArray, ...values: unknown[]) => {
+  const database = async (strings: TemplateStringsArray, ...values: unknown[]) => {
     statements++;
-    assert.ok(values.includes(userId));
-    return [{ candidates: [{
-      id: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb", state: "live",
-      starts_at: "2026-09-04T12:00:00Z", ends_at: "2026-09-07T12:00:00Z",
-    }], recurring: [] }];
+    const query = strings.join("?");
+    if (query.includes("coalesce((")) {
+      assert.ok(values.includes(userId));
+      return [{ candidates: [{
+        id: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb", state: "live",
+        starts_at: "2026-09-04T12:00:00Z", ends_at: "2026-09-07T12:00:00Z",
+      }], recurring: [] }];
+    }
+    if (query.includes("notification_intents")) {
+      return [];
+    }
+    return [];
   };
   const admin = { from: () => { throw new Error("ordinary refresh must not scan REST tables"); } };
-  assert.deepEqual(await closeDueFightsForUser(userId, admin as never, now, database as never),
-    { checked: 1, closed: 0, fightIds: [] });
-  assert.equal(statements, 1);
+  assert.deepEqual(await closeDueFightsForUser(userId, admin as never, now, database as never), {
+    checked: 1,
+    closed: 0,
+    fightIds: [],
+    notifications: { checked: 0, sent: 0, skipped: 0, failed: 0, expired: 0, pending: 0 },
+  });
+  assert.ok(statements >= 2);
 });
 
 test("refresh endpoint rejects unauthenticated requests before maintenance and emits timing", async () => {

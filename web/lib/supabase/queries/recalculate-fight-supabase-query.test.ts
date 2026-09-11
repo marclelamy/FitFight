@@ -65,7 +65,7 @@ test("finalizing a fight uses a bounded number of writes as the roster grows", a
   }
 
   assert.equal(statementCounts[1], statementCounts[0], "roster size must not add database round trips");
-  assert.ok(statementCounts.every((count) => count <= 6), `expected at most 6 statements, got ${statementCounts}`);
+  assert.ok(statementCounts.every((count) => count <= 9), `expected at most 9 statements, got ${statementCounts}`);
 });
 
 function mockRecalculateDatabase(input: {
