@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { dailyStatusRecapResponseSchema } from "@/lib/types/notifications/daily-status";
 import { enqueueDailyStatusNotifications } from "./daily-status-supabase-query";
 
 test("enqueueDailyStatusNotifications no-ops when OpenRouter is not configured", async () => {
@@ -17,4 +18,13 @@ test("enqueueDailyStatusNotifications no-ops when OpenRouter is not configured",
   if (previous) {
     process.env.OPENROUTER_API_KEY = previous;
   }
+});
+
+test("daily status recap parsing accepts postgres Date values", () => {
+  const createdAt = new Date("2026-09-11T09:15:00.000Z");
+  const parsed = dailyStatusRecapResponseSchema.parse({
+    recap: "You are pulling ahead. Keep moving.",
+    sent_at: createdAt.toISOString(),
+  });
+  assert.equal(parsed.sent_at, "2026-09-11T09:15:00.000Z");
 });

@@ -795,10 +795,10 @@ final class AppModel: ObservableObject {
     }
 
     func consumePendingLinks(session: SessionStore) async {
-        let pendingDailyStatus = UserDefaults.standard.bool(forKey: Self.pendingDailyStatusKey)
-        consumePendingFightRoute(showDailyStatusRecap: pendingDailyStatus)
         guard !session.needsOnboarding, let profile = session.profile,
               session.authSession?.user.id == profile.userId else { return }
+        let pendingDailyStatus = UserDefaults.standard.bool(forKey: Self.pendingDailyStatusKey)
+        consumePendingFightRoute(showDailyStatusRecap: pendingDailyStatus)
         if let code = UserDefaults.standard.string(forKey: Self.pendingJoinCodeKey) {
             await openJoinCode(code, session: session)
             guard session.authSession?.user.id == profile.userId else { return }

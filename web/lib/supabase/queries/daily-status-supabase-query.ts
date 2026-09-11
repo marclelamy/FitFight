@@ -220,7 +220,7 @@ export async function readDailyStatusRecap(
     return null;
   }
 
-  const [row] = await database<{ recap_body: string; created_at: string }[]>`
+  const [row] = await database<{ recap_body: string; created_at: Date | string }[]>`
     select recap_body, created_at
     from private.notification_intents
     where user_id = ${userId}
@@ -236,6 +236,6 @@ export async function readDailyStatusRecap(
 
   return dailyStatusRecapResponseSchema.parse({
     recap: row.recap_body,
-    sent_at: row.created_at,
+    sent_at: new Date(row.created_at).toISOString(),
   });
 }
