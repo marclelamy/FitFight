@@ -2,6 +2,9 @@ import SwiftUI
 
 /// First-run notification ask, after Apple Health. Pre-prompt before iPhone’s sheet.
 struct NotificationOnboardingView: View {
+    var skipsIfAlreadyDetermined: Bool = true
+    var onFinished: (() -> Void)? = nil
+
     @EnvironmentObject private var session: SessionStore
     @EnvironmentObject private var push: PushNotificationService
     @Environment(\.ffTheme) private var theme
@@ -45,12 +48,13 @@ struct NotificationOnboardingView: View {
         .background(theme.bg)
         .task {
             await push.refreshAuthorizationStatus()
+            guard skipsIfAlreadyDetermined else { return }
             if push.permissionStatus != .notDetermined {
                 push.markPromptHandledThisSession()
                 if push.permissionStatus == .authorized {
                     push.registerIfAuthorized()
                 }
-                session.finishNotificationOnboarding()
+                finish()
             }
         }
     }
@@ -59,11 +63,16 @@ struct NotificationOnboardingView: View {
         isAsking = true
         defer { isAsking = false }
         await push.requestSystemPermission()
-        session.finishNotificationOnboarding()
+        finish()
     }
 
     private func skip() {
         push.declinePrePrompt()
+        finish()
+    }
+
+    private func finish() {
         session.finishNotificationOnboarding()
+        onFinished?()
     }
 }

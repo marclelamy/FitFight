@@ -2,6 +2,8 @@ import SwiftUI
 
 /// First-run Apple Health ask, right after the username. Permission stays on this phone.
 struct HealthOnboardingView: View {
+    var onFinished: (() -> Void)? = nil
+
     @EnvironmentObject private var session: SessionStore
     @EnvironmentObject private var steps: HealthKitStepsStore
     @Environment(\.ffTheme) private var theme
@@ -27,7 +29,7 @@ struct HealthOnboardingView: View {
             }
             .padding(.top, 28)
             Button {
-                session.finishHealthOnboarding()
+                finish()
             } label: {
                 Text("Not now")
                     .ffType(.label)
@@ -49,6 +51,11 @@ struct HealthOnboardingView: View {
         defer { isConnecting = false }
         let trace = HealthKitSyncTrace(trigger: .manual)
         await steps.refresh(requestAccess: true, trace: trace)
+        finish()
+    }
+
+    private func finish() {
         session.finishHealthOnboarding()
+        onFinished?()
     }
 }
