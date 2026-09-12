@@ -227,6 +227,17 @@ struct ContentView: View {
                     Group {
                         if let fight = model.canonicalFight(for: id) {
                             FightDetailView(fight: fight)
+                        } else {
+                            VStack(alignment: .leading, spacing: 12) {
+                                Text(String(localized: "That fight isn’t on your list."))
+                                    .ffType(.heading)
+                                    .foregroundStyle(theme.text)
+                                FFButton(title: String(localized: "Close"), kind: .secondary) {
+                                    model.openFightID = nil
+                                }
+                            }
+                            .padding(.horizontal, theme.space.screenPadding)
+                            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
                         }
                     }
                     .background(InteractivePopGestureEnabler(canPop: true, ownsDelegate: false))

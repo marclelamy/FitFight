@@ -596,10 +596,13 @@ final class AppModel: ObservableObject {
             guard session.authSession?.user.id == userId else { throw CancellationError() }
             let snapshot = try await api.fightsSnapshot(accessToken: token, trace: attempt)
             try Task.checkCancellation()
-            let profiles = Dictionary(uniqueKeysWithValues: snapshot.profiles.map { ($0.userId, $0) })
+            let profiles = Dictionary(snapshot.profiles.map { ($0.userId, $0) }, uniquingKeysWith: { _, last in last })
             let members = Dictionary(grouping: snapshot.members, by: \.fightId)
-            let mine = Dictionary(uniqueKeysWithValues: snapshot.members.filter { $0.userId == userId }.map { ($0.fightId, $0) })
-            let series = Dictionary(uniqueKeysWithValues: snapshot.series.map { ($0.id, $0) })
+            let mine = Dictionary(
+                snapshot.members.filter { $0.userId == userId }.map { ($0.fightId, $0) },
+                uniquingKeysWith: { _, last in last }
+            )
+            let series = Dictionary(snapshot.series.map { ($0.id, $0) }, uniquingKeysWith: { _, last in last })
             let loaded = snapshot.fights.compactMap { row -> Fight? in
                 guard var fight = Self.mapFight(
                     row, members: members[row.id] ?? [], mine: mine[row.id], profiles: profiles,
@@ -1072,10 +1075,10 @@ final class AppModel: ObservableObject {
     }
 
     func openFightFromFeed(id: String) {
-        let fightID = canonicalFight(for: id)?.id ?? id
+        guard let fight = canonicalFight(for: id) else { return }
         tab = .fights
         Task { @MainActor in
-            self.openFightID = fightID
+            self.openFightID = fight.id
         }
     }
 

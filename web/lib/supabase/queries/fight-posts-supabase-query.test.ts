@@ -8,6 +8,7 @@ import { GET as listPosts, POST as createPost } from "@/app/api/v1/fights/[fight
 import { DELETE as deletePost } from "@/app/api/v1/fights/[fightID]/posts/[postID]/route";
 import { POST as reportPost } from "@/app/api/v1/fights/[fightID]/posts/[postID]/report/route";
 import { GET as listComments, POST as createComment } from "@/app/api/v1/posts/[postID]/comments/route";
+import { PATCH as updatePost } from "@/app/api/v1/posts/[postID]/route";
 import { POST as reactToPost } from "@/app/api/v1/posts/[postID]/reactions/route";
 import {
   createFeedPostsRequestSchema,
@@ -16,8 +17,9 @@ import {
   listFightPostsQuerySchema,
   reportFightPostRequestSchema,
   setFightPostReactionRequestSchema,
+  updateFightPostRequestSchema,
 } from "@/lib/types/feed/fight-post";
-import { listFightPosts } from "./fight-posts-supabase-query";
+import { listFeedPeople, listFightPosts } from "./fight-posts-supabase-query";
 import type { Sql } from "postgres";
 
 const userId = "11111111-1111-4111-8111-111111111111";
@@ -62,6 +64,9 @@ test("fight posts need a note or a photo and reject extra fields", () => {
   assert.equal(createFightPostCommentRequestSchema.safeParse({ body: "" }).success, false);
   assert.equal(setFightPostReactionRequestSchema.safeParse({ emoji: "abc" }).success, false);
   assert.equal(setFightPostReactionRequestSchema.safeParse({ emoji: "🔥" }).success, true);
+  assert.deepEqual(updateFightPostRequestSchema.parse({ body: "  edited  " }), { body: "edited" });
+  assert.equal(updateFightPostRequestSchema.safeParse({ body: "x".repeat(501) }).success, false);
+  assert.equal(updateFightPostRequestSchema.safeParse({ body: "", media_ids: [] }).success, false);
 });
 
 test("listing fight posts requires roster membership before reading rows", async () => {
@@ -123,6 +128,18 @@ test("fight post listing keeps posts from other windows in the same series", asy
   assert.match(queries[1] ?? "", /sibling/);
 });
 
+test("feed people listing only includes opponents from finished fights", async () => {
+  const queries: string[] = [];
+  const query = ((first: TemplateStringsArray) => {
+    const sql = first.join("?").replace(/\s+/g, " ").trim();
+    queries.push(sql);
+    return Promise.resolve([]);
+  }) as unknown as Sql;
+  const result = await listFeedPeople(userId, { main: "true" }, query);
+  assert.deepEqual(result, { people: [] });
+  assert.ok(queries.some((sql) => /done_fight.state = 'final'/.test(sql)));
+});
+
 test("feed and fight post routes authenticate before reading or writing", async () => {
   const context = { params: Promise.resolve({ fightID: fightId, postID: postId }) };
   const feed = await listFeed(new Request("https://staging.fitfight.app/api/v1/feed"), {
@@ -147,6 +164,9 @@ test("feed and fight post routes authenticate before reading or writing", async 
   const people = await listPeople(new Request("https://staging.fitfight.app/api/v1/feed/people"), {
     params: Promise.resolve({}),
   });
+  const updated = await updatePost(new Request(`https://staging.fitfight.app/api/v1/posts/${postId}`, {
+    method: "PATCH",
+  }), { params: Promise.resolve({ postID: postId }) });
   const comments = await listComments(new Request(`https://staging.fitfight.app/api/v1/posts/${postId}/comments`), {
     params: Promise.resolve({ postID: postId }),
   });
@@ -156,7 +176,7 @@ test("feed and fight post routes authenticate before reading or writing", async 
   const reacted = await reactToPost(new Request(`https://staging.fitfight.app/api/v1/posts/${postId}/reactions`, {
     method: "POST",
   }), { params: Promise.resolve({ postID: postId }) });
-  for (const response of [feed, posts, created, removed, reported, blocked, composed, people, comments, commented, reacted]) {
+  for (const response of [feed, posts, created, removed, reported, blocked, composed, people, updated, comments, commented, reacted]) {
     assert.equal(response.status, 401);
   }
 });

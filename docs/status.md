@@ -6,7 +6,7 @@ Do **not** restore removed surfaces. Do **not** build WHOOP, Strava, Active Minu
 
 ---
 
-**Last TestFlight:** 12 Sep 2026 — Pending next **internal** TestFlight: filing a Bugs & requests item works again (create was failing with an internal error). Friends Beta stays on 184. Fights, the challenge page, and stats show everyone’s photo when they have one. Bugs & requests posts and comments now attach app version, phone OS, and settings. Setup now ends with a last screen pointing to Settings for a feature or a bug (those get fixed rapidly). Fight detail corners use one scaled family (`card` 22, nested `field` 14 / `glyph` 9). Opening the app shows last Fights immediately; update checks are a background popup; reminders are asked once. Offline still shows last Fights.
+**Last TestFlight:** 12 Sep 2026 — Pending next **internal** TestFlight: Plus starts with no destination (Public vs fight); public feed no longer mixes private fight posts; author ⋯ can edit or delete; tags are people you’ve finished a fight with. Filing a Bugs & requests item works again. Friends Beta stays on 184.
 
 ## Prepared, not deployed: backend-only database access (9 Sep)
 

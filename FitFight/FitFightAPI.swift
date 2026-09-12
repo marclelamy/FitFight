@@ -797,6 +797,17 @@ struct FitFightAPI {
         )
     }
 
+    func updateFightPost(postID: UUID, body: String, accessToken: String) async throws -> FitFightFightPostResponse {
+        try await request(
+            path: "posts/\(postID.uuidString.lowercased())",
+            method: "PATCH",
+            accessToken: accessToken,
+            body: Self.encoder.encode(FightPostUpdateBody(body: body)),
+            idempotencyKey: nil,
+            expected: [200]
+        )
+    }
+
     func reportFightPost(fightID: UUID? = nil, postID: UUID, reason: String, accessToken: String) async throws {
         let path = fightID == nil
             ? "posts/\(postID.uuidString.lowercased())/report"
@@ -1324,6 +1335,10 @@ private struct FightPostBody: Encodable {
         case body
         case mediaIds = "media_ids"
     }
+}
+
+private struct FightPostUpdateBody: Encodable {
+    let body: String
 }
 
 private struct FeedPostsBody: Encodable {
