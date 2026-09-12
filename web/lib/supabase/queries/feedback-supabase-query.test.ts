@@ -36,6 +36,13 @@ const postRow = {
   author_handle: "maya_moves",
   mine: false,
   created_at: new Date("2026-09-04T12:00:00.000Z"),
+  metadata: {
+    app_version: "1.0.0",
+    app_build: "183",
+    os: "iOS",
+    os_version: "26.0",
+    language: "fr",
+  },
 };
 
 function createDatabaseStub(respond: (query: string) => unknown[]) {
@@ -76,6 +83,36 @@ test("feedback schemas accept a one-character title and details", () => {
     body: "A weekly Steps total on You would make it easier to plan a fight.",
   }));
   assert.throws(() => createFeedbackCommentRequestSchema.parse({ body: "x" }));
+  assert.deepEqual(
+    createFeedbackPostRequestSchema.parse({
+      kind: "bug",
+      title: "H",
+      body: "A",
+      metadata: {
+        app_version: "1.0.0",
+        app_build: "183",
+        language: "fr",
+        os: "iOS",
+        os_version: "26.0",
+        extra_flag: true,
+      },
+    }).metadata,
+    {
+      app_version: "1.0.0",
+      app_build: "183",
+      language: "fr",
+      os: "iOS",
+      os_version: "26.0",
+      extra_flag: true,
+    },
+  );
+  assert.throws(() => createFeedbackPostRequestSchema.parse({
+    kind: "bug",
+    title: "H",
+    body: "A",
+    metadata: { app_version: "x".repeat(9000) },
+  }));
+  assert.deepEqual(listFeedbackQuerySchema.parse({}), {});
   assert.deepEqual(listFeedbackQuerySchema.parse({}), {});
   assert.equal(listFeedbackQuerySchema.parse({ kind: "bug" }).kind, "bug");
   assert.equal(feedbackDetailResponseSchema.parse({
@@ -91,6 +128,7 @@ test("feedback schemas accept a one-character title and details", () => {
       author_handle: "maya_moves",
       mine: false,
       created_at: "2026-09-04T12:00:00Z",
+      metadata: postRow.metadata,
     },
     comments: [],
     can_launch_fix: true,
@@ -119,6 +157,7 @@ test("listing feedback posts maps vote counts and the viewer vote", async () => 
       author_handle: "maya_moves",
       mine: false,
       created_at: "2026-09-04T12:00:00Z",
+      metadata: postRow.metadata,
     }],
   });
 });
@@ -157,9 +196,11 @@ test("creating a feedback post inserts the trimmed write-up", async () => {
   }, database);
 
   assert.ok(queries.some((query) => query.includes("insert into public.feedback_posts")));
+  assert.ok(queries.some((query) => query.includes("metadata")));
   assert.equal(result.post.vote_count, 0);
   assert.equal(result.post.voted, false);
   assert.equal(result.post.author_handle, "maya_moves");
+  assert.deepEqual(result.post.metadata, postRow.metadata);
 });
 
 test("toggling a vote inserts when the viewer has not voted", async () => {
@@ -224,4 +265,28 @@ test("commenting on a missing post returns not found", async () => {
     () => createFeedbackComment(userId, postId, { body: "I see this too." }, database),
     (error: unknown) => error instanceof ApiError && error.code === "not_found",
   );
+});
+
+test("creating a feedback comment stores client metadata", async () => {
+  const { database, queries } = createDatabaseStub((sql) => {
+    if (sql.includes("interval '24 hours'")) {
+      return [{ n: 0 }];
+    }
+    return [{
+      id: "eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee",
+      body: "I see this too.",
+      author_handle: "maya_moves",
+      created_at: new Date("2026-09-04T13:00:00.000Z"),
+      metadata: { app_version: "1.0.0", os: "iOS" },
+    }];
+  });
+
+  const result = await createFeedbackComment(userId, postId, {
+    body: "I see this too.",
+    metadata: { app_version: "1.0.0", os: "iOS" },
+  }, database);
+
+  assert.ok(queries.some((query) => query.includes("insert into public.feedback_comments")));
+  assert.ok(queries.some((query) => query.includes("metadata")));
+  assert.deepEqual(result.comment.metadata, { app_version: "1.0.0", os: "iOS" });
 });

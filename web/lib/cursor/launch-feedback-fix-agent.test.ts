@@ -18,12 +18,14 @@ const detail: FeedbackPostDetail = {
     author_handle: "maya_moves",
     mine: false,
     created_at: "2026-09-04T12:00:00Z",
+    metadata: { app_version: "1.0.0", os: "iOS", os_version: "26.0" },
   },
   comments: [{
     id: "eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee",
     body: "Same here after the Watch catches up.",
     author_handle: "dorian",
     created_at: "2026-09-04T13:00:00Z",
+    metadata: { app_build: "183", language: "fr" },
   }],
 };
 
@@ -101,6 +103,7 @@ test("starts a develop-branch cloud agent with the post, comments, and a Done we
     assert.match(prompt, /Watch catches up/);
     assert.match(prompt, /PR into develop/);
     assert.match(prompt, /Feedback post ID: dddddddd-dddd-4ddd-8ddd-dddddddddddd/);
+    assert.match(prompt, /Device: .*iOS/);
     assert.match(prompt, /Do not create or update Notion rows/);
     assert.match(prompt, /https:\/\/github.com\/slooowshutter\/FitFight/);
     assert.equal(fitFightGithubRepoUrl, "https://github.com/slooowshutter/FitFight");

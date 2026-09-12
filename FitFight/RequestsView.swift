@@ -121,7 +121,12 @@ final class FeedbackStore: ObservableObject {
         do {
             let token = try await session.freshAccessToken()
             _ = try await api.createFeedback(
-                FitFightCreateFeedback(kind: kind, title: title, body: body),
+                FitFightCreateFeedback(
+                    kind: kind,
+                    title: title,
+                    body: body,
+                    metadata: .current()
+                ),
                 accessToken: token
             )
             error = nil
@@ -178,6 +183,7 @@ final class FeedbackStore: ObservableObject {
             let created = try await api.createFeedbackComment(
                 postID: postID,
                 body: body,
+                metadata: .current(),
                 accessToken: token
             )
             commentClock += 1
@@ -229,6 +235,19 @@ final class FeedbackStore: ObservableObject {
 
     fileprivate static let previewChartBugID = UUID(uuidString: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa1")!
 
+    private static let previewMetadata = FitFightFeedbackMetadata(
+        appVersion: "1.0.0",
+        appBuild: "183",
+        backend: "staging",
+        language: "fr",
+        locale: "fr_FR",
+        timeZone: "Europe/Paris",
+        os: "iOS",
+        osVersion: "26.0",
+        deviceModel: "iPhone17,2",
+        look: "night"
+    )
+
     private static let previewPosts: [FitFightFeedbackPost] = [
         FitFightFeedbackPost(
             id: previewChartBugID,
@@ -241,7 +260,8 @@ final class FeedbackStore: ObservableObject {
             authorId: UUID(uuidString: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb")!,
             authorHandle: "maya_moves",
             mine: false,
-            createdAt: previewDate("2026-09-03T18:00:00Z")
+            createdAt: previewDate("2026-09-03T18:00:00Z"),
+            metadata: previewMetadata
         ),
         FitFightFeedbackPost(
             id: UUID(uuidString: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa2")!,
@@ -263,7 +283,8 @@ final class FeedbackStore: ObservableObject {
             id: UUID(uuidString: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa3")!,
             body: "Same here after the Watch catches up.",
             authorHandle: "dorian",
-            createdAt: previewDate("2026-09-03T19:00:00Z")
+            createdAt: previewDate("2026-09-03T19:00:00Z"),
+            metadata: previewMetadata
         ),
         FitFightFeedbackComment(
             id: UUID(uuidString: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa4")!,
@@ -674,6 +695,10 @@ private struct RequestDetailView: View {
                     .lineSpacing(3)
                     .fixedSize(horizontal: false, vertical: true)
 
+                if store.canLaunchFix, !post.metadata.isEmpty {
+                    RequestMetadataCard(metadata: post.metadata)
+                }
+
                 if store.canLaunchFix {
                     if launchedAgentURL != nil {
                         FFNotice(
@@ -727,6 +752,11 @@ private struct RequestDetailView: View {
                             .ffType(.body)
                             .foregroundStyle(theme.text)
                             .fixedSize(horizontal: false, vertical: true)
+                        if store.canLaunchFix, let caption = item.metadata.debugCaption {
+                            Text(verbatim: caption)
+                                .ffType(.micro)
+                                .foregroundStyle(theme.textFaint)
+                        }
                     }
                     .padding(14)
                     .background(
@@ -758,6 +788,32 @@ private struct RequestDetailView: View {
     private func sendToCursor() async {
         guard let url = await store.launchFix(session: session, postID: postID) else { return }
         launchedAgentURL = url
+    }
+}
+
+private struct RequestMetadataCard: View {
+    let metadata: FitFightFeedbackMetadata
+    @Environment(\.ffTheme) private var theme
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text(String(localized: "Device"))
+                .ffType(.label)
+                .foregroundStyle(theme.textSecondary)
+            ForEach(Array(metadata.debugLines.enumerated()), id: \.offset) { _, line in
+                Text(verbatim: line)
+                    .ffType(.caption)
+                    .foregroundStyle(theme.text)
+                    .textSelection(.enabled)
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(14)
+        .background(
+            theme.card,
+            in: RoundedRectangle(cornerRadius: theme.radius.field, style: .continuous)
+        )
+        .ffBorder(theme.hairline, radius: theme.radius.field)
     }
 }
 
