@@ -29,6 +29,13 @@ enum Changelog {
             year: 2026,
             month: 9,
             day: 12,
+            notes: "Opening FitFight shows your last Fights right away. Update checks run in the background; if a new build is ready you’ll get a small popup. Challenge reminders are asked once, not every launch. Offline still shows your last Fights."
+        ),
+        ReleaseNote(
+            version: "1.0.0",
+            year: 2026,
+            month: 9,
+            day: 12,
             notes: "Joining or starting a fight now counts Apple Health Steps from the fight start, not from join time, and uploads them right away."
         ),
         ReleaseNote(

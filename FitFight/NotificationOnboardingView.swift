@@ -72,6 +72,7 @@ struct NotificationOnboardingView: View {
     }
 
     private func finish() {
+        push.markPromptHandledThisSession()
         session.finishNotificationOnboarding()
         onFinished?()
     }
