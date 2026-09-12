@@ -61,6 +61,10 @@ export const createFightPostRequestSchema = z.object({
   message: "Add a photo, a video, or a short note",
 });
 
+export const updateFightPostRequestSchema = z.object({
+  body: z.string().trim().max(500),
+}).strict();
+
 export const feedDestinationSchema = z.discriminatedUnion("type", [
   z.object({ type: z.literal("main") }).strict(),
   z.object({
@@ -177,6 +181,7 @@ export type FightPostListResponse = z.infer<typeof fightPostListResponseSchema>;
 export type FightPostResponse = z.infer<typeof fightPostResponseSchema>;
 export type FightPostBatchResponse = z.infer<typeof fightPostBatchResponseSchema>;
 export type CreateFightPostRequest = z.infer<typeof createFightPostRequestSchema>;
+export type UpdateFightPostRequest = z.infer<typeof updateFightPostRequestSchema>;
 export type FeedDestination = z.infer<typeof feedDestinationSchema>;
 export type CreateFeedPostsRequest = z.infer<typeof createFeedPostsRequestSchema>;
 export type ListFightPostsQuery = z.infer<typeof listFightPostsQuerySchema>;

@@ -28,7 +28,7 @@ final class FeedStore: ObservableObject {
             if let fightID {
                 result = try await api.fightPosts(fightID: fightID, cursor: more ? nextCursor : nil, accessToken: token)
             } else {
-                result = try await api.feed(scope: "all", cursor: more ? nextCursor : nil, accessToken: token)
+                result = try await api.feed(scope: "main", cursor: more ? nextCursor : nil, accessToken: token)
             }
             guard load == listLoad else { return }
             posts = more ? posts + result.posts.filter { post in !posts.contains(where: { $0.id == post.id }) } : result.posts
@@ -91,6 +91,22 @@ final class FeedStore: ObservableObject {
         } catch {
             if Task.isCancelled || error is CancellationError { return }
             self.error = error.localizedDescription
+        }
+    }
+
+    func update(session: SessionStore, post: FitFightFightPost, body: String) async -> Bool {
+        isSaving = true
+        defer { isSaving = false }
+        do {
+            let token = try await session.freshAccessToken()
+            let result = try await api.updateFightPost(postID: post.id, body: body, accessToken: token)
+            replace(result.post)
+            error = nil
+            return true
+        } catch {
+            if Task.isCancelled || error is CancellationError { return false }
+            self.error = error.localizedDescription
+            return false
         }
     }
 
@@ -159,7 +175,7 @@ struct FeedView: View {
         FFScreen(refresh: feedRefresh) {
             FFScreenTitle(
                 title: String(localized: "Feed"),
-                subtitle: String(localized: "Photos, videos, and notes from the fights you’re in."),
+                subtitle: String(localized: "Public posts. Fight-only posts stay in that fight."),
                 trailing: AnyView(composeButton)
             )
             if let error = feed.error, !error.isEmpty {
@@ -176,11 +192,12 @@ struct FeedView: View {
                 }
             }
             ForEach(feed.posts) { post in
-                FightPostCard(post: post) {
-                    if let fightID = post.fightId {
-                        model.openFightFromFeed(id: fightID.uuidString)
+                FightPostCard(
+                    post: post,
+                    onOpen: post.fightId.map { fightID in
+                        { model.openFightFromFeed(id: fightID.uuidString) }
                     }
-                }
+                )
             }
             if feed.nextCursor != nil {
                 FFButton(title: String(localized: "More"), kind: .ghost, fullWidth: true) {
@@ -238,16 +255,9 @@ struct FeedComposeSheet: View {
     @State private var destinations: Set<FeedPostDestination> = []
     @State private var tagged: Set<UUID> = []
     @State private var people: [FitFightFeedPerson] = []
-    @State private var appliedDefault = false
 
     private var fights: [Fight] {
         postableFights(model.fights)
-    }
-
-    private var allFightDestinations: Set<FeedPostDestination> {
-        Set(fights.compactMap { fight in
-            UUID(uuidString: fight.id).map { FeedPostDestination.fight($0) }
-        })
     }
 
     var body: some View {
@@ -282,10 +292,6 @@ struct FeedComposeSheet: View {
                 FFNotice(text: error, tone: .ember, systemImage: "exclamationmark.triangle")
             }
         }
-        .onAppear { applyDefaultDestinations() }
-        .onChange(of: fights.map(\.id).joined(separator: ",")) { _, _ in
-            applyDefaultDestinations()
-        }
         .task(id: destinationKey) {
             await loadPeople()
         }
@@ -297,19 +303,18 @@ struct FeedComposeSheet: View {
         }.sorted().joined(separator: ",")
     }
 
-    private func applyDefaultDestinations() {
-        let all = allFightDestinations
-        guard !appliedDefault, !all.isEmpty else { return }
-        destinations = all
-        appliedDefault = true
-    }
-
     private func loadPeople() async {
+        let includeMain = destinations.contains(.main)
+        let fightIDs = destinations.compactMap(\.fightId)
+        guard includeMain || !fightIDs.isEmpty else {
+            people = []
+            tagged = []
+            return
+        }
         do {
             let token = try await session.freshAccessToken()
-            let fightIDs = destinations.compactMap(\.fightId)
             let result = try await FitFightAPI().feedPeople(
-                main: false,
+                main: includeMain,
                 fightIDs: fightIDs,
                 accessToken: token
             )
@@ -334,19 +339,29 @@ struct FeedDestinationMenu: View {
     }
 
     private var everythingSelected: Bool {
-        !allFightDestinations.isEmpty && destinations == allFightDestinations
+        !allFightDestinations.isEmpty && allFightDestinations.isSubset(of: destinations)
     }
 
     private var label: String {
+        if destinations.isEmpty {
+            return String(localized: "Choose where")
+        }
+        let publicSelected = destinations.contains(.main)
+        if everythingSelected && publicSelected {
+            return String(localized: "Public + all fights")
+        }
         if everythingSelected {
-            return String(localized: "Everything")
+            return String(localized: "All fights")
+        }
+        if destinations.count == 1, publicSelected {
+            return String(localized: "Public")
         }
         if destinations.count == 1, let id = destinations.first?.fightId {
             return fights.first(where: { $0.id.caseInsensitiveCompare(id.uuidString) == .orderedSame })?.listTitle
-                ?? String(localized: "Post to")
+                ?? String(localized: "Choose where")
         }
-        if destinations.isEmpty {
-            return String(localized: "Post to")
+        if publicSelected {
+            return String(localized: "Public + \(destinations.count - 1) fights")
         }
         return String(localized: "\(destinations.count) fights")
     }
@@ -354,9 +369,18 @@ struct FeedDestinationMenu: View {
     var body: some View {
         Menu {
             Button {
-                destinations = allFightDestinations
+                toggle(.main)
             } label: {
-                destinationLabel(String(localized: "Everything"), selected: everythingSelected)
+                destinationLabel(String(localized: "Public"), selected: destinations.contains(.main))
+            }
+            Button {
+                if everythingSelected {
+                    destinations = destinations.filter { $0.type == "main" }
+                } else {
+                    destinations.formUnion(allFightDestinations)
+                }
+            } label: {
+                destinationLabel(String(localized: "All fights"), selected: everythingSelected)
             }
             ForEach(fights) { fight in
                 if let id = UUID(uuidString: fight.id) {
@@ -371,16 +395,15 @@ struct FeedDestinationMenu: View {
             HStack(spacing: 4) {
                 Text(label)
                     .ffType(.label)
-                    .foregroundStyle(theme.mossText)
+                    .foregroundStyle(destinations.isEmpty ? theme.emberText : theme.mossText)
                     .lineLimit(1)
                 Image(systemName: "chevron.up.chevron.down")
                     .font(.system(size: 10, weight: .bold))
-                    .foregroundStyle(theme.mossText)
+                    .foregroundStyle(destinations.isEmpty ? theme.emberText : theme.mossText)
             }
         }
         .menuOrder(.fixed)
-        .buttonStyle(FFHapticPlainStyle())
-        .accessibilityLabel(String(localized: "Post to"))
+        .accessibilityLabel(String(localized: "Choose where"))
         .accessibilityValue(label)
     }
 
@@ -406,22 +429,27 @@ struct FeedTagPicker: View {
     let people: [FitFightFeedPerson]
     @Binding var tagged: Set<UUID>
     @Environment(\.ffTheme) private var theme
+    @State private var expanded = false
+
+    private var visiblePeople: [FitFightFeedPerson] {
+        expanded ? people : Array(people.prefix(3))
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             Text(String(localized: "Tag people"))
                 .ffType(.micro)
                 .foregroundStyle(theme.textFaint)
-            Text(String(localized: "A tag never adds someone to a fight. If they are not in a selected fight, they will not see that copy."))
+            Text(String(localized: "Only people you’ve already finished a fight with. A tag never adds someone to a fight."))
                 .ffType(.caption)
                 .foregroundStyle(theme.textSecondary)
                 .fixedSize(horizontal: false, vertical: true)
             if people.isEmpty {
-                Text(String(localized: "Nobody from these destinations can be tagged yet."))
+                Text(String(localized: "Nobody you’ve finished a fight with can be tagged here yet."))
                     .ffType(.caption)
                     .foregroundStyle(theme.textSecondary)
             } else {
-                ForEach(people) { person in
+                ForEach(visiblePeople) { person in
                     Button {
                         if tagged.contains(person.userId) {
                             tagged.remove(person.userId)
@@ -445,6 +473,14 @@ struct FeedTagPicker: View {
                     }
                     .buttonStyle(FFHapticPlainStyle())
                 }
+                if people.count > 3 {
+                    Button(expanded ? String(localized: "See less") : String(localized: "See more")) {
+                        expanded.toggle()
+                    }
+                    .ffType(.caption)
+                    .foregroundStyle(theme.mossText)
+                    .buttonStyle(FFHapticPlainStyle())
+                }
             }
         }
     }
@@ -464,7 +500,10 @@ struct FightPostsSection: View {
             FightPostComposer(
                 destinations: [.fight(fightID)],
                 taggedUserIDs: Array(tagged),
-                tags: AnyView(FeedTagPicker(people: people, tagged: $tagged))
+                tags: AnyView(FeedTagPicker(people: people, tagged: $tagged)),
+                destination: AnyView(
+                    FFPill(String(localized: "This fight · private"), style: .softMoss)
+                )
             )
             if let error = fightFeed.error, !error.isEmpty {
                 Text(error)
@@ -672,15 +711,19 @@ struct FightPostCard: View {
     @EnvironmentObject private var session: SessionStore
     @EnvironmentObject private var feed: FeedStore
     @Environment(\.ffTheme) private var theme
+    @State private var showActions = false
+    @State private var confirmDelete = false
+    @State private var editing = false
+    @State private var draft = ""
 
     private var destinationTitle: String {
         if post.isMain {
-            return String(localized: "Main")
+            return String(localized: "Public")
         }
         if !post.fightName.isEmpty {
-            return post.fightName
+            return String(localized: "In \(post.fightName) · private")
         }
-        return String(localized: "Fight")
+        return String(localized: "This fight · private")
     }
 
     var body: some View {
@@ -692,45 +735,33 @@ struct FightPostCard: View {
                         size: 38,
                         photoURL: post.author.avatar?.url
                     )
-                    Button {
-                        onOpen?()
-                    } label: {
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text(verbatim: post.author.atHandle)
-                                .ffType(.rowTitle)
-                                .foregroundStyle(theme.text)
-                            HStack(spacing: 8) {
-                                FFPill(destinationTitle, style: .neutral)
-                                Text(post.createdDate, style: .relative)
-                                    .ffType(.micro)
-                                    .foregroundStyle(theme.textFaint)
-                            }
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(verbatim: post.author.atHandle)
+                            .ffType(.rowTitle)
+                            .foregroundStyle(theme.text)
+                        HStack(spacing: 8) {
+                            FFPill(destinationTitle, style: post.isMain ? .solidMoss : .softMoss)
+                            Text(post.createdDate, style: .relative)
+                                .ffType(.micro)
+                                .foregroundStyle(theme.textFaint)
                         }
-                        .frame(maxWidth: .infinity, alignment: .leading)
                     }
-                    .buttonStyle(FFHapticPlainStyle())
-                    .disabled(onOpen == nil)
-                    Spacer(minLength: 0)
-                    Menu {
-                        if post.mine {
-                            Button(String(localized: "Delete"), role: .destructive) {
-                                Task { await feed.delete(session: session, post: post) }
-                            }
-                        } else {
-                            Button(String(localized: "Report")) {
-                                Task { await feed.report(session: session, post: post) }
-                            }
-                            Button(String(localized: "Hide this person"), role: .destructive) {
-                                Task { await feed.hide(session: session, authorID: post.author.userId) }
-                            }
-                        }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .contentShape(Rectangle())
+                    .onTapGesture {
+                        onOpen?()
+                    }
+                    Button {
+                        showActions = true
                     } label: {
                         Image(systemName: "ellipsis")
                             .font(.system(size: 14, weight: .bold))
                             .foregroundStyle(theme.textFaint)
                             .frame(width: 32, height: 32)
+                            .contentShape(Rectangle())
                     }
                     .buttonStyle(FFHapticPlainStyle())
+                    .accessibilityLabel(String(localized: "Post actions"))
                 }
                 if !post.tags.isEmpty {
                     Text(post.tags.map { "@\($0.handle)" }.joined(separator: " "))
@@ -770,6 +801,87 @@ struct FightPostCard: View {
                 FightPostEngagement(post: post)
             }
         }
+        .confirmationDialog(String(localized: "Post"), isPresented: $showActions, titleVisibility: .hidden) {
+            if post.mine {
+                Button(String(localized: "Edit")) {
+                    draft = post.body
+                    editing = true
+                }
+                Button(String(localized: "Delete"), role: .destructive) {
+                    confirmDelete = true
+                }
+            } else {
+                Button(String(localized: "Report")) {
+                    Task { await feed.report(session: session, post: post) }
+                }
+                Button(String(localized: "Hide this person"), role: .destructive) {
+                    Task { await feed.hide(session: session, authorID: post.author.userId) }
+                }
+            }
+            Button(String(localized: "Cancel"), role: .cancel) {}
+        }
+        .alert(String(localized: "Delete this post?"), isPresented: $confirmDelete) {
+            Button(String(localized: "Delete"), role: .destructive) {
+                Task { await feed.delete(session: session, post: post) }
+            }
+            Button(String(localized: "Cancel"), role: .cancel) {}
+        }
+        .sheet(isPresented: $editing) {
+            FightPostEditSheet(draft: $draft) {
+                let note = draft.trimmingCharacters(in: .whitespacesAndNewlines)
+                if await feed.update(session: session, post: post, body: note) {
+                    editing = false
+                }
+            }
+            .environmentObject(feed)
+            .fitFightTheme(theme)
+            .presentationBackground(theme.bg)
+        }
+    }
+}
+
+private struct FightPostEditSheet: View {
+    @Binding var draft: String
+    var onSave: () async -> Void
+
+    @EnvironmentObject private var feed: FeedStore
+    @Environment(\.ffTheme) private var theme
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        FFScreen(top: AnyView(VersionBanner()), clearance: false) {
+            HStack {
+                Text(String(localized: "Edit post"))
+                    .ffType(.title)
+                    .foregroundStyle(theme.text)
+                Spacer()
+                Button(String(localized: "Close")) { dismiss() }
+                    .ffType(.label)
+                    .foregroundStyle(theme.mossText)
+            }
+            FFCard {
+                TextField(String(localized: "Add a note or some proof…"), text: $draft, axis: .vertical)
+                    .ffType(.body)
+                    .foregroundStyle(theme.text)
+                    .lineLimit(3...8)
+                    .onChange(of: draft) { _, value in
+                        if value.count > 500 {
+                            draft = String(value.prefix(500))
+                        }
+                    }
+            }
+            if let error = feed.error, !error.isEmpty {
+                FFNotice(text: error, tone: .ember, systemImage: "exclamationmark.triangle")
+            }
+            FFButton(
+                title: feed.isSaving ? String(localized: "Saving…") : String(localized: "Save"),
+                kind: .primary,
+                fullWidth: true
+            ) {
+                Task { await onSave() }
+            }
+            .disabled(feed.isSaving)
+        }
     }
 }
 
@@ -790,6 +902,7 @@ private struct FightPostVideo: View {
             }
             .onDisappear {
                 player?.pause()
+                player = nil
             }
     }
 }
