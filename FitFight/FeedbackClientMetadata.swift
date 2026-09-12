@@ -103,8 +103,10 @@ struct FitFightFeedbackMetadata: Equatable, Hashable {
         let screen = UIScreen.main.bounds
         var info = utsname()
         uname(&info)
-        let model = withUnsafePointer(to: &info.machine) { pointer in
-            pointer.withMemoryRebound(to: CChar.self, capacity: MemoryLayout.size(ofValue: info.machine)) {
+        var machine = info.machine
+        let machineBytes = MemoryLayout.size(ofValue: machine)
+        let model = withUnsafePointer(to: &machine) { pointer in
+            pointer.withMemoryRebound(to: CChar.self, capacity: machineBytes) {
                 String(cString: $0)
             }
         }
