@@ -49,7 +49,31 @@ test("snapshot establishes transaction-local caller permissions before its singl
   assert.deepEqual(calls[1].values, [userId, JSON.stringify({ sub: userId, role: "authenticated" })]);
   assert.ok(calls[2].values.includes("Europe/Paris"));
   assert.match(calls[2].query, /as grace_ends_at/);
+  assert.match(calls[2].query, /avatar_media_id/);
   assert.doesNotMatch(calls[2].query, /as final_sync_grace_seconds/);
+});
+
+test("snapshot profiles without a photo come back with a null avatar", async () => {
+  const userId = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
+  const snapshot = {
+    fights: [],
+    members: [],
+    profiles: [{ user_id: userId, handle: "marc", display_name: "Marc Lamy" }],
+    series: [],
+    step_days: [],
+  };
+  const database = {
+    begin: async (_options: string, callback: (transaction: (strings: TemplateStringsArray, ...values: unknown[]) => Promise<unknown>) => Promise<unknown>) => {
+      const sql = async (strings: TemplateStringsArray, ..._values: unknown[]) => {
+        return strings.join("?").includes("as snapshot") ? [{ snapshot }] : [];
+      };
+      return callback(sql);
+    },
+  };
+  assert.deepEqual(await readFightSnapshot(userId, "Europe/Paris", database as never), {
+    ...snapshot,
+    profiles: [{ user_id: userId, handle: "marc", display_name: "Marc Lamy", avatar: null }],
+  });
 });
 
 test("ordinary maintenance uses one database query and never scans unrelated series over REST", async () => {

@@ -1,5 +1,5 @@
 begin;
-select plan(66);
+select plan(72);
 
 select has_schema('private', 'private schema exists');
 select has_table('public', 'profiles', 'profiles exists');
@@ -125,6 +125,37 @@ select is(
   has_table_privilege('authenticated', 'private.healthkit_workouts', 'SELECT'),
   false,
   'authenticated clients cannot read collected Apple Health workouts'
+);
+select has_table(
+  'private',
+  'server_error_logs',
+  'API failure traces stay private'
+);
+select ok(
+  (select relrowsecurity from pg_class c
+     join pg_namespace n on n.oid = c.relnamespace
+    where n.nspname = 'private' and c.relname = 'server_error_logs'),
+  'server_error_logs has RLS'
+);
+select is(
+  has_table_privilege('anon', 'private.server_error_logs', 'SELECT'),
+  false,
+  'anon cannot read server error logs'
+);
+select is(
+  has_table_privilege('authenticated', 'private.server_error_logs', 'SELECT'),
+  false,
+  'authenticated clients cannot read server error logs'
+);
+select is(
+  has_table_privilege('anon', 'private.server_error_logs', 'INSERT'),
+  false,
+  'anon cannot write server error logs'
+);
+select is(
+  has_table_privilege('authenticated', 'private.server_error_logs', 'INSERT'),
+  false,
+  'authenticated clients cannot write server error logs'
 );
 select ok(
   (select relrowsecurity from pg_class c

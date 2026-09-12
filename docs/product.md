@@ -18,7 +18,8 @@ Do not rename the bundle ID without Apple + CI updates.
 ## Current 1.0 scope — 9 Sep 2026
 
 - Four tabs: **Fights**, **New**, **Feed**, **You**.
-- Each fight has posts (photos, a short video, or a note) on a Feed tab next to Stats. The Feed tab swipes between Main and each fight. Tap + to compose one post, add whatever you want, tag people, and multi-select Main and/or fights. A tag does not add someone to a fight they are not in. Posts can take any emoji and nested comments.
+- Feed is one list of posts from every fight you’re in. Each post has a badge for the fight (or Main). Tap + to write a note, tag people, and pick one or more fights next to photo or video. **Everything** selects every fight. Inside a fight, posting goes to that fight — it does not ask where to post. A tag does not add someone to a fight they are not in. Posts can take any emoji and nested comments.
+- Each fight has posts on a Feed tab next to Stats.
 - New accounts pick an optional photo with their username, then connect Apple Health, then allow challenge reminders, then a last screen that Settings can take a feature or a bug.
 - Every fight is **Steps × highest total**. There are no other metrics or scoring modes.
 - New fights start private. Every fight has a code and a share link; people join with that code or invite link. Public fights are listed on Join; private fights are not. Exact usernames are optional. There is no friends list or friend-request flow.

@@ -66,6 +66,7 @@
 		A10000000000000000000383 /* DebugMenuView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000382 /* DebugMenuView.swift */; };
 		A10000000000000000000385 /* OnboardingPreviewView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000384 /* OnboardingPreviewView.swift */; };
 		A10000000000000000000387 /* RequestsOnboardingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000386 /* RequestsOnboardingView.swift */; };
+		A10000000000000000000389 /* FeedbackClientMetadata.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000388 /* FeedbackClientMetadata.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -93,6 +94,7 @@
 		A10000000000000000000382 /* DebugMenuView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DebugMenuView.swift; sourceTree = "<group>"; };
 		A10000000000000000000384 /* OnboardingPreviewView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingPreviewView.swift; sourceTree = "<group>"; };
 		A10000000000000000000386 /* RequestsOnboardingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RequestsOnboardingView.swift; sourceTree = "<group>"; };
+		A10000000000000000000388 /* FeedbackClientMetadata.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FeedbackClientMetadata.swift; sourceTree = "<group>"; };
 		A1000000000000000000001A /* tokens.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = tokens.json; sourceTree = "<group>"; };
 		A1000000000000000000001B /* FightsListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FightsListView.swift; sourceTree = "<group>"; };
 		A1000000000000000000001C /* FightDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FightDetailView.swift; sourceTree = "<group>"; };
@@ -165,6 +167,7 @@
 				A10000000000000000000305 /* BuildEnv.swift */,
 				A10000000000000000000306 /* APIConfig.swift */,
 				A10000000000000000000307 /* FitFightAPI.swift */,
+				A10000000000000000000388 /* FeedbackClientMetadata.swift */,
 				A10000000000000000000350 /* Profile.swift */,
 				A10000000000000000000352 /* FightSnapshot.swift */,
 				A10000000000000000000360 /* Media.swift */,
@@ -354,6 +357,7 @@
 				A10000000000000000000315 /* BuildEnv.swift in Sources */,
 				A10000000000000000000316 /* APIConfig.swift in Sources */,
 				A10000000000000000000317 /* FitFightAPI.swift in Sources */,
+				A10000000000000000000389 /* FeedbackClientMetadata.swift in Sources */,
 				A10000000000000000000351 /* Profile.swift in Sources */,
 				A10000000000000000000353 /* FightSnapshot.swift in Sources */,
 				A10000000000000000000361 /* Media.swift in Sources */,

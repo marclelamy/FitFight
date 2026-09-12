@@ -6,7 +6,7 @@ Do **not** restore removed surfaces. Do **not** build WHOOP, Strava, Active Minu
 
 ---
 
-**Last TestFlight:** 12 Sep 2026 — Pending next native preview: setup now ends with a last screen pointing to Settings for a feature or a bug (those get fixed rapidly). Fight detail corners use one scaled family (`card` 22, nested `field` 14 / `glyph` 9). Opening the app shows last Fights immediately; update checks are a background popup; reminders are asked once. Offline still shows last Fights.
+**Last TestFlight:** 12 Sep 2026 — Pending next native preview: Fights, the challenge page, and stats show everyone’s photo when they have one. Bugs & requests posts and comments now attach app version, phone OS, and settings. Setup now ends with a last screen pointing to Settings for a feature or a bug (those get fixed rapidly). Fight detail corners use one scaled family (`card` 22, nested `field` 14 / `glyph` 9). Opening the app shows last Fights immediately; update checks are a background popup; reminders are asked once. Offline still shows last Fights.
 
 ## Prepared, not deployed: backend-only database access (9 Sep)
 
@@ -61,12 +61,12 @@ Apple Health synchronization requires `FITFIGHT_API_URL=https://staging.fitfight
 
 After the backend is configured, merge the feature PR into **`develop`**, not `main`. The staging migration must land before merging `develop` → `preview` for the TestFlight build.
 
-The 9 Sep Feed destinations change needs `20260909233000_feed_destinations_and_engagement.sql` plus the feed/posts, people, comments, and reactions APIs deployed before the native build. Old `GET /api/v1/feed` still returns only fight-audience posts so installed builds keep decoding.
+The 9 Sep Feed destinations change needs `20260909233000_feed_destinations_and_engagement.sql` plus the feed/posts, people, comments, and reactions APIs deployed before the native build. Old `GET /api/v1/feed` still returns only fight-audience posts so installed builds keep decoding. The 12 Sep one-feed list uses `GET /api/v1/feed?scope=all` (Main and fight posts).
 
 Verify the minimal product alongside Apple Health synchronization:
 
 1. TestFlight → **Update**. Look for `1.0.0 · build N · staging · 9 Sep` at the top.
-2. Check Fights, Feed, a Fight detail, New, and You in both Night and Day. There are four tabs: Fights, New, Feed, You. Feed swipes Main and fight tabs. A fight opens on Stats, with Feed beside it.
+2. Check Fights, Feed, a Fight detail, New, and You in both Night and Day. There are four tabs: Fights, New, Feed, You. Feed is one list; each post has a destination badge. A fight opens on Stats, with Feed beside it.
 3. New starts on Create or Join. Create still guides Steps, duration, private by default (or public), optional usernames, repeat on by default, optional title and action, and review. Every fight has a code and a share link; people join with that code or invite link. Join is that code plus a live public list with no scores. Private fights stay off the list. Earlier create steps use **Next**. Review uses **Slide to start**.
 4. Confirm sign-in, username, Apple Health Steps, Fight invitations, standings with last-sync times, Privacy, Support, Bugs & requests, Versions, sign out, and Delete account.
 5. Confirm the old Requests tab, friend requests/lists, money, other Metrics, and dead settings are absent.
@@ -97,7 +97,7 @@ The native Fight path uses the API to create and join; Apple Health synchronizat
 | Versions | Works under You → Settings (the public changelog). The top version label stays on every root screen. Tapping it opens the admin/debug menu only for signed-in username `marc`. |
 | Bugs & requests | Works on You in its own section above Settings. Signed-in people can post a bug or a feature request, browse the board, upvote, and comment with their username. After `NOTION_TOKEN` is on Vercel, each new post also lands as a P0 Inbox row in the Product Backlog. After `CURSOR_API_KEY` is on Vercel, Marc sees **Send to Cursor** on a post and can start a cloud agent with that post and its comments. A successful send moves the matching Notion Product Backlog row to Building; when that agent finishes and opens a PR, FitFight marks the same row Done. |
 | Privacy / Support | Pages are implemented and linked under You → Settings. Staging uses `staging.fitfight.app`; production uses `fitfight.app`. Each route must be deployed before that build is tested or submitted. |
-| Fight posts / Feed | Accepted and waiting-next-round members can post a short note, photos, or a short video. Feed tabs swipe between **Main** (people you already fight with) and each fight. + opens one composer: add whatever you want, tag people, and multi-select Main and/or fights. A tag never grants access; it only appears on copies that person can already see. Posts support any emoji reaction and nested comments. A fight has **Stats** (default) and **Feed** tabs. Recurring fights keep earlier posts. Invited-only people do not see posts until they join. You can delete your post, report someone else’s, or hide that person from your feed. |
+| Fight posts / Feed | Accepted and waiting-next-round members can post a short note, photos, or a short video. Feed is one list, not a tab per fight. Each post has a badge for the fight (or Main). + opens one composer: note at the top, tag people, and a destination field next to photo/video. The destination is a multi-select dropdown; **Everything** selects every fight. Inside a fight, posting goes to that fight and does not ask for a destination. A tag never grants access; it only appears on copies that person can already see. Posts support any emoji reaction and nested comments. A fight has **Stats** (default) and **Feed** tabs. Recurring fights keep earlier posts. Invited-only people do not see posts until they join. You can delete your post, report someone else’s, or hide that person from your feed. |
 | Account deletion | Permanently deletes the profile, photos, username, authentication, Health/Steps data, relationships, invitations, memberships, scores, owned Fights, fight posts, and bugs/requests the User posted; removes participation from other Fights; clears local Health sync state; and revokes a stored Apple credential when available. |
 | WHOOP / Strava | Not built |
 | Removed scope | No persistent friends, Requests tab, money/payouts, bragging-rights option, other Metrics, goals, custom dates, or dead settings/actions. |

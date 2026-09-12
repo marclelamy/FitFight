@@ -9,6 +9,7 @@ import type {
   FeedbackCommentResponse,
   FeedbackKind,
   FeedbackListResponse,
+  FeedbackMetadata,
   FeedbackPostDetail,
   FeedbackPostResponse,
   FeedbackPostSummary,
@@ -17,6 +18,7 @@ import type {
   ReportFeedbackPostRequest,
   ReportFeedbackPostResponse,
 } from "@/lib/types/feedback/feedback";
+import { feedbackMetadataSchema } from "@/lib/types/feedback/feedback";
 
 const POST_LIMIT_PER_DAY = 8;
 const COMMENT_LIMIT_PER_DAY = 30;
@@ -33,6 +35,7 @@ type FeedbackPostRow = {
   author_handle: string;
   mine: boolean;
   created_at: Date | string;
+  metadata: unknown;
 };
 
 type FeedbackCommentRow = {
@@ -40,10 +43,16 @@ type FeedbackCommentRow = {
   body: string;
   author_handle: string;
   created_at: Date | string;
+  metadata: unknown;
 };
 
 function isoUtc(value: Date | string): string {
   return new Date(value).toISOString().replace(/\.\d{3}Z$/, "Z");
+}
+
+function mapMetadata(value: unknown): FeedbackMetadata {
+  const parsed = feedbackMetadataSchema.safeParse(value ?? {});
+  return parsed.success ? parsed.data : {};
 }
 
 function mapPost(row: FeedbackPostRow): FeedbackPostSummary {
@@ -59,6 +68,7 @@ function mapPost(row: FeedbackPostRow): FeedbackPostSummary {
     author_handle: row.author_handle,
     mine: row.mine,
     created_at: isoUtc(row.created_at),
+    metadata: mapMetadata(row.metadata),
   };
 }
 
@@ -68,6 +78,7 @@ function mapComment(row: FeedbackCommentRow): FeedbackComment {
     body: row.body,
     author_handle: row.author_handle,
     created_at: isoUtc(row.created_at),
+    metadata: mapMetadata(row.metadata),
   };
 }
 
@@ -102,7 +113,8 @@ export async function listFeedbackPosts(
       post.author_id,
       profile.handle as author_handle,
       post.author_id = ${userId} as mine,
-      post.created_at
+      post.created_at,
+      coalesce(post.metadata, '{}'::jsonb) as metadata
     from public.feedback_posts as post
     join public.profiles as profile
       on profile.user_id = post.author_id
@@ -149,7 +161,8 @@ export async function getFeedbackPost(
       post.author_id,
       profile.handle as author_handle,
       post.author_id = ${userId} as mine,
-      post.created_at
+      post.created_at,
+      coalesce(post.metadata, '{}'::jsonb) as metadata
     from public.feedback_posts as post
     join public.profiles as profile
       on profile.user_id = post.author_id
@@ -169,7 +182,8 @@ export async function getFeedbackPost(
       comment.id,
       comment.body,
       profile.handle as author_handle,
-      comment.created_at
+      comment.created_at,
+      coalesce(comment.metadata, '{}'::jsonb) as metadata
     from public.feedback_comments as comment
     join public.profiles as profile
       on profile.user_id = comment.author_id
@@ -205,12 +219,13 @@ export async function createFeedbackPost(
   }
 
   const [row] = await database<FeedbackPostRow[]>`
-    insert into public.feedback_posts (author_id, kind, title, body)
+    insert into public.feedback_posts (author_id, kind, title, body, metadata)
     values (
       ${userId},
       ${input.kind}::public.feedback_kind,
       ${input.title},
-      ${input.body}
+      ${input.body},
+      ${JSON.stringify(input.metadata ?? {})}::jsonb
     )
     returning
       id,
@@ -228,7 +243,8 @@ export async function createFeedbackPost(
           and deleted_at is null
       ) as author_handle,
       true as mine,
-      created_at
+      created_at,
+      metadata
   `;
   if (!row?.author_handle) {
     throw new ApiError(400, ERROR_CODES.profile_missing, "Profile is missing");
@@ -293,8 +309,8 @@ export async function createFeedbackComment(
   }
 
   const [comment] = await database<FeedbackCommentRow[]>`
-    insert into public.feedback_comments (post_id, author_id, body)
-    select ${postId}, ${userId}, ${input.body}
+    insert into public.feedback_comments (post_id, author_id, body, metadata)
+    select ${postId}, ${userId}, ${input.body}, ${JSON.stringify(input.metadata ?? {})}::jsonb
     where exists (
       select 1 from public.feedback_posts where id = ${postId}
     )
@@ -307,7 +323,8 @@ export async function createFeedbackComment(
         where user_id = ${userId}
           and deleted_at is null
       ) as author_handle,
-      created_at
+      created_at,
+      metadata
   `;
   if (!comment) {
     throw new ApiError(404, ERROR_CODES.not_found, "Request not found");

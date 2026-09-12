@@ -72,7 +72,7 @@ export const feedDestinationSchema = z.discriminatedUnion("type", [
 export const createFeedPostsRequestSchema = z.object({
   body: z.string().trim().max(500).default(""),
   media_ids: z.array(z.string().uuid()).max(4).default([]),
-  destinations: z.array(feedDestinationSchema).min(1).max(8),
+  destinations: z.array(feedDestinationSchema).min(1).max(50),
   tagged_user_ids: z.array(z.string().uuid()).max(20).default([]),
 }).strict().refine((input) => input.body.length > 0 || input.media_ids.length > 0, {
   message: "Add a photo, a video, or a short note",
@@ -86,7 +86,7 @@ export const listFightPostsQuerySchema = z.object({
 
 export const listFeedPeopleQuerySchema = z.object({
   main: z.enum(["true", "1"]).optional(),
-  fight_ids: z.string().max(800).optional(),
+  fight_ids: z.string().max(2500).optional(),
 }).strict();
 
 export const fightPostReportReasonValues = ["spam", "abuse", "other"] as const;

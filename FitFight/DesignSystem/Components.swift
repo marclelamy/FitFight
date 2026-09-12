@@ -758,27 +758,39 @@ struct FFAvatar: View {
     }
 }
 
-/// Overlapping monograms with a ring in the background colour, then an overflow chip.
+/// Overlapping faces with a ring in the background colour, then an overflow chip.
 struct FFAvatarStack: View {
-    let monograms: [String]
+    let faces: [(monogram: String, photoURL: URL?)]
     var visible: Int = 3
     var size: CGFloat = 36
     var ring: Color?
 
     @Environment(\.ffTheme) private var theme
 
+    init(monograms: [String], visible: Int = 3, size: CGFloat = 36, ring: Color? = nil) {
+        self.init(
+            faces: monograms.map { (monogram: $0, photoURL: nil) },
+            visible: visible,
+            size: size,
+            ring: ring
+        )
+    }
+
+    init(faces: [(monogram: String, photoURL: URL?)], visible: Int = 3, size: CGFloat = 36, ring: Color? = nil) {
+        self.faces = faces
+        self.visible = visible
+        self.size = size
+        self.ring = ring
+    }
+
     var body: some View {
-        let shown = Array(monograms.prefix(visible))
-        let overflow = monograms.count - shown.count
+        let shown = Array(faces.prefix(visible))
+        let overflow = faces.count - shown.count
         HStack(spacing: -12) {
-            ForEach(Array(shown.enumerated()), id: \.offset) { offset, monogram in
-                plate(
-                    monogram,
-                    fill: offset % 2 == 1 ? theme.plateAlt : theme.control,
-                    ink: theme.textDim,
-                    size: 12
-                )
-                .zIndex(Double(shown.count - offset))
+            ForEach(Array(shown.enumerated()), id: \.offset) { offset, face in
+                FFAvatar(monogram: face.monogram, size: size, photoURL: face.photoURL)
+                    .overlay { Circle().strokeBorder(ring ?? theme.bg, lineWidth: 2) }
+                    .zIndex(Double(shown.count - offset))
             }
             if overflow > 0 {
                 plate("+\(overflow)", fill: theme.chip, ink: theme.textTertiary, size: 11)
@@ -965,13 +977,14 @@ struct FFListRow: View {
     /// instead of the neutral ink the kit gives a plain total.
     var metricIsGap: Bool = false
     var selected: Bool = false
+    var photoURL: URL? = nil
     var action: (() -> Void)?
 
     @Environment(\.ffTheme) private var theme
 
     var body: some View {
         let row = HStack(spacing: 13) {
-            FFAvatar(monogram: monogram, size: 44)
+            FFAvatar(monogram: monogram, size: 44, photoURL: photoURL)
             VStack(alignment: .leading, spacing: 2) {
                 Text(title)
                     .ffType(.heading)

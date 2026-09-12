@@ -39,6 +39,11 @@ enum FitFightAPIError: LocalizedError {
                 return message ?? String(localized: "You’ve posted a few times recently. Try again later.")
             case "not_found":
                 return message ?? String(localized: "That isn’t available anymore.")
+            case "internal":
+                return message ?? String(
+                    localized: "api.request-failed",
+                    defaultValue: "Request failed (\(status))."
+                )
             default:
                 return String(
                     localized: "api.request-failed",
@@ -314,6 +319,7 @@ struct FitFightFeedbackPost: Codable, Identifiable, Equatable, Hashable {
     var authorHandle: String
     var mine: Bool
     var createdAt: Date
+    var metadata: FitFightFeedbackMetadata
 
     enum CodingKeys: String, CodingKey {
         case id
@@ -327,6 +333,52 @@ struct FitFightFeedbackPost: Codable, Identifiable, Equatable, Hashable {
         case authorHandle = "author_handle"
         case mine
         case createdAt = "created_at"
+        case metadata
+    }
+
+    init(
+        id: UUID,
+        kind: String,
+        title: String,
+        body: String,
+        voteCount: Int,
+        commentCount: Int,
+        voted: Bool,
+        authorId: UUID,
+        authorHandle: String,
+        mine: Bool,
+        createdAt: Date,
+        metadata: FitFightFeedbackMetadata = FitFightFeedbackMetadata()
+    ) {
+        self.id = id
+        self.kind = kind
+        self.title = title
+        self.body = body
+        self.voteCount = voteCount
+        self.commentCount = commentCount
+        self.voted = voted
+        self.authorId = authorId
+        self.authorHandle = authorHandle
+        self.mine = mine
+        self.createdAt = createdAt
+        self.metadata = metadata
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        id = try container.decode(UUID.self, forKey: .id)
+        kind = try container.decode(String.self, forKey: .kind)
+        title = try container.decode(String.self, forKey: .title)
+        body = try container.decode(String.self, forKey: .body)
+        voteCount = try container.decode(Int.self, forKey: .voteCount)
+        commentCount = try container.decode(Int.self, forKey: .commentCount)
+        voted = try container.decode(Bool.self, forKey: .voted)
+        authorId = try container.decode(UUID.self, forKey: .authorId)
+        authorHandle = try container.decode(String.self, forKey: .authorHandle)
+        mine = try container.decode(Bool.self, forKey: .mine)
+        createdAt = try container.decode(Date.self, forKey: .createdAt)
+        metadata = try container.decodeIfPresent(FitFightFeedbackMetadata.self, forKey: .metadata)
+            ?? FitFightFeedbackMetadata()
     }
 }
 
@@ -335,12 +387,38 @@ struct FitFightFeedbackComment: Codable, Identifiable, Equatable, Hashable {
     var body: String
     var authorHandle: String
     var createdAt: Date
+    var metadata: FitFightFeedbackMetadata
 
     enum CodingKeys: String, CodingKey {
         case id
         case body
         case authorHandle = "author_handle"
         case createdAt = "created_at"
+        case metadata
+    }
+
+    init(
+        id: UUID,
+        body: String,
+        authorHandle: String,
+        createdAt: Date,
+        metadata: FitFightFeedbackMetadata = FitFightFeedbackMetadata()
+    ) {
+        self.id = id
+        self.body = body
+        self.authorHandle = authorHandle
+        self.createdAt = createdAt
+        self.metadata = metadata
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        id = try container.decode(UUID.self, forKey: .id)
+        body = try container.decode(String.self, forKey: .body)
+        authorHandle = try container.decode(String.self, forKey: .authorHandle)
+        createdAt = try container.decode(Date.self, forKey: .createdAt)
+        metadata = try container.decodeIfPresent(FitFightFeedbackMetadata.self, forKey: .metadata)
+            ?? FitFightFeedbackMetadata()
     }
 }
 
@@ -399,6 +477,7 @@ struct FitFightCreateFeedback: Encodable, Equatable {
     var kind: String
     var title: String
     var body: String
+    var metadata: FitFightFeedbackMetadata
 }
 
 struct FitFightReferralLink: Encodable {
@@ -940,12 +1019,13 @@ struct FitFightAPI {
     func createFeedbackComment(
         postID: UUID,
         body: String,
+        metadata: FitFightFeedbackMetadata,
         accessToken: String
     ) async throws -> FitFightFeedbackCommentResponse {
         try await post(
             path: "feedback/\(postID.uuidString.lowercased())/comments",
             accessToken: accessToken,
-            body: FeedbackCommentBody(body: body),
+            body: FeedbackCommentBody(body: body, metadata: metadata),
             expected: [201]
         )
     }
@@ -1324,6 +1404,7 @@ private struct AppleAuthorizationBody: Encodable {
 
 private struct FeedbackCommentBody: Encodable {
     var body: String
+    var metadata: FitFightFeedbackMetadata
 }
 
 private struct DiscardBody: Decodable {

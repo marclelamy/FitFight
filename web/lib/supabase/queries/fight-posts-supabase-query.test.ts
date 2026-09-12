@@ -41,6 +41,7 @@ test("fight posts need a note or a photo and reject extra fields", () => {
   }).success, false);
   assert.equal(reportFightPostRequestSchema.safeParse({ reason: "nope" }).success, false);
   assert.deepEqual(listFightPostsQuerySchema.parse({}), { limit: 30 });
+  assert.deepEqual(listFightPostsQuerySchema.parse({ scope: "all" }), { limit: 30, scope: "all" });
   assert.deepEqual(createFeedPostsRequestSchema.parse({
     body: "Hill.",
     destinations: [{ type: "main" }, { type: "fight", fight_id: fightId }],
@@ -50,6 +51,10 @@ test("fight posts need a note or a photo and reject extra fields", () => {
     destinations: [{ type: "main" }, { type: "fight", fight_id: fightId }],
     tagged_user_ids: [],
   });
+  assert.equal(createFeedPostsRequestSchema.safeParse({
+    body: "Hill.",
+    destinations: Array.from({ length: 9 }, () => ({ type: "fight" as const, fight_id: fightId })),
+  }).success, true);
   assert.equal(createFeedPostsRequestSchema.safeParse({
     body: "Hill.",
     destinations: [],
@@ -86,6 +91,20 @@ test("main feed listing skips the fight roster gate", async () => {
   assert.deepEqual(result, { posts: [], next_cursor: null });
   assert.equal(queries.some((sql) => sql.includes("from public.fight_members") && !sql.includes("fight_posts")), false);
   assert.match(queries[0] ?? "", /audience = 'main'/);
+});
+
+test("one feed listing includes main and fight posts", async () => {
+  const queries: string[] = [];
+  const query = ((first: TemplateStringsArray) => {
+    const sql = first.join("?").replace(/\s+/g, " ").trim();
+    queries.push(sql);
+    return Promise.resolve([]);
+  }) as unknown as Sql;
+  const result = await listFightPosts(userId, undefined, { limit: 30, scope: "all" }, query);
+  assert.deepEqual(result, { posts: [], next_cursor: null });
+  assert.equal(queries.some((sql) => sql.includes("from public.fight_members") && !sql.includes("fight_posts")), false);
+  assert.match(queries[0] ?? "", /audience = 'main'/);
+  assert.match(queries[0] ?? "", /audience = 'fight'/);
 });
 
 test("fight post listing keeps posts from other windows in the same series", async () => {

@@ -311,7 +311,8 @@ export async function listFightPosts(
     await requireRosterMember(userId, fightId, database);
   }
   const cursor = parseCursor(query.cursor);
-  const mainOnly = !fightId && query.scope === "main";
+  const includeMainAudience = !fightId && (query.scope === "main" || query.scope === "all");
+  const includeSharedFightFeed = !fightId && query.scope !== "main";
   const rows = cursor
     ? await database<PostRow[]>`
         select
@@ -351,7 +352,7 @@ export async function listFightPosts(
             )
             or (
               ${fightId ?? null}::uuid is null
-              and ${mainOnly}::boolean
+              and ${includeMainAudience}::boolean
               and post.audience = 'main'
               and (
                 post.author_id = ${userId}
@@ -369,7 +370,7 @@ export async function listFightPosts(
             )
             or (
               ${fightId ?? null}::uuid is null
-              and not ${mainOnly}::boolean
+              and ${includeSharedFightFeed}::boolean
               and post.audience = 'fight'
               and exists (
                 select 1
@@ -430,7 +431,7 @@ export async function listFightPosts(
             )
             or (
               ${fightId ?? null}::uuid is null
-              and ${mainOnly}::boolean
+              and ${includeMainAudience}::boolean
               and post.audience = 'main'
               and (
                 post.author_id = ${userId}
@@ -448,7 +449,7 @@ export async function listFightPosts(
             )
             or (
               ${fightId ?? null}::uuid is null
-              and not ${mainOnly}::boolean
+              and ${includeSharedFightFeed}::boolean
               and post.audience = 'fight'
               and exists (
                 select 1
