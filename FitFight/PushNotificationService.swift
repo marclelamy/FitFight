@@ -41,8 +41,9 @@ final class PushNotificationService: NSObject, ObservableObject {
         }
     }
 
-    func considerPromptIfNeeded(fights: [Fight]) {
-        guard canPromptForPermission, !UserDefaults.standard.bool(forKey: Self.declinedPrePromptKey) else {
+    func considerPromptIfNeeded(fights: [Fight]) async {
+        await refreshAuthorizationStatus()
+        guard canPromptForPermission, !hasHandledPrePrompt else {
             return
         }
         let now = Date()
@@ -50,23 +51,27 @@ final class PushNotificationService: NSObject, ObservableObject {
             guard fight.status == .live else { return false }
             return fight.windowEnd > now
         }
-        showPrePrompt = hasUpcomingLiveFight
+        guard hasUpcomingLiveFight else { return }
+        showPrePrompt = true
+        markPrePromptHandled()
     }
 
     func declinePrePrompt() {
         askedThisSession = true
         showPrePrompt = false
-        UserDefaults.standard.set(true, forKey: Self.declinedPrePromptKey)
+        markPrePromptHandled()
     }
 
     func markPromptHandledThisSession() {
         askedThisSession = true
         showPrePrompt = false
+        markPrePromptHandled()
     }
 
     func requestSystemPermission() async {
         askedThisSession = true
         showPrePrompt = false
+        markPrePromptHandled()
         let granted = (try? await UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound])) ?? false
         await refreshAuthorizationStatus()
         if granted {
@@ -105,6 +110,14 @@ final class PushNotificationService: NSObject, ObservableObject {
 
     func handleRegistrationFailure() {
         // Missing push capability or simulator — no user-facing error.
+    }
+
+    private var hasHandledPrePrompt: Bool {
+        UserDefaults.standard.bool(forKey: Self.declinedPrePromptKey)
+    }
+
+    private func markPrePromptHandled() {
+        UserDefaults.standard.set(true, forKey: Self.declinedPrePromptKey)
     }
 
     func revokeLocalRegistration() async {

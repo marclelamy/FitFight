@@ -11,17 +11,12 @@ struct ContentView: View {
     @EnvironmentObject private var appUpdate: AppUpdateChecker
     @EnvironmentObject private var push: PushNotificationService
     @EnvironmentObject private var steps: HealthKitStepsStore
+    @State private var dismissedUpdatePrompt = false
 
     var body: some View {
-        Group {
-            if appUpdate.status == .current || ScreenshotExport.isEnabled {
-                VStack(spacing: 0) {
-                    VersionBanner(onTap: versionBannerTap)
-                    appContent
-                }
-            } else {
-                updateScreen
-            }
+        VStack(spacing: 0) {
+            VersionBanner(onTap: versionBannerTap)
+            appContent
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(theme.bg.ignoresSafeArea())
@@ -34,14 +29,36 @@ struct ContentView: View {
             }
         }
         .onChange(of: appUpdate.status) { previous, status in
-            if status != .current {
-                model.showingVersions = false
-                model.showingDebugMenu = false
-                model.showingRequests = false
-            } else if previous != .checking, session.isSignedIn, session.profile == nil {
+            if status != .updateRequired {
+                dismissedUpdatePrompt = false
+            }
+            if status == .current, previous != .checking, session.isSignedIn, session.profile == nil {
                 Task { await session.loadProfile() }
             }
         }
+        .alert(
+            String(localized: "There’s a new update, please update"),
+            isPresented: updatePromptPresented
+        ) {
+            if let release = appUpdate.policy?.latest {
+                Button(String(localized: "Update FitFight")) {
+                    openURL(release.updateURL)
+                }
+            }
+            Button(String(localized: "Not now"), role: .cancel) {}
+        }
+    }
+
+    private var updatePromptPresented: Binding<Bool> {
+        Binding(
+            get: {
+                appUpdate.status == .updateRequired
+                    && appUpdate.policy?.latest != nil
+                    && !dismissedUpdatePrompt
+                    && !ScreenshotExport.isEnabled
+            },
+            set: { if !$0 { dismissedUpdatePrompt = true } }
+        )
     }
 
     private var appContent: some View {
@@ -102,7 +119,7 @@ struct ContentView: View {
                         && !session.needsHealthOnboarding
                         && !session.needsNotificationOnboarding
                 },
-                set: { if !$0 { push.showPrePrompt = false } }
+                set: { if !$0 { push.declinePrePrompt() } }
             )
         ) {
             Button(String(localized: "Allow notifications")) {
@@ -117,72 +134,8 @@ struct ContentView: View {
     }
 
     private var versionBannerTap: (() -> Void)? {
-        guard appUpdate.status == .current, session.isFitFightAdmin else { return nil }
+        guard session.isFitFightAdmin else { return nil }
         return { model.showingDebugMenu = true }
-    }
-
-    private var updateScreen: some View {
-        VStack(spacing: 0) {
-            VersionBanner()
-            Spacer(minLength: 0)
-            updateCard
-            Spacer(minLength: 0)
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .accessibilityIdentifier("required-update-screen")
-    }
-
-    private var updateCard: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            if appUpdate.status == .checking {
-                ProgressView()
-                    .tint(theme.text)
-                Text("Checking for updates…")
-                    .font(.ff(18, 800))
-                    .tracking(18 * -0.015)
-                    .foregroundStyle(theme.text)
-                    .padding(.top, 14)
-            } else {
-                Text(appUpdate.status == .updateRequired
-                     ? String(localized: "Update FitFight to continue")
-                     : String(localized: "Couldn’t check for updates"))
-                    .font(.ff(18, 800))
-                    .tracking(18 * -0.015)
-                    .foregroundStyle(theme.text)
-                Text(appUpdate.status == .updateRequired
-                     ? String(localized: "You can’t use FitFight until you install the latest version.")
-                     : String(localized: "Connect to the internet and try again to use FitFight."))
-                    .ffType(.body)
-                    .foregroundStyle(theme.textSecondary)
-                    .lineSpacing(3)
-                    .fixedSize(horizontal: false, vertical: true)
-                    .padding(.top, 7)
-                HStack(spacing: 9) {
-                    FFButton(
-                        title: String(localized: "Check again"),
-                        kind: appUpdate.status == .updateRequired && appUpdate.policy?.latest != nil
-                            ? .secondary : .primary,
-                        fullWidth: true
-                    ) {
-                        Task { await appUpdate.check() }
-                    }
-                    .disabled(appUpdate.isChecking)
-                    if appUpdate.status == .updateRequired, let release = appUpdate.policy?.latest {
-                        FFButton(title: String(localized: "Update FitFight"), kind: .primary, fullWidth: true) {
-                            openURL(release.updateURL)
-                        }
-                        .accessibilityIdentifier("required-update-button")
-                    }
-                }
-                .padding(.top, 18)
-            }
-        }
-        .padding(.horizontal, 20)
-        .padding(.vertical, 22)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(theme.overlay, in: RoundedRectangle(cornerRadius: theme.radius.card, style: .continuous))
-        .ffBorder(theme.overlayLine, radius: theme.radius.card)
-        .padding(24)
     }
 
     @ViewBuilder
@@ -376,5 +329,6 @@ private struct InteractivePopGestureEnabler: UIViewRepresentable {
         .environmentObject(HealthKitStepsStore())
         .environmentObject(FeedStore())
         .environmentObject(AppUpdateChecker.shared)
+        .environmentObject(PushNotificationService.shared)
         .fitFightTheme(themeStore.theme)
 }

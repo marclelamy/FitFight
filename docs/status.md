@@ -6,7 +6,7 @@ Do **not** restore removed surfaces. Do **not** build WHOOP, Strava, Active Minu
 
 ---
 
-**Last TestFlight:** 10 Sep 2026 — Pending next build (not uploaded): After a fight ends, Finished shows P until everyone syncs or 24 hours pass; miss the window and you lose. Opening it shows a tentative result, not a win. Deploy the forfeit scoring and `grace_ends_at` snapshot field before the native build. The notification outbox migration can ship with it; APNs send still waits on Marc’s Apple key.
+**Last TestFlight:** 12 Sep 2026 — Opening the app shows last Fights immediately. Update checks run in the background and only a small popup asks you to update. Challenge reminders are asked once. Offline still shows last Fights.
 
 ## Prepared, not deployed: backend-only database access (9 Sep)
 
@@ -46,7 +46,7 @@ You still do **not** paste `sb_secret_...` anywhere.
 
 ## Before this branch ships
 
-The 7 Sep mandatory-update change needs the public release manifest and `GET /api/app-release` deployed before the native build. The existing server `NEXT_PUBLIC_SUPABASE_URL` selects the staging/production release channel. Verify the first gated build is installable before enforcement activates. Subsequent available releases automatically become mandatory. No database migration is part of this change. See [mandatory updates and database rollout](shipping.md#mandatory-updates-and-database-rollout).
+The 7 Sep mandatory-update change needs the public release manifest and `GET /api/app-release` deployed before the native build. The existing server `NEXT_PUBLIC_SUPABASE_URL` selects the staging/production release channel. The native app shows last Fights during the check and only a small popup when a new build is available; a failed check does not lock the app. Subsequent available releases still become the advertised latest. No database migration is part of this change. See [mandatory updates and database rollout](shipping.md#mandatory-updates-and-database-rollout).
 
 The 7 Sep referral changes require the referral migration, `POST /api/v1/referrals`,
 and updated Universal Link association before the native build. You → Settings →
