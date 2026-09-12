@@ -47,15 +47,18 @@ const postRow = {
 
 function createDatabaseStub(respond: (query: string) => unknown[]) {
   const queries: string[] = [];
-  const query = ((first: TemplateStringsArray) => {
+  const bound: unknown[][] = [];
+  const query = ((first: TemplateStringsArray, ...values: unknown[]) => {
     const sql = first.join("?").replace(/\s+/g, " ").trim();
     queries.push(sql);
+    bound.push(values);
     return Promise.resolve(respond(sql));
   }) as unknown as Sql;
   const database = Object.assign(query, {
     begin: async (_options: string, callback: (sql: Sql) => Promise<unknown>) => callback(query),
+    json: (value: unknown) => value,
   });
-  return { database, queries };
+  return { database, queries, bound };
 }
 
 test("feedback schemas accept a one-character title and details", () => {
@@ -182,7 +185,7 @@ test("creating a feedback post is refused after the daily cap", async () => {
 });
 
 test("creating a feedback post inserts the trimmed write-up", async () => {
-  const { database, queries } = createDatabaseStub((sql) => {
+  const { database, queries, bound } = createDatabaseStub((sql) => {
     if (sql.includes("interval '24 hours'")) {
       return [{ n: 1 }];
     }
@@ -193,10 +196,26 @@ test("creating a feedback post inserts the trimmed write-up", async () => {
     kind: "bug",
     title: postRow.title,
     body: postRow.body,
+    metadata: {
+      app_version: "1.0.0",
+      os: "iOS",
+    },
   }, database);
 
   assert.ok(queries.some((query) => query.includes("insert into public.feedback_posts")));
   assert.ok(queries.some((query) => query.includes("metadata")));
+  assert.deepEqual(
+    bound.flat().find((value) => (
+      typeof value === "object"
+      && value !== null
+      && "app_version" in value
+    )),
+    { app_version: "1.0.0", os: "iOS" },
+  );
+  assert.equal(
+    bound.flat().some((value) => typeof value === "string" && value.startsWith("{")),
+    false,
+  );
   assert.equal(result.post.vote_count, 0);
   assert.equal(result.post.voted, false);
   assert.equal(result.post.author_handle, "maya_moves");
@@ -268,7 +287,7 @@ test("commenting on a missing post returns not found", async () => {
 });
 
 test("creating a feedback comment stores client metadata", async () => {
-  const { database, queries } = createDatabaseStub((sql) => {
+  const { database, queries, bound } = createDatabaseStub((sql) => {
     if (sql.includes("interval '24 hours'")) {
       return [{ n: 0 }];
     }
@@ -288,5 +307,17 @@ test("creating a feedback comment stores client metadata", async () => {
 
   assert.ok(queries.some((query) => query.includes("insert into public.feedback_comments")));
   assert.ok(queries.some((query) => query.includes("metadata")));
+  assert.deepEqual(
+    bound.flat().find((value) => (
+      typeof value === "object"
+      && value !== null
+      && "app_version" in value
+    )),
+    { app_version: "1.0.0", os: "iOS" },
+  );
+  assert.equal(
+    bound.flat().some((value) => typeof value === "string" && value.startsWith("{")),
+    false,
+  );
   assert.deepEqual(result.comment.metadata, { app_version: "1.0.0", os: "iOS" });
 });
