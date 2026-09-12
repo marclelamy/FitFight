@@ -29,6 +29,13 @@ enum Changelog {
             year: 2026,
             month: 9,
             day: 12,
+            notes: "Feed is one list. Plus: write a note, tag people, and pick fights next to photo or video. Everything selects every fight. Each post shows a badge for where it went. Inside a fight, posting goes there without asking."
+        ),
+        ReleaseNote(
+            version: "1.0.0",
+            year: 2026,
+            month: 9,
+            day: 12,
             notes: "Setup now ends with a last screen: go to Settings to submit a feature you want or a bug you see. Those will be fixed rapidly."
         ),
         ReleaseNote(
