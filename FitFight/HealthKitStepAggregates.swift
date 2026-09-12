@@ -65,9 +65,10 @@ enum HealthKitStepAggregates {
 
         var fightAggregates: [FitFightHealthKitStepSync.FightAggregate] = []
         fightAggregates.reserveCapacity(context.fightWindows.count)
+        var sawAccessibleSteps = !totalsByDay.isEmpty
         for window in context.fightWindows {
             try Task.checkCancellation()
-            let steps = try await trace.measure(.healthKitFight) {
+            let counted = try await trace.measure(.healthKitFight) {
                 try await total(
                     store: store,
                     type: type,
@@ -75,13 +76,19 @@ enum HealthKitStepAggregates {
                     end: window.cutoffAt
                 )
             }
+            if counted != nil {
+                sawAccessibleSteps = true
+            }
             fightAggregates.append(FitFightHealthKitStepSync.FightAggregate(
                 fightId: window.fightId.uuidString.lowercased(),
                 startsAt: iso8601(window.startsAt),
                 endsAt: iso8601(window.endsAt),
                 cutoffAt: iso8601(window.cutoffAt),
-                steps: steps
+                steps: counted ?? 0
             ))
+        }
+        if !context.fightWindows.isEmpty && !sawAccessibleSteps {
+            throw ReadError.noAccessibleSteps
         }
 
         return FitFightHealthKitStepSync(
@@ -133,19 +140,19 @@ enum HealthKitStepAggregates {
         type: HKQuantityType,
         start: Date,
         end: Date
-    ) async throws -> Int {
-        let predicate = HKQuery.predicateForSamples(
-            withStart: start,
-            end: end,
-            options: [.strictStartDate, .strictEndDate]
-        )
+    ) async throws -> Int? {
+        // NOTE: Do not use strictStartDate/strictEndDate. Apple stores Steps in samples
+        // that often begin before the fight or are still open past "now". Strict options
+        // drop those samples, a brand-new or late-join window can look empty, and that
+        // used to abort every fight in the same upload. Overlapping samples let HealthKit
+        // count the portion inside starts_at...cutoff_at.
+        let predicate = HKQuery.predicateForSamples(withStart: start, end: end)
         let descriptor = HKStatisticsQueryDescriptor(
             predicate: .quantitySample(type: type, predicate: predicate),
             options: [.cumulativeSum]
         )
-        // HealthKit hides denied read access; an absent quantity does not establish a zero total.
         guard let quantity = try await descriptor.result(for: store)?.sumQuantity() else {
-            throw ReadError.noAccessibleSteps
+            return nil
         }
         guard let count = integerCount(from: quantity) else {
             throw ReadError.invalidStepCount
