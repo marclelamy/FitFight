@@ -29,6 +29,13 @@ enum Changelog {
             year: 2026,
             month: 9,
             day: 12,
+            notes: "You can file Bugs & requests again. Creating one no longer fails with an internal error."
+        ),
+        ReleaseNote(
+            version: "1.0.0",
+            year: 2026,
+            month: 9,
+            day: 12,
             notes: "Send to Cursor now shows a real error if the agent can’t start, instead of a blank 502."
         ),
         ReleaseNote(
