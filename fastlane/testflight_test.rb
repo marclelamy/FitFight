@@ -202,39 +202,31 @@ class TestFlightTest < Minitest::Test
     end
   end
 
-  def test_upload_waits_for_processing_before_external_distribution
+  def test_upload_waits_for_processing_and_stays_internal
     with_apple { @lane.run_beta }
-    assert_equal false, @lane.uploads.first[:skip_waiting_for_build_processing]
-    assert_equal true, @lane.uploads.first[:skip_submission]
+    assert_equal 1, @lane.uploads.length
+    upload = @lane.uploads.first
+    assert_equal false, upload[:skip_waiting_for_build_processing]
+    assert_equal true, upload[:skip_submission]
+    assert_equal false, upload[:distribute_external]
+    assert_equal false, upload[:notify_external_testers]
+    refute upload.key?(:groups)
+    refute_equal true, upload[:distribute_only]
+    refute_equal true, upload[:submit_beta_review]
     assert_equal [["staging", "1.0.0", 154]], @lane.pointers
   end
 
-  def test_external_build_is_submitted_for_review_and_automatic_distribution
-    with_apple { @lane.run_beta }
-    distribution = @lane.uploads.find { |options| options[:distribute_external] }
-    refute_nil distribution, "Adding a group alone does not release a build to friends"
-    assert_equal ["friends"], distribution[:groups]
-    assert_equal true, distribution[:distribute_only]
-    assert_equal true, distribution[:submit_beta_review]
-    assert_equal true, distribution[:notify_external_testers]
-    assert_equal "1.0.0", distribution[:app_version]
-    assert_equal "154", distribution[:build_number]
-    assert_equal "com.fitfight.mvp", distribution[:app_identifier]
-    assert_equal({ key_id: "test-key" }, distribution[:api_key])
-  end
-
-  def test_distribution_failure_preserves_uploaded_candidate_without_making_it_mandatory
+  def test_external_groups_are_not_submitted_or_notified
     @lane.distribution_error = "Apple rejected the beta submission"
-    with_apple do
-      error = assert_raises(RuntimeError) { @lane.run_beta }
-      assert_equal @lane.distribution_error, error.message
-    end
+    with_apple { @lane.run_beta }
+    assert_nil @lane.uploads.find { |options| options[:distribute_external] }
     assert_equal [["staging", "1.0.0", 154]], @lane.pointers
   end
 
-  def test_missing_external_group_fails_instead_of_reporting_success
+  def test_missing_external_group_does_not_fail_upload
     @groups.reject! { |group| !group.is_internal_group }
-    with_apple { assert_raises(RuntimeError) { @lane.run_beta } }
+    with_apple { @lane.run_beta }
+    assert_equal 1, @lane.uploads.length
     assert_equal [["staging", "1.0.0", 154]], @lane.pointers
   end
 end
