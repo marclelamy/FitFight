@@ -1,19 +1,19 @@
 import { ApiError, ERROR_CODES } from "@/lib/http";
-import { cursorWebhookSecret } from "@/lib/cursor/cursor-agent-webhook";
 import type { FeedbackPostDetail } from "@/lib/types/feedback/feedback";
 import {
+  cursorApiErrorSchema,
   cursorApiKeySchema,
   cursorCreateAgentResponseSchema,
   fitFightAgentStartingRef,
   fitFightGithubRepoUrl,
 } from "@/lib/types/cursor/cloud-agent";
 
-const CURSOR_AGENTS_URL = "https://api.cursor.com/v0/agents";
+const CURSOR_AGENTS_URL = "https://api.cursor.com/v1/agents";
+const CURSOR_LAUNCH_TIMEOUT_MS = 45_000;
 
 export async function launchFeedbackFixAgent(
   detail: FeedbackPostDetail,
   fetchImpl: typeof fetch = fetch,
-  requestUrl?: string,
 ): Promise<{ agent_id: string; agent_url: string }> {
   const apiKey = cursorApiKeySchema.safeParse(process.env.CURSOR_API_KEY);
   if (!apiKey.success) {
@@ -36,7 +36,7 @@ export async function launchFeedbackFixAgent(
     "- Cloud only. Do not ask Marc to open Xcode or a home Mac.",
     "- Do not create or call app-facing Postgres RPCs.",
     "- Do not run destructive database commands.",
-    "- Do not create or update Notion rows. FitFight already created the Product Backlog item and will move it to Building, then Done when this run finishes with a PR.",
+    "- Do not create or update Notion rows. FitFight already created the Product Backlog item and will move it to Building.",
     "",
     "Use the post and comments as the spec.",
     "",
@@ -55,51 +55,96 @@ export async function launchFeedbackFixAgent(
     commentBlock,
   ].join("\n");
 
+  const title = detail.post.title.trim();
   const body: Record<string, unknown> = {
     prompt: { text: prompt },
-    source: { repository: fitFightGithubRepoUrl, ref: fitFightAgentStartingRef },
-    target: { autoCreatePr: true, skipReviewerRequest: true },
+    repos: [{ url: fitFightGithubRepoUrl, startingRef: fitFightAgentStartingRef }],
+    autoCreatePR: true,
+    skipReviewerRequest: true,
   };
-  const webhookSecret = cursorWebhookSecret();
-  if (requestUrl && webhookSecret) {
-    body.webhook = {
-      url: `${new URL(requestUrl).origin}/api/internal/cursor-agent/${detail.post.id}`,
-      secret: webhookSecret,
-    };
+  if (title) {
+    body.name = title.slice(0, 100);
   }
 
-  const response = await fetchImpl(CURSOR_AGENTS_URL, {
-    method: "POST",
-    headers: {
-      Authorization: `Basic ${Buffer.from(`${apiKey.data}:`, "utf8").toString("base64")}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify(body),
-    signal: AbortSignal.timeout(15_000),
-  });
+  let response: Response;
+  try {
+    response = await fetchImpl(CURSOR_AGENTS_URL, {
+      method: "POST",
+      headers: {
+        Authorization: `Basic ${Buffer.from(`${apiKey.data}:`, "utf8").toString("base64")}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(body),
+      signal: AbortSignal.timeout(CURSOR_LAUNCH_TIMEOUT_MS),
+    });
+  } catch (error) {
+    if (error instanceof Error && (error.name === "TimeoutError" || error.name === "AbortError")) {
+      throw new ApiError(504, ERROR_CODES.internal, "Cursor took too long to start. Try again.");
+    }
+    throw error;
+  }
 
   const raw: unknown = await response.json().catch(() => null);
   if (response.status === 429) {
     throw new ApiError(429, ERROR_CODES.rate_limited, "Cursor is busy. Try again in a minute.");
   }
   if (!response.ok) {
+    const parsedError = cursorApiErrorSchema.safeParse(raw);
+    const cursorCode = parsedError.success ? parsedError.data.code : undefined;
     console.error("fitfight_cursor_feedback", JSON.stringify({
       post_id: detail.post.id,
       status: response.status,
+      cursor_code: cursorCode,
     }));
-    throw new ApiError(502, ERROR_CODES.internal, "Could not start the Cursor agent.", {
-      upstream: { status: response.status, body: raw },
-    });
+    if (cursorCode === "rate_limit_exceeded") {
+      throw new ApiError(429, ERROR_CODES.rate_limited, "Cursor is busy. Try again in a minute.");
+    }
+    throw new ApiError(
+      502,
+      ERROR_CODES.internal,
+      cursorLaunchMessage(response.status, parsedError.success ? parsedError.data : undefined),
+      { upstream: { status: response.status, body: raw } },
+    );
   }
 
   const parsed = cursorCreateAgentResponseSchema.safeParse(raw);
   if (!parsed.success) {
-    throw new ApiError(502, ERROR_CODES.internal, "Could not start the Cursor agent.", {
-      upstream: { status: response.status, body: raw },
-    });
+    throw new ApiError(
+      502,
+      ERROR_CODES.internal,
+      "Cursor started, but the reply was missing the agent URL.",
+      { upstream: { status: response.status, body: raw } },
+    );
   }
   return {
-    agent_id: parsed.data.id,
-    agent_url: parsed.data.target.url,
+    agent_id: parsed.data.agent.id,
+    agent_url: parsed.data.agent.url ?? `https://cursor.com/agents/${parsed.data.agent.id}`,
   };
+}
+
+function cursorLaunchMessage(
+  status: number,
+  error: { code: string; message: string } | undefined,
+): string {
+  const cursorCode = error?.code;
+  if (status === 401 || cursorCode === "unauthorized" || cursorCode === "api_key_not_found") {
+    return "Cursor rejected the API key on Vercel Preview.";
+  }
+  if (cursorCode === "repository_access" || cursorCode === "integration_not_connected") {
+    return "Cursor can’t access the FitFight GitHub repo with this API key.";
+  }
+  if (cursorCode === "plan_required" || cursorCode === "usage_limit_exceeded") {
+    return "Cursor’s plan or usage limit blocked this.";
+  }
+
+  const message = error?.message.trim() ?? "";
+  if (
+    message.length > 0
+    && message.length <= 180
+    && message.toLowerCase() !== "error"
+    && !/(api[_-]?key|secret|bearer|password|authorization)/i.test(message)
+  ) {
+    return message;
+  }
+  return "Could not start the Cursor agent.";
 }

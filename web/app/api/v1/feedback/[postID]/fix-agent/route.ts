@@ -8,6 +8,7 @@ import { getFeedbackPost } from "@/lib/supabase/queries/feedback-supabase-query"
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+export const maxDuration = 60;
 
 export const POST = apiRoute<{ postID: string }>(async (request, { params }) => {
   const { userId } = await verifyUser(request);
@@ -17,7 +18,7 @@ export const POST = apiRoute<{ postID: string }>(async (request, { params }) => 
   }
   const postId = requireUuid(params.postID, "postID");
   const detail = await getFeedbackPost(userId, postId);
-  const launched = await launchFeedbackFixAgent(detail, fetch, request.url);
+  const launched = await launchFeedbackFixAgent(detail);
   await markAppFeedbackBacklogStatus(detail.post.id, notionAppFeedbackAgentStatus);
   return json(launched, 201);
 });
