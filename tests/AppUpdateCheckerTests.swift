@@ -41,10 +41,12 @@ private struct AppUpdateCheckerTests {
         let outdated = AppUpdateChecker(version: "1.0.0", build: "159", releaseURL: url,
                                         defaults: defaults, session: session)
         precondition(outdated.status == .checking, "Fights stay visible before the first check")
-        precondition(await outdated.permitsRequests(), "A pending check must not lock the app")
+        let permittedPending = await outdated.permitsRequests()
+        precondition(permittedPending, "A pending check must not lock the app")
         await outdated.check()
         precondition(outdated.status == .updateRequired, "An old build must be marked for update")
-        precondition(await outdated.permitsRequests(), "An update popup must not lock Fights")
+        let permittedOutdated = await outdated.permitsRequests()
+        precondition(permittedOutdated, "An update popup must not lock Fights")
         await outdated.check()
         precondition(outdated.status == .updateRequired, "Checking again must not dismiss the update")
         precondition(outdated.policy?.latest?.updateURL.absoluteString == "itms-beta://")
@@ -55,15 +57,18 @@ private struct AppUpdateCheckerTests {
         ReleaseProtocol.responseStatus = 503
         await relaunched.check()
         precondition(relaunched.status == .updateRequired, "A failed check must not clear a known update")
-        precondition(await relaunched.permitsRequests(), "A failed check must not lock a known update")
+        let permittedRelaunch = await relaunched.permitsRequests()
+        precondition(permittedRelaunch, "A failed check must not lock a known update")
 
         let installed = AppUpdateChecker(version: "1.0.0", build: "160", releaseURL: url,
                                          defaults: defaults, session: session)
         precondition(installed.status == .checking, "A cached matching build still needs a fresh check")
-        precondition(await installed.permitsRequests(), "Fights stay usable during a failed check")
+        let permittedInstalled = await installed.permitsRequests()
+        precondition(permittedInstalled, "Fights stay usable during a failed check")
         await installed.check()
         precondition(installed.status == .unavailable, "Network failure must not mark the build current")
-        precondition(await installed.permitsRequests(), "A failed check must not lock Fights")
+        let permittedUnavailable = await installed.permitsRequests()
+        precondition(permittedUnavailable, "A failed check must not lock Fights")
         ReleaseProtocol.responseStatus = 200
         await installed.check()
         precondition(installed.status == .current, "Installing the exact latest release marks the build current")
@@ -75,7 +80,8 @@ private struct AppUpdateCheckerTests {
         ReleaseProtocol.responseData = Data("{broken".utf8)
         await installed.check()
         precondition(installed.status == .unavailable, "Malformed metadata must not mark the build current")
-        precondition(await installed.permitsRequests(), "Malformed metadata must not lock Fights")
+        let permittedMalformed = await installed.permitsRequests()
+        precondition(permittedMalformed, "Malformed metadata must not lock Fights")
         ReleaseProtocol.responseData = try JSONEncoder().encode(policy)
         let otherVersion = AppUpdateChecker(version: "1.1.0", build: "160", releaseURL: url,
                                             defaults: defaults, session: session)
@@ -97,10 +103,12 @@ private struct AppUpdateCheckerTests {
         precondition(reviewer.status == .current, "Apple must be able to review the first production build")
         reviewer.rejectRequest(updateRequired: true)
         precondition(reviewer.status == .updateRequired, "An API rejection must mark an update")
-        precondition(await reviewer.permitsRequests(), "An API rejection must not lock Fights")
+        let permittedRejected = await reviewer.permitsRequests()
+        precondition(permittedRejected, "An API rejection must not lock Fights")
         reviewer.rejectRequest(updateRequired: false)
         precondition(reviewer.status == .updateRequired, "An API outage must not clear a known requirement")
-        precondition(await reviewer.permitsRequests(), "An API outage must not lock Fights")
+        let permittedOutage = await reviewer.permitsRequests()
+        precondition(permittedOutage, "An API outage must not lock Fights")
 
         ReleaseProtocol.responseData = try JSONEncoder().encode(policy)
         let concurrent = AppUpdateChecker(version: "1.0.0", build: "160", releaseURL: url,
@@ -108,12 +116,13 @@ private struct AppUpdateCheckerTests {
         let beforeConcurrent = ReleaseProtocol.requests
         async let first = concurrent.check()
         async let second = concurrent.check()
-        let allowed = await (first, second)
-        precondition(allowed.0 && allowed.1 && ReleaseProtocol.requests == beforeConcurrent + 1,
+        let checkResults = await (first, second)
+        precondition(checkResults.0 && checkResults.1 && ReleaseProtocol.requests == beforeConcurrent + 1,
                      "Launch and session checks must share one request and the same result")
         concurrent.rejectRequest(updateRequired: false)
         precondition(concurrent.status == .current, "An API release-check failure must keep the last known current build")
-        precondition(await concurrent.permitsRequests(), "An API release-check failure must not lock Fights")
+        let permittedConcurrent = await concurrent.permitsRequests()
+        precondition(permittedConcurrent, "An API release-check failure must not lock Fights")
         print("App update checks passed: popup, persistence, fail-open, exact versions, review and concurrency")
     }
 }
