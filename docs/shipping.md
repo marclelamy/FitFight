@@ -40,15 +40,17 @@ That is why we do **not** bump `MARKETING_VERSION` on ordinary ships. We used to
 
 The first release-candidate label is `1.0.0 · build N · staging`. Testers tap Update; ordinary follow-up builds keep `1.0.0` and only increment the build number.
 
-### External distribution and old builds
+### Internal-only uploads (default)
 
-The beta lane waits for build processing, then distributes that exact version/build to the existing external groups with beta review submission and automatic tester notification enabled. Internal groups are excluded from manual group assignment. Missing external groups or Apple API failures fail CI; uploaded builds are registered separately from the latest installable release. The mandatory version advances only after Apple availability is verified. Logs include Apple's external build state. A successful submission can still be waiting for review; it does not prove friends can install it yet.
+The beta lane waits for build processing, then **stops**. It does not assign the public join link (`https://testflight.apple.com/join/wcZKdwVZ`) or any other external group, does not submit beta review, and does not notify external testers. App Store Connect Internal testers receive each processed build automatically. Missing external groups do not fail CI. Uploaded builds are registered separately from the latest *installable* (external) release. The mandatory version still advances only after a build is `IN_BETA_TESTING` on every external group — so an internal-only upload does not push friends off the last public build (184 is already out and cannot be recalled).
+
+Marc must be on **Internal Testing** in App Store Connect (Users and Access) to see new preview uploads. To send a specific build to the public join link later: App Store Connect → TestFlight → that build → add it to Friends Beta (or the public group) → Submit for Review / Start Testing, and notify testers if he wants. Do not re-enable CI auto-distribution unless he asks.
 
 Apple allows only one build per version in beta review at a time and up to six beta review submissions in 24 hours. Upload limits are separate: the 5 Sep runs failed with `Upload limit reached` after build **153** uploaded successfully. Creating more builds does not release one already waiting for external review.
 
-For the 5 Sep invitation report, build **114** (`d1a3534`, uploaded 2 Sep) still writes directly to `fight_members` when accepting or declining a username invitation. The server-owned-writes migration now denies those operations. Build **153** (`bc3795a`, uploaded 4 Sep) uses the authenticated backend commands. To unblock existing testers, make that compatible staging build available under TestFlight → Friends Beta, using Submit Review or Start Testing as shown by Apple, with Automatically notify testers enabled. Friends then open TestFlight → FitFight → Update and can enable Automatic Updates. Apple approval and each phone's installation timing remain outside CI's control.
+For the 5 Sep invitation report, build **114** (`d1a3534`, uploaded 2 Sep) still writes directly to `fight_members` when accepting or declining a username invitation. The server-owned-writes migration now denies those operations. Build **153** (`bc3795a`, uploaded 4 Sep) uses the authenticated backend commands. Historical unblock for friends was TestFlight → Friends Beta, Submit Review or Start Testing, Automatically notify testers. Friends then open TestFlight → FitFight → Update. Apple approval and each phone's installation timing remain outside CI's control.
 
-Before a future migration removes an operation used by installed apps, verify that a compatible build is actually available to the external group. An uploaded build or a successful group-assignment call is insufficient. Preserve compatibility during rollout; do not reopen direct membership or score writes to support an old binary.
+Before a future migration removes an operation used by installed apps, verify that a compatible build is actually available to the external group. An uploaded internal-only build is insufficient. Preserve compatibility during rollout; do not reopen direct membership or score writes to support an old binary.
 
 Run the release regression checks with `bundle exec ruby fastlane/testflight_test.rb`. They execute the beta lane with Apple and signing actions replaced by test doubles; they do not upload a build or verify a tester's live Apple account.
 
@@ -117,8 +119,9 @@ Vercel Preview + Production also need the FitFight APNs secrets from [`docs/rese
 
 ## What Marc still does
 
-- TestFlight install / Update when a build is ready (~10–20 min after a `preview` push).
-- Internal testers (himself) vs external friends. Internal: no beta review. External: the build must be approved and distributed to their group; later builds of the same version may still need review. Friends can enable Automatic Updates inside TestFlight.
+- Be listed under App Store Connect **Internal Testing** so new `preview` uploads appear in TestFlight (no beta review).
+- TestFlight → Update when a new *internal* build is ready (~10–20 min after a `preview` push). The public join link does **not** get that build automatically.
+- Later, when friends should get a specific build: App Store Connect → TestFlight → that build → add to Friends Beta / the public group → Submit for Review or Start Testing. External: Apple may review; later builds of the same version may still need review. Friends can enable Automatic Updates inside TestFlight.
 - Apple account / legal / new secrets if they rotate.
 - After a production candidate passes: finish the App Store Connect metadata and review information, select the uploaded build, and explicitly submit it when ready.
 
@@ -136,7 +139,7 @@ After a feature PR merges, CI deletes that branch. `main`, `develop`, `preview`,
 
 ## After you push app changes
 
-A push to `preview` that touches the app or Fastlane starts TestFlight. Feature-branch and `develop` pushes do not. Tell Marc only after that upload: wait for the TestFlight notification, then **Update**. Processing often takes ~10–20 minutes; external testers may also wait for beta review. Check the workflow result before promising a build: upload or review limits can prevent distribution. Do not ask him to Run workflow.
+A push to `preview` that touches the app or Fastlane starts TestFlight. Feature-branch and `develop` pushes do not. Tell Marc only after that upload: wait for the TestFlight notification, then **Update** (internal testers only). Processing often takes ~10–20 minutes. Do not tell friends the public join link has a new build unless Marc promoted that build in App Store Connect. Check the workflow result before promising a build. Do not ask him to Run workflow.
 
 Both staging and production binaries check `/api/app-release` at launch, on foregrounding, and every minute while active. Fights (or the last cached list) stay on screen. A new installable build shows a small dismissible popup with a TestFlight or App Store link. A failed or offline check does not lock the app. Known mismatches still survive relaunch.
 
