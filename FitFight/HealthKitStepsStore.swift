@@ -302,9 +302,17 @@ final class HealthKitStepsStore: ObservableObject {
     }
 
     @discardableResult
-    func syncToBackend(session: SessionStore, trigger: SyncTrigger, trace: HealthKitSyncTrace) async -> Bool {
+    func syncToBackend(
+        session: SessionStore,
+        trigger: SyncTrigger,
+        trace: HealthKitSyncTrace,
+        coalesceInFlight: Bool = true
+    ) async -> Bool {
         if let inFlightSync {
-            return await inFlightSync.value
+            if coalesceInFlight {
+                return await inFlightSync.value
+            }
+            _ = await inFlightSync.value
         }
         let work = Task { @MainActor in
             defer { self.inFlightSync = nil }
