@@ -130,6 +130,27 @@ test("omits the webhook when the API key is too short to sign it", async () => {
   }
 });
 
+test("maps a Cursor failure to 502 without changing the client message", async () => {
+  const previous = process.env.CURSOR_API_KEY;
+  process.env.CURSOR_API_KEY = longCursorKey;
+  try {
+    await assert.rejects(
+      () => launchFeedbackFixAgent(detail, (async () => {
+        return new Response(JSON.stringify({ message: "cloud agents unavailable" }), { status: 502 });
+      }) as typeof fetch),
+      (error: unknown) => (
+        error instanceof ApiError
+        && error.status === 502
+        && error.code === "internal"
+        && error.message === "Could not start the Cursor agent."
+        && JSON.stringify(error.detail).includes("cloud agents unavailable")
+      ),
+    );
+  } finally {
+    restoreEnv("CURSOR_API_KEY", previous);
+  }
+});
+
 test("maps a Cursor rate limit to a retryable API error", async () => {
   const previous = process.env.CURSOR_API_KEY;
   process.env.CURSOR_API_KEY = longCursorKey;

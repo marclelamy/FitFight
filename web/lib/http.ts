@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { ZodError } from "zod";
 import { randomUUID } from "node:crypto";
+import { recordApiFailure } from "@/lib/observability/server-error-log";
 import {
   requestTraceIdSchema,
   type RequestOperation,
@@ -50,12 +51,14 @@ export type ErrorCode = (typeof ERROR_CODES)[keyof typeof ERROR_CODES];
 export class ApiError extends Error {
   readonly status: number;
   readonly code: ErrorCode;
+  readonly detail: unknown;
 
-  constructor(status: number, code: ErrorCode, message: string) {
+  constructor(status: number, code: ErrorCode, message: string, detail?: unknown) {
     super(message);
     this.name = "ApiError";
     this.status = status;
     this.code = code;
+    this.detail = detail;
   }
 }
 
@@ -170,11 +173,17 @@ export function apiRoute<P extends Record<string, string> = Record<string, never
     const started = performance.now();
     const timing: RequestTiming = { phases: {} };
     let response: Response;
+    let params = {} as P;
+    let caught: unknown;
     try {
-      const params = await context.params;
+      params = await context.params;
       response = await handler(request, { params, timing });
     } catch (error) {
+      caught = error;
       response = errorResponse(error);
+    }
+    if (caught !== undefined) {
+      await recordApiFailure(request, caught, { params, status: response.status });
     }
     if (operation) {
       const parsedTrace = requestTraceIdSchema.safeParse(request.headers.get("x-fitfight-trace-id"));
