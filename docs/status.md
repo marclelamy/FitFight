@@ -6,7 +6,7 @@ Do **not** restore removed surfaces. Do **not** build WHOOP, Strava, Active Minu
 
 ---
 
-**Last TestFlight:** 12 Sep 2026 — Pending next native preview (wait for Bertille’s current upload): Fight detail corners use one scaled family (`card` 22, nested `field` 14 / `glyph` 9). Opening the app shows last Fights immediately; update checks are a background popup; reminders are asked once. Offline still shows last Fights.
+**Last TestFlight:** 12 Sep 2026 — Pending next native preview: setup now ends with a last screen pointing to Settings for a feature or a bug (those get fixed rapidly). Fight detail corners use one scaled family (`card` 22, nested `field` 14 / `glyph` 9). Opening the app shows last Fights immediately; update checks are a background popup; reminders are asked once. Offline still shows last Fights.
 
 ## Prepared, not deployed: backend-only database access (9 Sep)
 
@@ -67,7 +67,7 @@ Verify the minimal product alongside Apple Health synchronization:
 
 1. TestFlight → **Update**. Look for `1.0.0 · build N · staging · 9 Sep` at the top.
 2. Check Fights, Feed, a Fight detail, New, and You in both Night and Day. There are four tabs: Fights, New, Feed, You. Feed swipes Main and fight tabs. A fight opens on Stats, with Feed beside it.
-3. New starts on Create or Join. Create still guides Steps, duration, public or private, optional usernames, repeat on by default, optional title and action, and review. Every fight has a code and a share link. Join is that code plus a live public list with no scores. Private fights stay off the list. Earlier create steps use **Next**. Review uses **Slide to start**.
+3. New starts on Create or Join. Create still guides Steps, duration, private by default (or public), optional usernames, repeat on by default, optional title and action, and review. Every fight has a code and a share link; people join with that code or invite link. Join is that code plus a live public list with no scores. Private fights stay off the list. Earlier create steps use **Next**. Review uses **Slide to start**.
 4. Confirm sign-in, username, Apple Health Steps, Fight invitations, standings with last-sync times, Privacy, Support, Bugs & requests, Versions, sign out, and Delete account.
 5. Confirm the old Requests tab, friend requests/lists, money, other Metrics, and dead settings are absent.
 6. If sign-in fails: hosted **develop** Supabase → Authentication → Providers → Apple → On, client ID `com.fitfight.mvp`.
@@ -82,9 +82,9 @@ The native Fight path uses the API to create and join; Apple Health synchronizat
 |---|---|
 | Welcome + Apple sign-in | Works |
 | Languages | English and French follow the iPhone's per-app language. Usernames, Fight names, and loser actions remain exactly as entered. |
-| Username onboarding | Works. Required once after sign-in. Optional profile photo on the same screen; then Connect Apple Health; then challenge reminders (pre-prompt before iPhone’s sheet). Existing accounts keep You → Apple Health. |
+| Username onboarding | Works. Required once after sign-in. Optional profile photo on the same screen; then Connect Apple Health; then challenge reminders (pre-prompt before iPhone’s sheet); then a last screen that Settings can take a feature or a bug. Existing accounts keep You → Apple Health. |
 | Version line | Release-candidate TestFlight says `1.0.0 · build N · staging`; the App Store build says `prod` |
-| Create Steps challenge | Follow a guided flow: Create or Join, then Steps × highest total, 3 / 7 / 14 / 30 days, public or private, optional usernames, repeat on by default, optional title and loser action, and review. Public and private fights may start with the owner alone. Every fight gets a code and a share link. |
+| Create Steps challenge | Follow a guided flow: Create or Join, then Steps × highest total, 3 / 7 / 14 / 30 days, private by default (or public), optional usernames, repeat on by default, optional title and loser action, and review. Public and private fights may start with the owner alone. Every fight gets a code and a share link; people join with that code or invite link. |
 | Accept / Join | Invites still accept in the fight. Anyone can open the same Accept/Join screen from a code or a shared link. Public fights also appear on the live Join list with no scores. Private fights do not. Joins go through the server. If a repeating fight is past its start day, joiners choose this round (steps count from that start date) or the next round. Same-day joins, even hours later, still count as this round. People waiting for the next round are visible on the fight and do not count in this round. Leave a public, private, or repeating fight from the fight itself so the next window does not copy you in. |
 | Invite participants | Exact username in New is optional on public and private fights. They must have signed in and chosen a username. There is no friendship or friend-request layer. |
 | Apple Health | Installs background delivery at launch, keeps one interrupted opportunity for foreground reconciliation, and shows private capability/sync status under You. It sends Apple's merged cumulative Steps total for each exact active/ending Fight window in one small authenticated request. The same request may also send private energy, distance, exercise, stand, flights, and workout summaries. It does not send raw samples, deletions, per-source totals, device/source metadata, anchors, or archives. Extra activity is not a Fight option yet. |

@@ -243,7 +243,7 @@ struct NewFightView: View {
                 FFDivider()
                 FFGroupedRow(
                     title: String(localized: "Join"),
-                    subtitle: String(localized: "Join one that's already going"),
+                    subtitle: String(localized: "Code, invite link, or a public fight"),
                     systemImage: "person.badge.plus",
                     subtitleTone: .neutral,
                     action: {
@@ -261,7 +261,7 @@ struct NewFightView: View {
                 Text("Join a fight")
                     .ffType(.heading)
                     .foregroundStyle(theme.text)
-                Text("Enter the 4-character code, or pick a live public fight. Private fights stay off this list.")
+                Text("Private fights join with a code or invite link. Public fights also show below.")
                     .ffType(.body)
                     .foregroundStyle(theme.textSecondary)
                     .lineSpacing(2)
@@ -304,7 +304,7 @@ struct NewFightView: View {
             if loadingJoinable && rows.isEmpty {
                 FFLoadingBlock()
             } else if rows.isEmpty {
-                Text("No live public fights right now. Ask for a code.")
+                Text("No live public fights right now. Use a code or invite link.")
                     .ffType(.body)
                     .foregroundStyle(theme.textSecondary)
             } else {
@@ -378,8 +378,8 @@ struct NewFightView: View {
                     .foregroundStyle(theme.text)
                 Text(
                     visibilityJoinable
-                        ? String(localized: "Listed on Join. Anyone with the code or link can join. Usernames are optional.")
-                        : String(localized: "Not listed. Anyone with the code or link can join. Usernames are optional.")
+                        ? String(localized: "Listed on Join. Anyone with the code or invite link can join. Usernames are optional.")
+                        : String(localized: "New fights start private. People still join with the code or invite link. Usernames are optional.")
                 )
                     .ffType(.body)
                     .foregroundStyle(theme.textSecondary)
@@ -389,7 +389,7 @@ struct NewFightView: View {
             FFGroupedRows {
                 FFGroupedRow(
                     title: String(localized: "Private"),
-                    subtitle: String(localized: "Code or link only"),
+                    subtitle: String(localized: "Default · code or invite link"),
                     systemImage: "lock",
                     subtitleTone: visibilityJoinable ? .neutral : .moss,
                     trailing: visibilityJoinable
@@ -616,11 +616,10 @@ struct NewFightView: View {
         let action = actionText.trimmingCharacters(in: .whitespacesAndNewlines)
         let listing = visibilityJoinable
             ? String(localized: "Listed on Join")
-            : String(localized: "Not listed")
-        let people = inviteHandles.isEmpty
-            ? String(localized: "Anyone with the code")
-            : inviteHandles.map { "@\($0)" }.formatted(.list(type: .and))
-        let opponents = "\(listing) · \(people)"
+            : String(localized: "Join with code or invite link")
+        let opponents = inviteHandles.isEmpty
+            ? listing
+            : "\(listing) · \(inviteHandles.map { "@\($0)" }.formatted(.list(type: .and)))"
 
         return VStack(alignment: .leading, spacing: 16) {
             VStack(alignment: .leading, spacing: 6) {
@@ -817,6 +816,7 @@ struct NewFightView: View {
             if (model.createError ?? "").isEmpty {
                 opening = .choose
                 step = 0
+                visibilityJoinable = false
                 model.tab = .fights
             }
         }

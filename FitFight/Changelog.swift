@@ -29,6 +29,20 @@ enum Changelog {
             year: 2026,
             month: 9,
             day: 12,
+            notes: "Setup now ends with a last screen: go to Settings to submit a feature you want or a bug you see. Those will be fixed rapidly."
+        ),
+        ReleaseNote(
+            version: "1.0.0",
+            year: 2026,
+            month: 9,
+            day: 12,
+            notes: "New fights start private. People can still join with the code or invite link; only public fights show on Join."
+        ),
+        ReleaseNote(
+            version: "1.0.0",
+            year: 2026,
+            month: 9,
+            day: 12,
             notes: "Fight detail corners now follow one scaled family: the header, standings, and chart share the outer card radius, with tighter nested corners on inner rows and chart-type chips."
         ),
         ReleaseNote(

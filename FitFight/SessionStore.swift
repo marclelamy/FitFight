@@ -17,6 +17,7 @@ final class SessionStore: ObservableObject {
     private static let handleChosenKey = "ff.handle.chosen"
     private static let needsHealthKey = "ff.onboarding.needsHealth"
     private static let needsNotificationKey = "ff.onboarding.needsNotifications"
+    private static let needsRequestsKey = "ff.onboarding.needsRequests"
     private static let profileCachePrefix = "fitfight.profile."
     private static let adminHandle = "marc"
 
@@ -38,6 +39,11 @@ final class SessionStore: ObservableObject {
             && UserDefaults.standard.bool(forKey: Self.needsNotificationKey)
     }
 
+    var needsRequestsOnboarding: Bool {
+        !needsOnboarding && !needsHealthOnboarding && !needsNotificationOnboarding
+            && UserDefaults.standard.bool(forKey: Self.needsRequestsKey)
+    }
+
     var isFitFightAdmin: Bool {
         guard let handle = profile?.handle else { return false }
         return handle.caseInsensitiveCompare(Self.adminHandle) == .orderedSame
@@ -50,6 +56,11 @@ final class SessionStore: ObservableObject {
 
     func finishNotificationOnboarding() {
         UserDefaults.standard.set(false, forKey: Self.needsNotificationKey)
+        objectWillChange.send()
+    }
+
+    func finishRequestsOnboarding() {
+        UserDefaults.standard.set(false, forKey: Self.needsRequestsKey)
         objectWillChange.send()
     }
 
@@ -168,6 +179,7 @@ final class SessionStore: ObservableObject {
         UserDefaults.standard.removeObject(forKey: Self.handleChosenKey)
         UserDefaults.standard.removeObject(forKey: Self.needsHealthKey)
         UserDefaults.standard.removeObject(forKey: Self.needsNotificationKey)
+        UserDefaults.standard.removeObject(forKey: Self.needsRequestsKey)
     }
 
     static func signInFailureMessage(_ error: Error) -> String {
@@ -227,6 +239,7 @@ final class SessionStore: ObservableObject {
             UserDefaults.standard.set(true, forKey: Self.handleChosenKey)
             UserDefaults.standard.set(true, forKey: Self.needsHealthKey)
             UserDefaults.standard.set(true, forKey: Self.needsNotificationKey)
+            UserDefaults.standard.set(true, forKey: Self.needsRequestsKey)
             try Task.checkCancellation()
             guard authSession?.user.id == userId, client.auth.currentUser?.id == userId else {
                 throw CancellationError()
@@ -286,6 +299,7 @@ final class SessionStore: ObservableObject {
             UserDefaults.standard.removeObject(forKey: Self.handleChosenKey)
             UserDefaults.standard.removeObject(forKey: Self.needsHealthKey)
             UserDefaults.standard.removeObject(forKey: Self.needsNotificationKey)
+            UserDefaults.standard.removeObject(forKey: Self.needsRequestsKey)
             if let userID {
                 UserDefaults.standard.removeObject(forKey: Self.profileCachePrefix + userID.uuidString)
             }

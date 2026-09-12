@@ -449,6 +449,10 @@ struct FightDetailView: View {
     private var shareCard: some View {
         FFCard {
             VStack(alignment: .leading, spacing: 12) {
+                Text("Anyone with the code or invite link can join.")
+                    .ffType(.caption)
+                    .foregroundStyle(theme.textSecondary)
+                    .fixedSize(horizontal: false, vertical: true)
                 if let code = fight.joinCode {
                     HStack {
                         VStack(alignment: .leading, spacing: 2) {
