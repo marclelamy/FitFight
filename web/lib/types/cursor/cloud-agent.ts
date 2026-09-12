@@ -7,11 +7,24 @@ export const fitFightGithubRepoUrl = "https://github.com/slooowshutter/FitFight"
 export const fitFightAgentStartingRef = "develop";
 
 export const cursorCreateAgentResponseSchema = z.object({
-  id: z.string().min(1),
-  target: z.object({
-    url: z.string().url(),
+  agent: z.object({
+    id: z.string().min(1),
+    url: z.string().url().optional(),
   }),
 });
+
+export const cursorApiErrorSchema = z.union([
+  z.object({
+    error: z.object({
+      code: z.string(),
+      message: z.string(),
+    }),
+  }).transform((value) => value.error),
+  z.object({
+    code: z.string(),
+    message: z.string(),
+  }),
+]);
 
 export const cursorAgentWebhookStatusValues = ["ERROR", "FINISHED"] as const;
 export const cursorAgentWebhookStatusSchema = z.enum(cursorAgentWebhookStatusValues);
@@ -26,5 +39,6 @@ export const cursorAgentWebhookSchema = z.object({
 });
 
 export type CursorCreateAgentResponse = z.infer<typeof cursorCreateAgentResponseSchema>;
+export type CursorApiError = z.infer<typeof cursorApiErrorSchema>;
 export type CursorAgentWebhookStatus = z.infer<typeof cursorAgentWebhookStatusSchema>;
 export type CursorAgentWebhook = z.infer<typeof cursorAgentWebhookSchema>;

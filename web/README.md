@@ -20,7 +20,7 @@ iOS command API only. No marketing pages. Node.js runtime, never Edge.
 | `APPLE_SIGN_IN_CLIENT_ID` | `com.fitfight.mvp` | `com.fitfight.mvp` |
 | `APPLE_SIGN_IN_TOKEN_ENCRYPTION_KEY` | separate base64 32-byte key | separate base64 32-byte key |
 | `NOTION_TOKEN` | Notion internal integration token with access to Product Backlog | same token |
-| `CURSOR_API_KEY` | Cursor user or service-account API key for admin “Send to Cursor” | same key |
+| `CURSOR_API_KEY` | Cursor Cloud Agents API key (Dashboard → API Keys) for admin “Send to Cursor” | same key |
 
 Preview deployments must use the **develop** Supabase project. Never point Preview at production.
 The Sign in with Apple key must be enabled for the FitFight App ID. It is not the
