@@ -6,7 +6,7 @@ import { isJoinCode, normalizeJoinCode } from "@/lib/domain/fights/join-code";
 
 export const metadata: Metadata = {
   title: "Join a fight | FitFight",
-  description: "Open this fight in FitFight, or install the app to join your friend.",
+  description: "Open this invite link in FitFight to join, even if the fight is private.",
   robots: { index: false, follow: false },
 };
 
@@ -27,8 +27,8 @@ export default async function JoinPage({ params }: { params: Promise<{ code: str
         <p className="eyebrow">JOIN A FIGHT</p>
         <h1>Open this fight in FitFight</h1>
         <p className="legal-intro">
-          Code <strong>{display}</strong>. Your friend shared a Steps challenge.
-          Open the link in FitFight to review it and join. Scores stay in the app.
+          Code <strong>{display}</strong>. Open this invite link in FitFight to join,
+          even if the fight is private. Scores stay in the app.
         </p>
         <InviteDownload />
       </article>
