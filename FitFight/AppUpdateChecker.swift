@@ -110,25 +110,20 @@ final class AppUpdateChecker: ObservableObject {
                 self.verifiedAt = nil
                 if self.status != .updateRequired { self.status = .unavailable }
             }
-            return self.status == .current
+            return self.status != .updateRequired
         }
         inFlight = task
         return await task.value
     }
 
     func permitsRequests() async -> Bool {
-        if status == .current, let verifiedAt, Date().timeIntervalSince(verifiedAt) < 60 {
-            return true
-        }
-        return await check()
+        true
     }
 
     func rejectRequest(updateRequired: Bool) {
         verifiedAt = nil
         if updateRequired {
             status = .updateRequired
-        } else if status != .updateRequired {
-            status = .unavailable
         }
     }
 }

@@ -96,20 +96,19 @@ struct FitFightApp: App {
                     await session.devAdoptSessionIfNeeded()
                     #endif
                 }
-                .task(id: appUpdate.status == .current ? session.authSession?.user.id : nil) {
+                .task(id: session.authSession?.user.id) {
                     model.pendingReferralError = nil
-                    steps.activate(userId: appUpdate.status == .current ? session.authSession?.user.id : nil)
-                    guard appUpdate.status == .current else { return }
+                    steps.activate(userId: session.authSession?.user.id)
                     model.restoreCachedFights(session: session)
                     await model.refreshFights(session: session, steps: steps)
-                    if !session.needsOnboarding,
+                    if appUpdate.status != .updateRequired,
+                       !session.needsOnboarding,
                        !session.needsHealthOnboarding,
                        !session.needsNotificationOnboarding {
-                        push.considerPromptIfNeeded(fights: model.fights)
+                        await push.considerPromptIfNeeded(fights: model.fights)
                     }
                 }
-                .task(id: appUpdate.status == .current ? session.profile?.userId : nil) {
-                    guard appUpdate.status == .current else { return }
+                .task(id: session.profile?.userId) {
                     await model.consumePendingLinks(session: session)
                 }
                 .onOpenURL { url in
@@ -122,7 +121,6 @@ struct FitFightApp: App {
                 .onChange(of: scenePhase) { _, phase in
                     guard phase == .active, session.authSession != nil else { return }
                     Task {
-                        guard await AppUpdateChecker.shared.permitsRequests() else { return }
                         await model.refreshFights(session: session, steps: steps)
                     }
                 }

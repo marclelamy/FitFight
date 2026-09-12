@@ -253,8 +253,12 @@ struct FFLeaderboardRow: View {
     var caption: String? = nil
     var captionUrgent: Bool = false
     var captionAt: ((Date) -> String)? = nil
+    /// Nested rows step down to `field`; canvas rows keep `card`.
+    var radius: CGFloat? = nil
 
     @Environment(\.ffTheme) private var theme
+
+    private var corner: CGFloat { radius ?? theme.radius.card }
 
     var body: some View {
         HStack(spacing: 13) {
@@ -292,9 +296,9 @@ struct FFLeaderboardRow: View {
         .padding(.vertical, 12)
         .background(
             isYou ? theme.mossWash : theme.card,
-            in: RoundedRectangle(cornerRadius: theme.radius.card, style: .continuous)
+            in: RoundedRectangle(cornerRadius: corner, style: .continuous)
         )
-        .ffBorder(isYou ? theme.mossEdge : theme.hairline, radius: theme.radius.card)
+        .ffBorder(isYou ? theme.mossEdge : theme.hairline, radius: corner)
     }
 
     @ViewBuilder

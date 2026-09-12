@@ -62,6 +62,7 @@ struct FightDayChartsView: View {
 
     private func badge(_ item: FightDayChartKind) -> some View {
         let selected = item == kind
+        let shape = RoundedRectangle(cornerRadius: theme.radius.glyph, style: .continuous)
         return Button {
             pickedKind = item
             kindRaw = item.rawValue
@@ -72,9 +73,9 @@ struct FightDayChartsView: View {
                 .foregroundStyle(selected ? theme.mossOn : theme.chipInk)
                 .padding(.horizontal, 11)
                 .padding(.vertical, 6)
-                .background(selected ? theme.mossFill : theme.chip, in: Capsule())
+                .background(selected ? theme.mossFill : theme.chip, in: shape)
                 .overlay {
-                    Capsule().strokeBorder(
+                    shape.strokeBorder(
                         selected ? theme.chipEdgeOn : theme.chipEdge,
                         lineWidth: 1
                     )
@@ -400,7 +401,7 @@ private struct FightDayHeatChart: View {
                         ForEach(0..<model.dayCount, id: \.self) { day in
                             let value = series.daily[day]
                             let tone = model.peakDaily == 0 ? 0 : value / model.peakDaily
-                            RoundedRectangle(cornerRadius: 5, style: .continuous)
+                            RoundedRectangle(cornerRadius: theme.radius.glyph, style: .continuous)
                                 .fill(value == 0 ? theme.track : series.color.opacity(0.18 + 0.82 * tone))
                                 .frame(width: cell, height: cell)
                         }

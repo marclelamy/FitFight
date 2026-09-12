@@ -562,7 +562,11 @@ struct FightDetailView: View {
                 .background(theme.card, in: RoundedRectangle(cornerRadius: theme.radius.card, style: .continuous))
                 .ffBorder(theme.hairline, radius: theme.radius.card)
             } else if contextFight.status == .pending {
-                pendingStandingRow(row, contextFight: contextFight)
+                pendingStandingRow(
+                    row,
+                    contextFight: contextFight,
+                    radius: inWinnerBand ? theme.radius.field : theme.radius.card
+                )
             } else {
                 FFLeaderboardRow(
                     rank: contextFight.status == .finished ? (row.rank ?? (index + 1)) : index + 1,
@@ -574,13 +578,14 @@ struct FightDetailView: View {
                     captionUrgent: !inWinnerBand && row.person.isYou && contextFight.status == .live,
                     captionAt: { now in
                         model.formatStandingFreshness(row, fight: contextFight, now: now)
-                    }
+                    },
+                    radius: inWinnerBand ? theme.radius.field : theme.radius.card
                 )
             }
         }
     }
 
-    private func pendingStandingRow(_ row: Standing, contextFight: Fight) -> some View {
+    private func pendingStandingRow(_ row: Standing, contextFight: Fight, radius: CGFloat) -> some View {
         let needsSync = row.finalStepsComplete != true
         let submitted = contextFight.standings.filter { !$0.invited && !$0.deferred && $0.finalStepsComplete == true }
         let rank = submitted.firstIndex { $0.id == row.id }.map { $0 + 1 }
@@ -618,9 +623,9 @@ struct FightDetailView: View {
         .padding(.vertical, 12)
         .background(
             row.person.isYou ? theme.mossWash : theme.card,
-            in: RoundedRectangle(cornerRadius: theme.radius.card, style: .continuous)
+            in: RoundedRectangle(cornerRadius: radius, style: .continuous)
         )
-        .ffBorder(row.person.isYou ? theme.mossEdge : theme.hairline, radius: theme.radius.card)
+        .ffBorder(row.person.isYou ? theme.mossEdge : theme.hairline, radius: radius)
     }
 
     private func daysCard(initialKind: FightDayChartKind? = nil) -> some View {
