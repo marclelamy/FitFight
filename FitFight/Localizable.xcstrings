@@ -497,6 +497,7 @@
     "version.label.with-date" : {"extractionState":"manual","localizations":{"en":{"stringUnit":{"state":"translated","value":"%1$@ · build %2$@ · %3$@ · %4$@"}},"fr":{"stringUnit":{"state":"translated","value":"%1$@ · build %2$@ · %3$@ · %4$@"}}}},
     "Add a comment" : {"localizations":{"fr":{"stringUnit":{"state":"translated","value":"Ajouter un commentaire"}}}},
     "Send to Cursor" : {"localizations":{"fr":{"stringUnit":{"state":"translated","value":"Envoyer à Cursor"}}}},
+    "Send to Cursor now shows a real error if the agent can’t start, instead of a blank 502." : {"localizations":{"fr":{"stringUnit":{"state":"translated","value":"Send to Cursor affiche maintenant une vraie erreur si l’agent ne démarre pas, au lieu d’un 502 vide."}}}},
     "Sending…" : {"localizations":{"fr":{"stringUnit":{"state":"translated","value":"Envoi…"}}}},
     "Open" : {"localizations":{"fr":{"stringUnit":{"state":"translated","value":"Ouvrir"}}}},
     "Cursor is on it. A pull request will show up when it’s done." : {"localizations":{"fr":{"stringUnit":{"state":"translated","value":"Cursor s’en occupe. Une pull request apparaîtra quand ce sera prêt."}}}},
