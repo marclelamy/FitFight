@@ -692,7 +692,7 @@ final class AppModel: ObservableObject {
                 accessToken: access,
                 idempotencyKey: UUID().uuidString
             )
-            await refreshFromServer()
+            await syncStepsAfterMembershipChange()
             tab = .fights
             openFightID = created.id.uuidString
         } catch {
@@ -709,7 +709,7 @@ final class AppModel: ObservableObject {
         }
         let summary = try await api.accept(token: token, accessToken: access, start: start)
         inviteTokens[summary.id.uuidString] = token
-        await refreshFromServer()
+        await syncStepsAfterMembershipChange()
     }
 
     func acceptFight(id: String, start: String = "now") async {
@@ -738,7 +738,7 @@ final class AppModel: ObservableObject {
             let token = try await session.freshAccessToken()
             _ = try await api.acceptFight(fightID: fightID, accessToken: token, start: start)
             joined.insert(id)
-            await refreshFromServer()
+            await syncStepsAfterMembershipChange()
         } catch {
             createError = String(localized: "Couldn’t accept.")
         }
@@ -893,6 +893,23 @@ final class AppModel: ObservableObject {
         }
     }
 
+    private func syncStepsAfterMembershipChange() async {
+        guard let session else {
+            await refreshFromServer()
+            return
+        }
+        let steps = HealthKitStepsStore.shared
+        let trace = HealthKitSyncTrace(trigger: .manual)
+        _ = await steps.syncToBackend(
+            session: session,
+            trigger: .manual,
+            trace: trace,
+            coalesceInFlight: false
+        )
+        steps.completeAttempt(trace, session: session, userID: session.authSession?.user.id)
+        await refreshFromServer(session: session)
+    }
+
     private func joinPendingFight(_ fight: Fight, start: String = "now") async {
         guard let access = session?.authSession?.accessToken, api.isConfigured else {
             createError = String(localized: "Sign in to join this fight.")
@@ -905,7 +922,7 @@ final class AppModel: ObservableObject {
         do {
             _ = try await api.joinFight(code: fight.joinCode, fightID: fightID, accessToken: access, start: start)
             joined.insert(fight.id)
-            await refreshFromServer()
+            await syncStepsAfterMembershipChange()
             pendingJoinable = nil
             tab = .fights
             openFightID = fight.id
