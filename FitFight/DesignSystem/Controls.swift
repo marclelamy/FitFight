@@ -725,8 +725,8 @@ struct FFNavDetail: View {
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 12)
-        .background(theme.card, in: RoundedRectangle(cornerRadius: theme.radius.field, style: .continuous))
-        .ffBorder(theme.hairline, radius: theme.radius.field)
+        .background(theme.card, in: RoundedRectangle(cornerRadius: theme.radius.card, style: .continuous))
+        .ffBorder(theme.hairline, radius: theme.radius.card)
     }
 }
 
