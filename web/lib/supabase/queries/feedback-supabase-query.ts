@@ -82,6 +82,10 @@ function mapComment(row: FeedbackCommentRow): FeedbackComment {
   };
 }
 
+function jsonMetadata(metadata: FeedbackMetadata | undefined) {
+  return JSON.parse(JSON.stringify(metadata ?? {}));
+}
+
 export async function listFeedbackPosts(
   userId: string,
   query: ListFeedbackQuery,
@@ -218,6 +222,7 @@ export async function createFeedbackPost(
     );
   }
 
+  // NOTE: sql.json(object) so postgres.js sends jsonb. JSON.stringify(text)::jsonb is stringified again and fails feedback_posts_metadata_object.
   const [row] = await database<FeedbackPostRow[]>`
     insert into public.feedback_posts (author_id, kind, title, body, metadata)
     values (
@@ -225,7 +230,7 @@ export async function createFeedbackPost(
       ${input.kind}::public.feedback_kind,
       ${input.title},
       ${input.body},
-      ${JSON.stringify(input.metadata ?? {})}::jsonb
+      ${database.json(jsonMetadata(input.metadata))}::jsonb
     )
     returning
       id,
@@ -310,7 +315,7 @@ export async function createFeedbackComment(
 
   const [comment] = await database<FeedbackCommentRow[]>`
     insert into public.feedback_comments (post_id, author_id, body, metadata)
-    select ${postId}, ${userId}, ${input.body}, ${JSON.stringify(input.metadata ?? {})}::jsonb
+    select ${postId}, ${userId}, ${input.body}, ${database.json(jsonMetadata(input.metadata))}::jsonb
     where exists (
       select 1 from public.feedback_posts where id = ${postId}
     )
