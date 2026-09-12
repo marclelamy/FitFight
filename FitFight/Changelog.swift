@@ -35,6 +35,13 @@ enum Changelog {
             version: "1.0.0",
             year: 2026,
             month: 9,
+            day: 12,
+            notes: "Joining or starting a fight now counts Apple Health Steps from the fight start, not from join time, and uploads them right away."
+        ),
+        ReleaseNote(
+            version: "1.0.0",
+            year: 2026,
+            month: 9,
             day: 11,
             notes: "You can update Apple Health access under You, so existing accounts can allow extra Health types without deleting the account. Fights still use steps only."
         ),
