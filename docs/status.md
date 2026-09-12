@@ -1,12 +1,12 @@
 # FitFight status — what works, what’s fake, what’s next
 
-Read this before building. Last updated **10 Sep 2026**. App: **1.0.0**.
+Read this before building. Last updated **12 Sep 2026**. App: **1.0.0**.
 
 Do **not** restore removed surfaces. Do **not** build WHOOP, Strava, Active Minutes, Workout Count, payments, notifications, or a broader marketing site unless the [Notion Product Backlog](https://app.notion.com/p/3d38907c7ecf816facdff36cb59f463e) says so. Fight posts and the Feed tab are in this build. Only the public privacy and support pages exist on the web.
 
 ---
 
-**Last TestFlight:** 12 Sep 2026 — Opening the app shows last Fights immediately. Update checks run in the background and only a small popup asks you to update. Challenge reminders are asked once. Offline still shows last Fights.
+**Last TestFlight:** 12 Sep 2026 — Pending next native preview (wait for Bertille’s current upload): Fight detail corners use one scaled family (`card` 22, nested `field` 14 / `glyph` 9). Opening the app shows last Fights immediately; update checks are a background popup; reminders are asked once. Offline still shows last Fights.
 
 ## Prepared, not deployed: backend-only database access (9 Sep)
 

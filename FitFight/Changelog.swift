@@ -29,6 +29,13 @@ enum Changelog {
             year: 2026,
             month: 9,
             day: 12,
+            notes: "Fight detail corners now follow one scaled family: the header, standings, and chart share the outer card radius, with tighter nested corners on inner rows and chart-type chips."
+        ),
+        ReleaseNote(
+            version: "1.0.0",
+            year: 2026,
+            month: 9,
+            day: 12,
             notes: "Opening FitFight shows your last Fights right away. Update checks run in the background; if a new build is ready you’ll get a small popup. Challenge reminders are asked once, not every launch. Offline still shows your last Fights."
         ),
         ReleaseNote(
