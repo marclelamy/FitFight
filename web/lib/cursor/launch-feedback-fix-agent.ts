@@ -86,12 +86,16 @@ export async function launchFeedbackFixAgent(
       post_id: detail.post.id,
       status: response.status,
     }));
-    throw new ApiError(502, ERROR_CODES.internal, "Could not start the Cursor agent.");
+    throw new ApiError(502, ERROR_CODES.internal, "Could not start the Cursor agent.", {
+      upstream: { status: response.status, body: raw },
+    });
   }
 
   const parsed = cursorCreateAgentResponseSchema.safeParse(raw);
   if (!parsed.success) {
-    throw new ApiError(502, ERROR_CODES.internal, "Could not start the Cursor agent.");
+    throw new ApiError(502, ERROR_CODES.internal, "Could not start the Cursor agent.", {
+      upstream: { status: response.status, body: raw },
+    });
   }
   return {
     agent_id: parsed.data.id,
