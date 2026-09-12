@@ -23,7 +23,7 @@ export async function launchFeedbackFixAgent(
   const commentBlock = detail.comments.length === 0
     ? "No comments."
     : detail.comments.map((comment, index) => (
-      `${index + 1}. @${comment.author_handle} (${comment.created_at})\n${comment.body}`
+      `${index + 1}. @${comment.author_handle} (${comment.created_at})\n${comment.body}\nDevice: ${JSON.stringify(comment.metadata)}`
     )).join("\n\n");
   const prompt = [
     `Fix this FitFight Bugs & requests item in ${fitFightGithubRepoUrl}.`,
@@ -46,6 +46,7 @@ export async function launchFeedbackFixAgent(
     `Created: ${detail.post.created_at}`,
     `Feedback post ID: ${detail.post.id}`,
     `Upvotes: ${detail.post.vote_count}`,
+    `Device: ${JSON.stringify(detail.post.metadata)}`,
     "",
     "Post:",
     detail.post.body,

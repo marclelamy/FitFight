@@ -20,6 +20,7 @@ const post: FeedbackPostSummary = {
   author_handle: "maya_moves",
   mine: false,
   created_at: "2026-09-04T12:00:00Z",
+  metadata: {},
 };
 
 function restoreEnv(name: string, previous: string | undefined) {

@@ -29,6 +29,13 @@ enum Changelog {
             year: 2026,
             month: 9,
             day: 12,
+            notes: "Bugs & requests posts and comments now include the app version, phone, and settings so we can debug faster."
+        ),
+        ReleaseNote(
+            version: "1.0.0",
+            year: 2026,
+            month: 9,
+            day: 12,
             notes: "Feed is one list. Plus: write a note, tag people, and pick fights next to photo or video. Everything selects every fight. Each post shows a badge for where it went. Inside a fight, posting goes there without asking."
         ),
         ReleaseNote(
