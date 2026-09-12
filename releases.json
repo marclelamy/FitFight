@@ -2,7 +2,7 @@
   "staging": {
     "latest": {
       "version": "1.0.0",
-      "build": 180,
+      "build": 181,
       "update_url": "itms-beta://"
     },
     "review": null,
