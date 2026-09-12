@@ -322,7 +322,7 @@ struct YouView: View {
         FFGroupedRows {
             FFGroupedRow(
                 title: String(localized: "Replay onboarding"),
-                subtitle: String(localized: "Health and challenge reminders. Your account and fights stay."),
+                subtitle: String(localized: "Health, challenge reminders, and Bugs & requests. Your account and fights stay."),
                 systemImage: "arrow.counterclockwise",
                 subtitleTone: .neutral,
                 trailing: AnyView(

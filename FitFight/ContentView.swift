@@ -118,6 +118,7 @@ struct ContentView: View {
                         && !session.needsOnboarding
                         && !session.needsHealthOnboarding
                         && !session.needsNotificationOnboarding
+                        && !session.needsRequestsOnboarding
                 },
                 set: { if !$0 { push.declinePrePrompt() } }
             )
@@ -178,6 +179,8 @@ struct ContentView: View {
             HealthOnboardingView()
         } else if session.needsNotificationOnboarding {
             NotificationOnboardingView()
+        } else if session.needsRequestsOnboarding {
+            RequestsOnboardingView()
         } else {
             signedInApp
         }
