@@ -364,8 +364,8 @@ struct FightDetailView: View {
 
     /// The kit's VS block only makes sense for two people.
     private var headToHead: (
-        you: (monogram: String, name: String, value: String, progress: Double),
-        them: (monogram: String, name: String, value: String, progress: Double)
+        you: (monogram: String, name: String, value: String, progress: Double, photoURL: URL?),
+        them: (monogram: String, name: String, value: String, progress: Double, photoURL: URL?)
     )? {
         let joined = fight.standings.filter { !$0.invited && !$0.deferred }
         guard joined.count == 2,
@@ -374,8 +374,8 @@ struct FightDetailView: View {
         else { return nil }
         let peak = max(mine.score, theirs.score, 1)
         return (
-            (mine.person.initials, String(localized: "You"), model.formatScore(mine.score, metric: fight.metric), mine.score / peak),
-            (theirs.person.initials, theirs.person.name, model.formatScore(theirs.score, metric: fight.metric), theirs.score / peak)
+            (mine.person.initials, String(localized: "You"), model.formatScore(mine.score, metric: fight.metric), mine.score / peak, mine.person.photoURL),
+            (theirs.person.initials, theirs.person.name, model.formatScore(theirs.score, metric: fight.metric), theirs.score / peak, theirs.person.photoURL)
         )
     }
 
@@ -579,6 +579,7 @@ struct FightDetailView: View {
                     value: model.formatScore(row.score, metric: contextFight.metric),
                     move: .same,
                     isYou: row.person.isYou,
+                    photoURL: row.person.photoURL,
                     captionUrgent: !inWinnerBand && row.person.isYou && contextFight.status == .live,
                     captionAt: { now in
                         model.formatStandingFreshness(row, fight: contextFight, now: now)

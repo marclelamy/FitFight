@@ -131,8 +131,8 @@ struct FFStreakStrip: View {
 
 /// VS block — the head-to-head. You are always the left side and always moss.
 struct FFVSBlock: View {
-    let you: (monogram: String, name: String, value: String, progress: Double)
-    let them: (monogram: String, name: String, value: String, progress: Double)
+    let you: (monogram: String, name: String, value: String, progress: Double, photoURL: URL?)
+    let them: (monogram: String, name: String, value: String, progress: Double, photoURL: URL?)
     let delta: String
     var ahead: Bool = true
     let footnote: String
@@ -179,11 +179,11 @@ struct FFVSBlock: View {
     }
 
     private func side(
-        _ person: (monogram: String, name: String, value: String, progress: Double),
+        _ person: (monogram: String, name: String, value: String, progress: Double, photoURL: URL?),
         highlighted: Bool
     ) -> some View {
         VStack(spacing: 9) {
-            FFAvatar(monogram: person.monogram, size: 64, selected: highlighted)
+            FFAvatar(monogram: person.monogram, size: 64, selected: highlighted, photoURL: person.photoURL)
             Text(person.name)
                 .ffType(.label)
                 .foregroundStyle(highlighted ? theme.text : theme.textSecondary)
@@ -250,6 +250,7 @@ struct FFLeaderboardRow: View {
     let value: String
     var move: FFMove = .same
     var isYou: Bool = false
+    var photoURL: URL? = nil
     var caption: String? = nil
     var captionUrgent: Bool = false
     var captionAt: ((Date) -> String)? = nil
@@ -266,7 +267,7 @@ struct FFLeaderboardRow: View {
                 .ffType(.button)
                 .foregroundStyle(rank == 1 ? theme.gold : theme.textTertiary)
                 .frame(width: 22)
-            FFAvatar(monogram: monogram, size: 38)
+            FFAvatar(monogram: monogram, size: 38, photoURL: photoURL)
             VStack(alignment: .leading, spacing: 2) {
                 Text(name)
                     .ffType(.rowTitle)

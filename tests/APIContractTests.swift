@@ -45,6 +45,8 @@ struct APIContractTests {
         precondition(snapshot.members[0].lastSyncedAt != nil && snapshot.members[0].finalValue == nil)
         precondition(snapshot.members[1].state == "deferred" && snapshot.members[1].rank == nil)
         precondition(snapshot.profiles[0].handle == "marc" && snapshot.profiles[0].handleSetAt == nil)
+        precondition(snapshot.profiles[0].avatar?.url?.absoluteString == "https://example.com/marc.jpg")
+        precondition(snapshot.profiles[1].avatar == nil)
         precondition(snapshot.series[0].joinCode == "ABCD" && snapshot.series[0].recurring)
         precondition(snapshot.stepDays[0].day == "2026-09-02" && snapshot.stepDays[0].steps == 8500)
         print("API contracts: profile, onboarding, cached profiles, extra fields, Fight snapshot passed")

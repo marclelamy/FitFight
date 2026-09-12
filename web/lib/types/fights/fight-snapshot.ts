@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { mediaObjectSchema } from "@/lib/types/media/media";
 import { fightMemberStateValues, fightStateValues } from "./membership-decision";
 import { fightVisibilityValues } from "./fight-visibility";
 
@@ -41,6 +42,7 @@ export const fightSnapshotSchema = z.object({
     user_id: z.string().uuid(),
     handle: z.string(),
     display_name: z.string(),
+    avatar: mediaObjectSchema.nullable(),
   })),
   series: z.array(z.object({
     id: z.string().uuid(),

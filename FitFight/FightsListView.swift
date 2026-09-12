@@ -30,13 +30,15 @@ struct FightsListView: View {
 
             ForEach(model.live) { fight in
                 let standing = difference(in: fight)
+                let opponent = opponent(in: fight)
                 FFListRow(
-                    monogram: initials(fight),
+                    monogram: opponent?.initials ?? "?",
                     title: fight.listTitle,
                     subtitle: fight.timeLeftLabel,
                     metric: standing.text,
                     ahead: standing.ahead,
                     metricIsGap: standing.isGap,
+                    photoURL: opponent?.photoURL,
                     action: { model.openFightID = fight.id }
                 )
             }
@@ -107,9 +109,9 @@ struct FightsListView: View {
     }
 
     /// The other side of a head-to-head, so the avatar is who you are up against.
-    private func initials(_ fight: Fight) -> String {
-        let other = fight.standings.first { !$0.person.isYou && !$0.invited && !$0.deferred }
-        return other?.person.initials ?? fight.standings.first?.person.initials ?? "?"
+    private func opponent(in fight: Fight) -> Person? {
+        fight.standings.first { !$0.person.isYou && !$0.invited && !$0.deferred }?.person
+            ?? fight.standings.first?.person
     }
 }
 
@@ -167,7 +169,7 @@ struct FinishedRow: View {
                 }
                 Spacer(minLength: 8)
                 FFAvatarStack(
-                    monograms: fight.standings.map(\.person.initials),
+                    faces: fight.standings.map { (monogram: $0.person.initials, photoURL: $0.person.photoURL) },
                     visible: 2,
                     size: 26,
                     ring: theme.card
