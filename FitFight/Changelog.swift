@@ -29,6 +29,13 @@ enum Changelog {
             year: 2026,
             month: 9,
             day: 12,
+            notes: "Fights, the challenge page, and stats now show everyone’s photo when they have one — not just initials."
+        ),
+        ReleaseNote(
+            version: "1.0.0",
+            year: 2026,
+            month: 9,
+            day: 12,
             notes: "Bugs & requests posts and comments now include the app version, phone, and settings so we can debug faster."
         ),
         ReleaseNote(

@@ -1,6 +1,19 @@
+import { z } from "zod";
 import type { Sql } from "postgres";
+import { ApiError, ERROR_CODES } from "@/lib/http";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { createDatabaseClient } from "@/lib/supabase/postgres";
 import { fightSnapshotSchema, type FightSnapshot } from "@/lib/types/fights/fight-snapshot";
+import { mapMedia, signMediaUrl, type MediaRow } from "./media-supabase-query";
+
+const snapshotRowSchema = fightSnapshotSchema.extend({
+  profiles: z.array(z.object({
+    user_id: z.string().uuid(),
+    handle: z.string(),
+    display_name: z.string(),
+    avatar_media_id: z.string().uuid().nullable().optional(),
+  })),
+});
 
 /** Read with the caller's RLS policies; the pooler's server role must not broaden visibility. */
 export async function readFightSnapshot(
@@ -8,13 +21,13 @@ export async function readFightSnapshot(
   timeZone: string,
   database: Sql = createDatabaseClient(),
 ): Promise<FightSnapshot> {
-  return database.begin("read only", async (sql) => {
+  const row = await database.begin("read only", async (sql) => {
     await sql`set local role fitfight_backend_reader`;
     await sql`
       select set_config('request.jwt.claim.sub', ${userId}, true),
         set_config('request.jwt.claims', ${JSON.stringify({ sub: userId, role: "authenticated" })}, true)
     `;
-    const [row] = await sql<{ snapshot: unknown }[]>`
+    const [result] = await sql<{ snapshot: unknown }[]>`
       with visible_fights as materialized (
         select id, owner_id, name, state, starts_at, ends_at, action_text, series_id,
           (ends_at + (final_sync_grace_seconds * interval '1 second')) as grace_ends_at
@@ -27,7 +40,7 @@ export async function readFightSnapshot(
         from public.fight_members
         where fight_id in (select id from visible_fights)
       ), visible_profiles as (
-        select user_id, handle, display_name
+        select user_id, handle, display_name, avatar_media_id
         from public.profiles
         where user_id in (
           select user_id from visible_members union select owner_id from visible_fights
@@ -57,6 +70,40 @@ export async function readFightSnapshot(
         'step_days', coalesce((select jsonb_agg(to_jsonb(d) order by day, user_id) from visible_days d), '[]'::jsonb)
       ) as snapshot
     `;
-    return fightSnapshotSchema.parse(row.snapshot);
+    return snapshotRowSchema.parse(result.snapshot);
   });
+  return fightSnapshotSchema.parse({
+    ...row,
+    profiles: await attachProfileAvatars(row.profiles),
+  });
+}
+
+async function attachProfileAvatars(
+  profiles: z.infer<typeof snapshotRowSchema>["profiles"],
+): Promise<FightSnapshot["profiles"]> {
+  const ids = [...new Set(profiles.flatMap((profile) => (
+    profile.avatar_media_id ? [profile.avatar_media_id] : []
+  )))];
+  const avatars = new Map<string, FightSnapshot["profiles"][number]["avatar"]>();
+  if (ids.length > 0) {
+    const admin = createAdminClient();
+    const { data, error } = await admin.from("media_objects")
+      .select("id, owner_id, kind, purpose, status, object_path, original_filename, content_type, byte_size, width, height, duration_ms, sha256, created_at")
+      .in("id", ids)
+      .eq("status", "ready");
+    if (error) throw new ApiError(500, ERROR_CODES.db_error, "Could not load profile photos");
+    const urls = new Map<string, string | null>();
+    for (const media of (data ?? []) as MediaRow[]) {
+      if (!urls.has(media.object_path)) {
+        urls.set(media.object_path, await signMediaUrl(media.object_path));
+      }
+      avatars.set(media.id, mapMedia(media, urls.get(media.object_path) ?? null));
+    }
+  }
+  return profiles.map((profile) => ({
+    user_id: profile.user_id,
+    handle: profile.handle,
+    display_name: profile.display_name,
+    avatar: profile.avatar_media_id ? avatars.get(profile.avatar_media_id) ?? null : null,
+  }));
 }

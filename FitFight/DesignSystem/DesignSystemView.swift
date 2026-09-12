@@ -624,8 +624,8 @@ struct DesignSystemView: View {
             FFSectionHeader(title: "09 · Comparison & ranking")
             FFEyebrow("VS block — the head-to-head")
             FFVSBlock(
-                you: ("AM", "You", "26,410", 1),
-                them: ("MB", "Marc", "22,100", 0.84),
+                you: ("AM", "You", "26,410", 1, nil),
+                them: ("MB", "Marc", "22,100", 0.84, nil),
                 delta: "+4,310",
                 footnote: "Steps · 7 day fight",
                 timeLeft: "3 days left"
