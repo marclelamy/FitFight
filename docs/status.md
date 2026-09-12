@@ -6,7 +6,7 @@ Do **not** restore removed surfaces. Do **not** build WHOOP, Strava, Active Minu
 
 ---
 
-**Last TestFlight:** 12 Sep 2026 — Pending next native preview (wait for Bertille’s current upload): Fight detail corners use one scaled family (`card` 22, nested `field` 14 / `glyph` 9). Opening the app shows last Fights immediately; update checks are a background popup; reminders are asked once. Offline still shows last Fights.
+**Last TestFlight:** 12 Sep 2026 — Pending next native preview: setup now ends with a last screen pointing to Settings for a feature or a bug (those get fixed rapidly). Fight detail corners use one scaled family (`card` 22, nested `field` 14 / `glyph` 9). Opening the app shows last Fights immediately; update checks are a background popup; reminders are asked once. Offline still shows last Fights.
 
 ## Prepared, not deployed: backend-only database access (9 Sep)
 
@@ -82,7 +82,7 @@ The native Fight path uses the API to create and join; Apple Health synchronizat
 |---|---|
 | Welcome + Apple sign-in | Works |
 | Languages | English and French follow the iPhone's per-app language. Usernames, Fight names, and loser actions remain exactly as entered. |
-| Username onboarding | Works. Required once after sign-in. Optional profile photo on the same screen; then Connect Apple Health; then challenge reminders (pre-prompt before iPhone’s sheet). Existing accounts keep You → Apple Health. |
+| Username onboarding | Works. Required once after sign-in. Optional profile photo on the same screen; then Connect Apple Health; then challenge reminders (pre-prompt before iPhone’s sheet); then a last screen that Settings can take a feature or a bug. Existing accounts keep You → Apple Health. |
 | Version line | Release-candidate TestFlight says `1.0.0 · build N · staging`; the App Store build says `prod` |
 | Create Steps challenge | Follow a guided flow: Create or Join, then Steps × highest total, 3 / 7 / 14 / 30 days, private by default (or public), optional usernames, repeat on by default, optional title and loser action, and review. Public and private fights may start with the owner alone. Every fight gets a code and a share link; people join with that code or invite link. |
 | Accept / Join | Invites still accept in the fight. Anyone can open the same Accept/Join screen from a code or a shared link. Public fights also appear on the live Join list with no scores. Private fights do not. Joins go through the server. If a repeating fight is past its start day, joiners choose this round (steps count from that start date) or the next round. Same-day joins, even hours later, still count as this round. People waiting for the next round are visible on the fight and do not count in this round. Leave a public, private, or repeating fight from the fight itself so the next window does not copy you in. |

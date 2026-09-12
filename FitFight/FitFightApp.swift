@@ -104,7 +104,8 @@ struct FitFightApp: App {
                     if appUpdate.status != .updateRequired,
                        !session.needsOnboarding,
                        !session.needsHealthOnboarding,
-                       !session.needsNotificationOnboarding {
+                       !session.needsNotificationOnboarding,
+                       !session.needsRequestsOnboarding {
                         await push.considerPromptIfNeeded(fights: model.fights)
                     }
                 }

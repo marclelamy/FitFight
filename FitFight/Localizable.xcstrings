@@ -553,7 +553,10 @@
     "Internal kit. Not shown to other people." : {"localizations":{"fr":{"stringUnit":{"state":"translated","value":"Kit interne. Les autres ne le voient pas."}}}},
     "Developer" : {"localizations":{"fr":{"stringUnit":{"state":"translated","value":"Développeur"}}}},
     "Replay onboarding" : {"localizations":{"fr":{"stringUnit":{"state":"translated","value":"Relancer l’accueil"}}}},
-    "Health and challenge reminders. Your account and fights stay." : {"localizations":{"fr":{"stringUnit":{"state":"translated","value":"Santé d’Apple et rappels de défis. Ton compte et tes défis restent."}}}},
+    "Health, challenge reminders, and Bugs & requests. Your account and fights stay." : {"localizations":{"fr":{"stringUnit":{"state":"translated","value":"Santé d’Apple, rappels de défis, et Bugs et demandes. Ton compte et tes défis restent."}}}},
+    "OK" : {"localizations":{"fr":{"stringUnit":{"state":"translated","value":"OK"}}}},
+    "You can go to Settings to submit a feature you want or a bug you see. Those will be fixed rapidly." : {"localizations":{"fr":{"stringUnit":{"state":"translated","value":"Tu peux aller dans Réglages pour proposer une fonctionnalité que tu veux ou un bug que tu vois. On les corrige rapidement."}}}},
+    "Setup now ends with a last screen: go to Settings to submit a feature you want or a bug you see. Those will be fixed rapidly." : {"localizations":{"fr":{"stringUnit":{"state":"translated","value":"L’installation se termine maintenant par un dernier écran : va dans Réglages pour proposer une fonctionnalité que tu veux ou un bug que tu vois. On les corrige rapidement."}}}},
     "New accounts are asked about challenge reminders during setup, before iPhone’s permission sheet. Lock-screen alerts never include step counts. Versions stays under You → Settings." : {"localizations":{"fr":{"stringUnit":{"state":"translated","value":"Les nouveaux comptes sont interrogés sur les rappels de défis pendant l’installation, avant la feuille d’autorisation de l’iPhone. Les alertes sur l’écran verrouillé n’incluent jamais le nombre de pas. Versions reste dans Vous → Réglages."}}}}
   },
   "version" : "1.0"
