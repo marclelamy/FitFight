@@ -24,6 +24,29 @@ struct FitFightMedia: Codable, Equatable, Hashable, Identifiable {
         case durationMs = "duration_ms"
         case createdAt = "created_at"
     }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        id = try container.decode(UUID.self, forKey: .id)
+        kind = try container.decode(String.self, forKey: .kind)
+        purpose = try container.decode(String.self, forKey: .purpose)
+        status = try container.decode(String.self, forKey: .status)
+        originalFilename = try container.decode(String.self, forKey: .originalFilename)
+        contentType = try container.decode(String.self, forKey: .contentType)
+        byteSize = try container.decode(Int.self, forKey: .byteSize)
+        width = try container.decode(Int.self, forKey: .width)
+        height = try container.decode(Int.self, forKey: .height)
+        durationMs = try container.decodeIfPresent(Int.self, forKey: .durationMs)
+        sha256 = try container.decode(String.self, forKey: .sha256)
+        createdAt = try container.decode(String.self, forKey: .createdAt)
+        if let parsed = try? container.decodeIfPresent(URL.self, forKey: .url) {
+            url = parsed
+        } else if let raw = try container.decodeIfPresent(String.self, forKey: .url), !raw.isEmpty {
+            url = URL(string: raw)
+        } else {
+            url = nil
+        }
+    }
 }
 
 struct FitFightMediaUpload: Decodable {

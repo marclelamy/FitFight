@@ -17,6 +17,7 @@ import type {
   ListFightPostsQuery,
   ReportFightPostRequest,
   ReportFightPostResponse,
+  UpdateFightPostRequest,
 } from "@/lib/types/feed/fight-post";
 import {
   loadReadyMedia,
@@ -663,10 +664,13 @@ export async function createFeedPosts(
             from public.fight_members as me
             join public.fight_members as them
               on them.fight_id = me.fight_id
+            join public.fights as fight
+              on fight.id = me.fight_id
             where me.user_id = ${userId}
               and them.user_id in ${sql(wantedTags)}
-              and me.state in ('accepted', 'deferred')
-              and them.state in ('accepted', 'deferred')
+              and me.state = 'accepted'
+              and them.state = 'accepted'
+              and fight.state = 'final'
           `).map((row) => row.user_id);
       ids.push(await insertFightPost(userId, "main", null, input.body, mediaIds, mainTags, sql));
     }
@@ -674,11 +678,24 @@ export async function createFeedPosts(
       const fightTags = wantedTags.length === 0
         ? []
         : (await sql<{ user_id: string }[]>`
-            select user_id
-            from public.fight_members
-            where fight_id = ${fightId}
-              and user_id in ${sql(wantedTags)}
-              and state in ('accepted', 'deferred')
+            select membership.user_id
+            from public.fight_members as membership
+            where membership.fight_id = ${fightId}
+              and membership.user_id in ${sql(wantedTags)}
+              and membership.state in ('accepted', 'deferred')
+              and exists (
+                select 1
+                from public.fight_members as done_me
+                join public.fight_members as done_them
+                  on done_them.fight_id = done_me.fight_id
+                join public.fights as done_fight
+                  on done_fight.id = done_me.fight_id
+                where done_me.user_id = ${userId}
+                  and done_them.user_id = membership.user_id
+                  and done_me.state = 'accepted'
+                  and done_them.state = 'accepted'
+                  and done_fight.state = 'final'
+              )
           `).map((row) => row.user_id);
       ids.push(await insertFightPost(userId, "fight", fightId, input.body, mediaIds, fightTags, sql));
     }
@@ -744,6 +761,19 @@ export async function listFeedPeople(
         where (blocked.blocker_id = ${userId} and blocked.blocked_id = profile.user_id)
            or (blocked.blocker_id = profile.user_id and blocked.blocked_id = ${userId})
       )
+      and exists (
+        select 1
+        from public.fight_members as done_me
+        join public.fight_members as done_them
+          on done_them.fight_id = done_me.fight_id
+        join public.fights as done_fight
+          on done_fight.id = done_me.fight_id
+        where done_me.user_id = ${userId}
+          and done_them.user_id = profile.user_id
+          and done_me.state = 'accepted'
+          and done_them.state = 'accepted'
+          and done_fight.state = 'final'
+      )
       and (
         (
           ${includeMain}::boolean
@@ -805,6 +835,45 @@ export async function listFeedPeople(
     });
   }
   return { people };
+}
+
+export async function updateFightPost(
+  userId: string,
+  postId: string,
+  input: UpdateFightPostRequest,
+  database: Sql = createDatabaseClient(),
+): Promise<FightPostResponse> {
+  const post = await loadVisiblePost(userId, postId, database);
+  if (post.author_id !== userId) {
+    throw new ApiError(404, ERROR_CODES.not_found, "Post not found");
+  }
+  const [media] = await database<{ n: number }[]>`
+    select count(*)::int as n
+    from public.fight_post_media
+    where post_id = ${postId}
+  `;
+  if (input.body.length === 0 && (media?.n ?? 0) === 0) {
+    throw new ApiError(400, ERROR_CODES.validation, "Add a photo, a video, or a short note");
+  }
+  const [updated] = await database<{ id: string }[]>`
+    update public.fight_posts
+    set body = ${input.body}
+    where id = ${postId}
+      and author_id = ${userId}
+    returning id
+  `;
+  if (!updated) {
+    throw new ApiError(404, ERROR_CODES.not_found, "Post not found");
+  }
+  const [row] = await loadPostRows([postId], database);
+  if (!row) {
+    throw new ApiError(500, ERROR_CODES.db_error, "Could not load that post");
+  }
+  const [mapped] = await mapPosts(userId, [row], database);
+  if (!mapped) {
+    throw new ApiError(500, ERROR_CODES.db_error, "Could not load that post");
+  }
+  return { post: mapped };
 }
 
 export async function deleteFightPost(
